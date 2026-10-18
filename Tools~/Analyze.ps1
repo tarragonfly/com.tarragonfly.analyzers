@@ -3,20 +3,21 @@
 Runs the Roslyn analyzers of a Unity project without opening the editor.
 
 .DESCRIPTION
-Unity writes one compiler response file per assembly during each script compile
-(Library/Bee/artifacts/<dag>/<Assembly>.rsp). This script replays those files with
-the editor's own C# compiler, so the analyzers, rule sets and defines are exactly the
-ones Unity used, and collects every finding as SARIF plus a short summary.
+Every script compile, Unity writes one compiler response file per assembly
+(Library/Bee/artifacts/<dag>/<Assembly>.rsp). This script replays them with the editor's
+own C# compiler, so you get the same analyzers, rule sets and defines Unity used. Findings
+come out as SARIF plus a short summary.
 
-Compiler output goes to <OutputDir>/build. Library/ and the project files are never
-written. The assemblies chosen for reporting are rebuilt together with every editable
-assembly they depend on (anything outside Library/PackageCache), in dependency order and
-against each other's fresh output, so edits made since Unity's last compile are checked
-across assembly boundaries. New or deleted .cs files, and edited .asmdef, .asmref or
-csc.rsp files, are the exception: they need one Unity compile first, and until then the run
-reports itself incomplete (exit 1). New files in assemblies that the editor leaves out
-(define constraints or platforms) do not count. -OutputDir may not be inside Assets/ or
-Packages/, where Unity would import the built DLLs.
+It only writes to <OutputDir>; Library/ and the project files stay untouched. The reported
+assemblies get rebuilt along with every editable assembly they depend on (anything outside
+Library/PackageCache), in dependency order and against each other's fresh output. That way
+edits made since Unity's last compile are checked across assembly boundaries too.
+
+Some changes still need one Unity compile first: new or deleted .cs files, and edited
+.asmdef, .asmref or csc.rsp files. Until Unity has compiled them, the run reports itself
+incomplete (exit 1). New files in assemblies the editor leaves out on purpose (define
+constraints or platforms) don't count. -OutputDir can't be inside Assets/ or Packages/,
+since Unity would import the built DLLs as plugins.
 
 Exit codes:
   0  analysis complete, and no findings remain or -FailOnFindings was not given
@@ -27,18 +28,18 @@ Exit codes:
      since Unity's last compile, or -Changed could not get the changed files from git. -Rule and -Changed never hide these.
   2  analysis complete, -FailOnFindings was given and findings remain after the filters
 
-Contract: in the normal workflow (edit, add or delete .cs files, edit assembly settings,
-an analyzer crashes or fails to load) a run never reports itself complete when it is not.
-Other ways Unity's response files can go stale are known limits, not bugs; when in doubt,
-let Unity compile once (open the editor, or a batch run with -quit) and run again.
+What it promises: for normal work (editing, adding or deleting .cs files, editing assembly
+settings, an analyzer crashing or failing to load) a run never calls itself complete when it
+isn't. Other ways Unity's response files can go stale are known limits, listed below. When in
+doubt, let Unity compile once (open the editor, or a batch run with -quit) and run again.
 
 Known limits:
   - Not detected: Packages/manifest.json changes, Scripting Define Symbols or other
     ProjectSettings edits, and a different editor version than the one that last compiled.
-  - Assembly settings are compared by timestamp against Unity's last compile check, so a
-    git checkout or a save without changes reports incomplete until Unity next checks.
-  - Define constraints are checked against Assembly-CSharp's defines; an asmdef's own
-    version defines are not evaluated for assemblies Unity did not compile.
+  - Assembly settings are compared by timestamp with Unity's last compile check, so a git
+    checkout or a save without changes reads as incomplete until Unity checks again.
+  - Define constraints are checked against Assembly-CSharp's defines. An asmdef's own
+    version defines aren't evaluated for assemblies Unity didn't compile.
 
 Tested with Windows PowerShell 5.1.
 

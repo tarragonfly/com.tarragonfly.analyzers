@@ -7,8 +7,9 @@ namespace TarragonFly.Analyzers
         private static readonly string[] TopFolders = { "/Assets/", "/Packages/", "/Library/" };
 
         // Unity passes project-relative paths ("Assets/Game/Player.cs"); Rider passes absolute ones.
-        // An absolute path is cut at its first Assets/, Packages/ or Library/ folder, so a project
-        // that itself sits inside a folder with one of those names is cut too early.
+        // An absolute path is cut at its first Assets/, Packages/ or Library/ folder. A project that
+        // itself sits inside a folder with one of those names gets cut too early; fine for now, revisit
+        // if that layout turns up.
         public static string ToProjectRelative(string filePath)
         {
             if (string.IsNullOrEmpty(filePath)) return string.Empty;

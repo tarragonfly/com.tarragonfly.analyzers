@@ -1,9 +1,9 @@
 # Third-party notices
 
-This package may contain code copied from these MIT-licensed projects. Each copied file keeps its
-upstream copyright notice at the top, and the project's notice is added below with the first copy.
+Nothing has been copied from another project yet.
 
-- Microsoft.Unity.Analyzers, https://github.com/microsoft/Microsoft.Unity.Analyzers (Unity rule fork, phase 2)
-- Roslyn analyzers (Microsoft.CodeAnalysis.NetAnalyzers), https://github.com/dotnet/roslyn-analyzers (CA1068, CA1806, CA1861 ports, phase 4)
+Code is planned to come from these two MIT-licensed projects. Each copied file keeps its upstream
+copyright notice at the top, and the project's full notice gets added here with the first copy.
 
-No third-party code has been copied yet.
+- Microsoft.Unity.Analyzers, https://github.com/microsoft/Microsoft.Unity.Analyzers, for the Unity rules
+- Roslyn analyzers (Microsoft.CodeAnalysis.NetAnalyzers), https://github.com/dotnet/roslyn-analyzers, for ports of CA1068, CA1806 and CA1861

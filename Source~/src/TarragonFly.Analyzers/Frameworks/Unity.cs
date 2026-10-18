@@ -3,8 +3,9 @@ using Microsoft.CodeAnalysis;
 
 namespace TarragonFly.Analyzers.Frameworks
 {
-    // What rules need to know about UnityEngine and UnityEditor. The table of Unity message methods
-    // (Awake, Update, OnValidate...) is forked from Microsoft.Unity.Analyzers in phase 2.
+    // What rules need to know about UnityEngine and UnityEditor. There's no table of Unity message
+    // methods (Awake, Update, OnValidate...) yet; it gets forked from Microsoft.Unity.Analyzers along
+    // with the first Unity rules.
     public static class Unity
     {
         private static readonly string[] ImplicitUseAttributes =
@@ -34,9 +35,10 @@ namespace TarragonFly.Analyzers.Frameworks
             return SymbolNames.IsOrDerivesFrom(type, "UnityEngine.ScriptableObject");
         }
 
-        // Whether Unity saves this field when it saves the object that holds it. Only the field's own
-        // declaration is checked, not whether Unity can save its type. Auto-properties count through
-        // [field: SerializeField], which Roslyn puts on the backing field.
+        // Whether Unity saves this field along with the object that holds it. For now this only reads
+        // the field's own declaration, not whether Unity can save its type; that check comes with the
+        // first rule that needs it. Auto-properties count through [field: SerializeField], which
+        // Roslyn puts on the backing field.
         public static bool IsSavedByUnity(IFieldSymbol field)
         {
             if (field.IsStatic || field.IsConst || field.IsReadOnly) return false;

@@ -8,8 +8,8 @@ using TarragonFly.Analyzers.Settings;
 
 namespace TarragonFly.Analyzers
 {
-    // What TF rules check in one compilation (one Unity assembly): its kind of code, its settings,
-    // and which of its files are in the analyzed folders. Shared by every TF analyzer in that compilation.
+    // One per compilation, so one per Unity assembly. Holds the assembly's kind of code, its settings
+    // and which of its files sit in analyzed folders, and every TF analyzer in the compilation shares it.
     public sealed class CompilationScope
     {
         private const string TestRunnerAssembly = "UnityEngine.TestRunner";

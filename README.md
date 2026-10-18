@@ -1,20 +1,28 @@
 # tarragon.fly Analyzers
 
-Roslyn analyzers for Unity 6.0 and later (tested on 6.3, 6.6 and 6.7), aware of Init(args), UniTask
-and Odin Inspector. The DLL in `Analyzers/` is labelled `RoslynAnalyzer`, so Unity runs it on every
-assembly in the project, Rider lists it in its generated project files, and Project Auditor shows
-its warnings. Severities are set per assembly in its `.ruleset`, like any other analyzer.
+Roslyn analyzers for Unity games built on Init(args), UniTask and Odin Inspector.
+
+This is still early. The package currently ships the groundwork (settings, assembly scoping,
+framework checks, tests and a parity tool) and one rule, TF0000. Rules that replace the
+Microsoft.Unity.Analyzers checks we use get added in batches, each one compared against the rule it
+replaces before it's switched on.
+
+It works on Unity 6.0 and later, and we've tested it on 6.3, 6.6 and 6.7. The DLL in `Analyzers/`
+carries the `RoslynAnalyzer` label, so Unity runs it on every assembly, Rider picks it up from its
+generated project files and Project Auditor lists its warnings. Severities live in each assembly's
+`.ruleset`, same as any other analyzer.
 
 ## Installing
 
-Add the package to `Packages/manifest.json` from git, pinned to a release tag:
+Add it to `Packages/manifest.json`, pinned to a release tag:
 
 ```json
 "com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.0"
 ```
 
-To work on the rules from a game project, clone it into `Packages/com.tarragonfly.analyzers`
-instead (for example as a git submodule); Unity then uses it as an embedded package.
+If you want to work on the rules inside a game project, clone it into
+`Packages/com.tarragonfly.analyzers` instead, for example as a git submodule. Unity then treats it
+as an embedded package and you can edit it in place.
 
 ## Rules
 
@@ -22,19 +30,19 @@ instead (for example as a git submodule); Unity then uses it as an embedded pack
 |---|---|---|
 | TF0000 | Fix the analyzer settings file | runtime, editor, tests |
 
-Only code under `Assets/` is reported by default, so third-party packages stay quiet.
+Only code under `Assets/` gets reported by default, so third-party packages stay quiet.
 
 ## Settings
 
-Put a file named `Settings.TarragonFly.Analyzers.additionalfile` anywhere under `Assets/`. Unity
-passes files named `Name.[AnalyzerName].additionalfile` to the analyzer with that assembly name, in
-every assembly, and Rider's project files list it too. Where that does not work (reported for some
-6000.0 patches), add a `csc.rsp` next to an asmdef with the line
+Settings go in a file named `Settings.TarragonFly.Analyzers.additionalfile`, anywhere under
+`Assets/`. Unity hands files named `Name.[AnalyzerName].additionalfile` to the matching analyzer in
+every assembly, and Rider's project files list it too. Some 6000.0 patches have a bug with this; on
+those, add a `csc.rsp` next to an asmdef with the line
 `-additionalfile:Assets/Settings.TarragonFly.Analyzers.additionalfile`.
 
-The file is `key = value` lines; lines starting with `#` are comments and lists are comma separated.
-Every key has a default, so a missing file or key changes nothing. Lines the analyzer cannot use are
-reported as TF0000.
+Each line is `key = value`. Lines starting with `#` are comments, and lists are comma separated.
+Every key has a default, so leaving the file out changes nothing. A line the analyzer can't use,
+like a misspelled key, shows up as TF0000.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -52,38 +60,39 @@ reported as TF0000.
 | `command_base_types` | none | Full names of base classes for scenario commands |
 | `allowed_service_set_types` | none | Full names of types allowed to register Init(args) services at runtime |
 
-An assembly is tests if its name matches `test_assemblies`, else editor code if its name matches
-`editor_assemblies` or it references `UnityEngine.TestRunner` (Unity adds that reference to every
-editor-only assembly when the Test Framework package is installed), else runtime code. Names decide
-for tests because Unity gives editor and test assemblies the same references and defines.
+Test code is decided by name. Unity gives editor and test assemblies the same references and
+defines, so there's nothing else to go on. An assembly whose name matches `test_assemblies` is
+tests. Otherwise it's editor code if the name matches `editor_assemblies` or it references
+`UnityEngine.TestRunner`, which Unity adds to every editor-only assembly once the Test Framework
+package is installed. Everything else is runtime code.
 
 ## Working on the rules
 
-Needs the .NET 8 SDK. From a Unity project that has the package under `Packages/`:
+You need the .NET 8 SDK. From a Unity project with the package under `Packages/`:
 
 ```powershell
-# Build, test, and compare the rules with Microsoft.Unity.Analyzers.
+# Build, run the tests, and compare the rules with Microsoft.Unity.Analyzers.
 & Packages/com.tarragonfly.analyzers/Tools~/Check.ps1
 
-# Every analyzer warning in the project without opening Unity.
+# See every analyzer warning in the project without opening Unity.
 & Packages/com.tarragonfly.analyzers/Tools~/Analyze.ps1
 ```
 
-From a standalone clone, pass the game project: `Tools~/Check.ps1 -ProjectPath <project>`.
+From a standalone clone, point it at a game project with `Tools~/Check.ps1 -ProjectPath <project>`.
 
-Each rule's source file starts with a comment saying what it reports, why it matters in a Unity
-game, the framework cases it handles and any intended differences from the rule it replaces. Tests
-mark expected warnings inline with `{|TF1000:...|}`.
+Every rule's source file opens with a comment covering what it reports, why it matters in a Unity
+game, the framework cases it handles and how it differs from the rule it replaces. Tests mark the
+expected warnings inline with `{|TF1000:...|}`.
 
 | Folder | Contents |
 |---|---|
 | `Analyzers/` | The built `TarragonFly.Analyzers.dll` that Unity loads |
-| `Source~/` | Solution: analyzer (`src/`), NUnit tests (`tests/`), stubs, parity tool and corpus |
+| `Source~/` | The solution: analyzer (`src/`), NUnit tests (`tests/`), stubs, parity tool and corpus |
 | `Tools~/` | `Analyze.ps1`, `Build.ps1`, `Check.ps1` |
 
-Unity ignores folders ending in `~`, so the sources and tools are never compiled or imported.
+Unity skips folders ending in `~`, so none of the sources or tools get compiled or imported.
 
 ## License
 
-MIT, see [LICENSE.md](LICENSE.md). Code copied from other projects is listed in
+MIT, see [LICENSE.md](LICENSE.md). Anything copied from other projects is listed in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

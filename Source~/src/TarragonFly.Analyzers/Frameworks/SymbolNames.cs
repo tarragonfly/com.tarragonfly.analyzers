@@ -3,8 +3,8 @@ using Microsoft.CodeAnalysis;
 
 namespace TarragonFly.Analyzers.Frameworks
 {
-    // Matches symbols by full name rather than by resolved type, so the checks work whether the
-    // framework is a DLL, a package's source or a test stub, and when a project defines a type twice.
+    // Matches symbols by full name instead of resolved type. The checks then work whether the
+    // framework comes as a DLL, as package source or as a test stub, and when a project defines a type twice.
     public static class SymbolNames
     {
         // fullMetadataName uses metadata names: "UnityEngine.Object", "Cysharp.Threading.Tasks.UniTask`1".

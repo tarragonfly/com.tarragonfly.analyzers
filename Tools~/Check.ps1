@@ -3,17 +3,18 @@
 Builds, tests and checks TarragonFly.Analyzers in one command.
 
 .DESCRIPTION
-Steps, in order; a failed build stops the run, later steps still run after other failures:
-  1. Build.ps1: Release build, DLL copied into Analyzers/ when it changed.
+Runs three steps. A failed build stops there; the other steps run even if an earlier one failed.
+  1. Build.ps1: Release build, with the DLL copied into Analyzers/ when it changed.
   2. dotnet test: the analyzer tests.
   3. Parity: runs the corpus in Source~/parity/corpus/ through the TF rules and the oracle analyzers
      still in the Unity project (Assets/Plugins/MicrosoftUnityAnalyzers)
-     and writes Source~/parity/out/parity.md. With -Project it first runs Analyze.ps1 on the Unity
-     project (close it in Unity) and adds its findings to the report.
+     and writes Source~/parity/out/parity.md. With -Project it runs Analyze.ps1 on the Unity project
+     first (close the project in Unity) and adds those findings to the report.
 
-The Unity project is -ProjectPath, else the project the package sits in (<project>/Packages/<package>),
-else the current directory if it is a Unity project. Without one, parity runs with no oracles.
-Differences in the parity report do not fail the check; they are triaged per rule.
+The Unity project is -ProjectPath if given, else the project the package sits in
+(<project>/Packages/<package>), else the current directory if that's a Unity project. Without one,
+parity still runs, just with no oracles to compare against. Differences in the parity report don't
+fail the check; they get sorted out rule by rule.
 
 Exit codes: 0 every step passed, 1 a step failed.
 
