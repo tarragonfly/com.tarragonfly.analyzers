@@ -47,7 +47,7 @@ Tested with Windows PowerShell 5.1.
 & Packages/com.tarragonfly.analyzers/Tools~/Analyze.ps1
 
 .EXAMPLE
-& Packages/com.tarragonfly.analyzers/Tools~/Analyze.ps1 -Assembly ScenarioEngine.* -Rule TF0000,UNT*
+& Packages/com.tarragonfly.analyzers/Tools~/Analyze.ps1 -Assembly ScenarioEngine.* -Rule TF1007,UNT*
 
 .EXAMPLE
 & Packages/com.tarragonfly.analyzers/Tools~/Analyze.ps1 -Changed -FailOnFindings

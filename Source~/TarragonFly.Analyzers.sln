@@ -11,10 +11,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3A455480
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TarragonFly.Analyzers.Tests", "tests\TarragonFly.Analyzers.Tests\TarragonFly.Analyzers.Tests.csproj", "{0C37F4AD-CE6B-466C-9CD9-BD7F9C9F2B1B}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{2AD91A72-7361-4E69-9571-708AC48D5264}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parity", "tools\Parity\Parity.csproj", "{34FCA1B4-CE54-4374-AB58-E94A0382CC1A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,14 +28,9 @@ Global
 		{0C37F4AD-CE6B-466C-9CD9-BD7F9C9F2B1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0C37F4AD-CE6B-466C-9CD9-BD7F9C9F2B1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0C37F4AD-CE6B-466C-9CD9-BD7F9C9F2B1B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{34FCA1B4-CE54-4374-AB58-E94A0382CC1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{34FCA1B4-CE54-4374-AB58-E94A0382CC1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{34FCA1B4-CE54-4374-AB58-E94A0382CC1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{34FCA1B4-CE54-4374-AB58-E94A0382CC1A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{93950102-0E21-42D2-BECB-389506FC6BAC} = {B222963E-5B65-4003-B819-83A030220DD8}
 		{0C37F4AD-CE6B-466C-9CD9-BD7F9C9F2B1B} = {3A455480-ABAC-4188-B610-9D29DB6C1F91}
-		{34FCA1B4-CE54-4374-AB58-E94A0382CC1A} = {2AD91A72-7361-4E69-9571-708AC48D5264}
 	EndGlobalSection
 EndGlobal

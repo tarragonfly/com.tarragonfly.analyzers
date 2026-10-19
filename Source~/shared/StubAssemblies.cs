@@ -8,20 +8,22 @@ using Microsoft.CodeAnalysis.CSharp;
 
 namespace TarragonFly.Analyzers.Testing
 {
-    // Compiles Source~/stubs/*.cs into in-memory assemblies named like the real ones, so test and
-    // parity code compiles against UnityEngine, UniTask, Odin and Init(args) without a Unity install.
-    // Linked into the test project and the Parity tool; both copy the stubs next to their output.
+    // Compiles Source~/stubs/*.cs into in-memory assemblies named like the real ones, so test code
+    // compiles against UnityEngine, UniTask, Odin and Init(args) without a Unity install. Linked into
+    // the test project, which copies the stubs next to its output.
     public static class StubAssemblies
     {
+        // Only the .NET runtime's own assemblies: the test host also lists its dependencies, such as
+        // NUnit itself, which would clash with the NUnit stub.
         public static readonly ImmutableArray<MetadataReference> Platform = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
             .Split(Path.PathSeparator)
-            .Where(path => path.Length > 0)
+            .Where(path => path.Length > 0 && string.Equals(Path.GetDirectoryName(path), RuntimeFolder, StringComparison.OrdinalIgnoreCase))
             .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
             .ToImmutableArray();
 
         public static readonly MetadataReference UnityEngine = Compile("UnityEngine.CoreModule", "UnityEngine.cs");
         public static readonly MetadataReference UnityEditor = Compile("UnityEditor.CoreModule", "UnityEditor.cs", UnityEngine);
-        public static readonly MetadataReference TestRunner = Compile("UnityEngine.TestRunner", "UnityEngine.TestRunner.cs");
+        public static readonly MetadataReference TestRunner = Compile("UnityEngine.TestRunner", "UnityEngine.TestRunner.cs", UnityEngine);
         public static readonly MetadataReference NUnit = Compile("nunit.framework", "nunit.framework.cs");
         public static readonly MetadataReference UniTask = Compile("UniTask", "UniTask.cs");
         public static readonly MetadataReference Odin = Compile("Sirenix.OdinInspector", "Odin.cs", UnityEngine);
@@ -34,6 +36,8 @@ namespace TarragonFly.Analyzers.Testing
         public static ImmutableArray<MetadataReference> EditorReferences => GameReferences.AddRange(new[] { TestRunner, NUnit });
 
         public static string StubsFolder => Path.Combine(AppContext.BaseDirectory, "stubs");
+
+        private static string RuntimeFolder => Path.GetDirectoryName(typeof(object).Assembly.Location);
 
         private static MetadataReference Compile(string assemblyName, string fileName, params MetadataReference[] references)
         {

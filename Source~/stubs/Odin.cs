@@ -75,4 +75,8 @@ namespace Sirenix.OdinInspector
     public sealed class ReadOnlyAttribute : Attribute
     {
     }
+
+    public sealed class ShowInInspectorAttribute : Attribute
+    {
+    }
 }

@@ -28,6 +28,7 @@ namespace UnityEngine
 
     public class MonoBehaviour : Behaviour
     {
+        public System.Threading.CancellationToken destroyCancellationToken => default;
         public void StartCoroutine(System.Collections.IEnumerator routine) { }
     }
 
@@ -51,6 +52,30 @@ namespace UnityEngine
         public float x;
         public float y;
         public float z;
+
+        public Vector3 normalized => this;
+        public void Normalize() { }
+        public static float Distance(Vector3 a, Vector3 b) => 0f;
+        public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => a;
+    }
+
+    public static class Mathf
+    {
+        public static float Abs(float value) => value;
+        public static float Clamp(float value, float min, float max) => value;
+        public static float Max(float a, float b) => a;
+        public static float Min(float a, float b) => a;
+        public static float Sqrt(float value) => value;
+        public static float Lerp(float a, float b, float t) => a;
+    }
+
+    public enum LogType
+    {
+        Error,
+        Assert,
+        Warning,
+        Log,
+        Exception,
     }
 
     public static class Debug
@@ -58,6 +83,9 @@ namespace UnityEngine
         public static void Log(object message) { }
         public static void LogWarning(object message) { }
         public static void LogError(object message) { }
+        public static void LogException(Exception exception) { }
+        public static void LogFormat(string format, params object[] args) { }
+        public static void LogErrorFormat(string format, params object[] args) { }
     }
 
     [AttributeUsage(AttributeTargets.Field)]
@@ -84,6 +112,11 @@ namespace UnityEngine
 
     [AttributeUsage(AttributeTargets.Method)]
     public sealed class RuntimeInitializeOnLoadMethodAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
+    public abstract class PropertyAttribute : Attribute
     {
     }
 

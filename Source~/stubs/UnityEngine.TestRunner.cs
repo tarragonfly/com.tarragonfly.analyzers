@@ -8,4 +8,10 @@ namespace UnityEngine.TestTools
     public sealed class UnityTestAttribute : Attribute
     {
     }
+
+    public static class LogAssert
+    {
+        public static void Expect(LogType type, string message) { }
+        public static void NoUnexpectedReceived() { }
+    }
 }

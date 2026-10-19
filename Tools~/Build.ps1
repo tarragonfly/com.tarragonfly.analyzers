@@ -3,7 +3,7 @@
 Builds TarragonFly.Analyzers in Release and copies the DLL into Analyzers/ for Unity.
 
 .DESCRIPTION
-Builds the whole solution (analyzer, tests, parity tool) with the .NET SDK. The analyzer build is
+Builds the whole solution (analyzer and tests) with the .NET SDK. The analyzer build is
 deterministic, so the DLL only gets copied when its bytes change. Any new DLL makes Unity recompile
 every assembly in the project, and that's slow enough to avoid when nothing changed.
 

@@ -22,4 +22,19 @@ namespace UnityEditor
     public class Editor : UnityEngine.ScriptableObject
     {
     }
+
+    public class AssetPostprocessor
+    {
+    }
+
+    public class AssetModificationProcessor
+    {
+    }
+
+    public static class EditorApplication
+    {
+        public delegate void CallbackFunction();
+
+        public static CallbackFunction delayCall;
+    }
 }
