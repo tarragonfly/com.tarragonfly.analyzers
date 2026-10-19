@@ -4,8 +4,9 @@ Roslyn analyzers for Unity games built on Init(args), UniTask and Odin Inspector
 
 This is still early. The package has the groundwork (settings, assembly scoping, framework checks
 and tests), the settings check TF0000, the 46 Unity rules forked from Microsoft.Unity.Analyzers
-1.28.0, and 164 general rules for readability, likely bugs, dead code, exceptions, async code,
-performance and tests. More rules for Unity, UniTask, Odin and Init(args) come next.
+1.28.0, 164 general rules for readability, likely bugs, dead code, exceptions, async code,
+performance and tests, three rules written from the NetAnalyzers rules CA1068, CA1806 and CA1861,
+and 20 rules for the mistakes Unity, UniTask, Odin Inspector and Init(args) projects tend to make.
 
 It works on Unity 6.0 and later, and we've tested it on 6.3, 6.6 and 6.7. The DLL in `Analyzers/`
 carries the `RoslynAnalyzer` label, so Unity runs it on every assembly, Rider picks it up from its
@@ -27,7 +28,7 @@ as an embedded package and you can edit it in place.
 ## Rules
 
 The Checks column says which code a rule looks at: all of it, game code (runtime and editor
-assemblies) or tests. Only code under `Assets/` gets reported by default, so third-party packages
+assemblies), runtime code only or tests. Only code under `Assets/` gets reported by default, so third-party packages
 stay quiet.
 
 | Rule | Title | Checks | Replaces |
@@ -137,6 +138,7 @@ stay quiet.
 | TF2069 | Type named 'extension' | game | |
 | TF2070 | Return type named 'partial' | all | |
 | TF2071 | 'scoped' in lambda parameters | game | |
+| TF2100 | Result of a TryParse call is ignored | all | CA1806 |
 | TF2500 | Default parameter value differs from the base declaration | all | |
 | TF2501 | Overridable method called in a constructor | game | |
 | TF2502 | Virtual field-like event | all | |
@@ -157,6 +159,8 @@ stay quiet.
 | TF3051 | Rethrow resets the stack trace | game | |
 | TF3052 | Exception thrown from a member that shouldn't throw | all | |
 | TF3053 | Argument check in an iterator runs late | all | |
+| TF3100 | Log message without a tag | game | |
+| TF3101 | Throw in a scenario command | game | |
 | TF3500 | Text operation that depends on the player's culture | game | |
 | TF3501 | Date or time parsed without a culture | all | |
 | TF4001 | Empty Unity message | all | UNT0001 |
@@ -205,18 +209,37 @@ stay quiet.
 | TF4044 | Avoid temporary strings when setting TextMeshPro text | all | UNT0044 |
 | TF4045 | Use non-allocating array access | all | UNT0045 |
 | TF4046 | Cache Shader.PropertyToID calls | all | UNT0046 |
+| TF4100 | New lambda unregistered from a callback | all | |
+| TF4101 | Serialized field of a type Unity can't save (quiet on 6000.6 and newer) | all | |
+| TF4102 | Scene search fills in a missing Inspector reference | game | |
 | TF5000 | Disposable object never disposed | all | |
 | TF5001 | Field disposed outside Dispose | game | |
 | TF5002 | Async void method | all | |
 | TF5003 | Blocking wait on a task | game | |
 | TF5004 | Null returned instead of a Task | all | |
 | TF5005 | CancellationToken not passed on | all | |
+| TF5100 | UniTask awaited more than once | all | |
+| TF5101 | CancellationToken parameter is not last | all | CA1068 |
+| TF5102 | Async suffix missing or misplaced | all | |
+| TF5103 | MonoBehaviour async method awaits without a cancellation token | all | |
+| TF5104 | Async lambda used as a void delegate | all | |
+| TF6000 | Odin attribute names a member that doesn't exist | all | |
+| TF6001 | Odin attribute names a member of the wrong kind | all | |
+| TF6500 | Service creates a new instance without its Inspector values | all | |
+| TF6501 | Scene-loaded service without DontDestroyOnLoad = false | all | |
+| TF6502 | Scene service created lazily or asynchronously (info) | all | |
+| TF6503 | Service<T>.Instance used in a MonoBehaviour | all | |
+| TF6504 | Any<T>.Value used in a component | all | |
+| TF6505 | Work started from Init(...) | all | |
+| TF6506 | Service registered by hand | all | |
 | TF7000 | Non-private static field that isn't constant | game | |
 | TF7001 | Mutable public static collection | game | |
 | TF7002 | Instance member writes a static field | game | |
 | TF7003 | Static field in a generic type | all | |
 | TF7004 | Static field written in an instance constructor | game | |
 | TF7005 | Static field read before it is initialized | all | |
+| TF7100 | Static value not reset when Play Mode starts | runtime | |
+| TF7101 | Static event not cleared when Play Mode starts | runtime | |
 | TF8000 | Count() used to test for any items | all | |
 | TF8001 | Empty method | all | |
 | TF8002 | String built with + in a loop | game | |
@@ -236,6 +259,7 @@ stay quiet.
 | TF8016 | String overload of StartsWith or EndsWith for one character | all | |
 | TF8017 | LINQ First or Last on a LinkedList | all | |
 | TF8018 | Any used for an equality check | all | |
+| TF8100 | Constant array built on every call | game | CA1861 |
 | TF9000 | Ignored test without an end date | tests | |
 | TF9001 | Test fixture with no tests | tests | |
 | TF9002 | Test without an assertion | tests | |
@@ -250,6 +274,11 @@ coroutines and UniTask count where they matter, and each rule's source file says
 The TF4xxx rules keep the upstream number (UNT0008 is TF4008) and behave the same, with one
 change: TF4039 counts a `[RequireComponent]` inherited from a base class, which UNT0039 missed. Code
 fixes and the upstream suppressors aren't included, since Unity's compiler never runs them.
+
+Two rules need project settings: TF3101 checks nothing until `command_base_types` names a base
+class, and TF6506 reports every `Service.Set` call outside the types in
+`allowed_service_set_types`. TF4101 stays quiet on Unity 6000.6 and newer, which can save dictionaries
+and check serialized fields themselves.
 
 ## Settings
 
@@ -275,9 +304,9 @@ like a misspelled key, shows up as TF0000.
 | `max_condition_operators` | 3 | |
 | `max_switch_section_statements` | 8 | |
 | `max_cognitive_complexity` | 15 | |
-| `log_prefix` | `[{Type}]` | Prefix expected at the start of log messages; `{Type}` is the calling class |
-| `command_base_types` | none | Full names of base classes for scenario commands |
-| `allowed_service_set_types` | none | Full names of types allowed to register Init(args) services at runtime |
+| `log_prefix` | `[{Type}]` | Tag TF3100 expects at the start of log messages. Any name without spaces can stand in for `{Type}`, and the warning suggests the calling class. Without `{Type}`, messages have to start with it exactly |
+| `command_base_types` | none | Full names of base classes whose code reports failures instead of throwing (TF3101), such as a scenario command base |
+| `allowed_service_set_types` | none | Full names of types allowed to call Init(args)' `Service.Set` (TF6506) |
 
 Test code is decided by name. Unity gives editor and test assemblies the same references and
 defines, so there's nothing else to go on. An assembly whose name matches `test_assemblies` is

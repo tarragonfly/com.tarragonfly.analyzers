@@ -15,21 +15,25 @@ namespace Sirenix.OdinInspector
     {
         public string Condition;
         public ShowIfAttribute(string condition, bool animate = true) { Condition = condition; }
+        public ShowIfAttribute(string condition, object optionalValue, bool animate = true) { Condition = condition; }
     }
 
     public sealed class HideIfAttribute : Attribute
     {
         public HideIfAttribute(string condition, bool animate = true) { }
+        public HideIfAttribute(string condition, object optionalValue, bool animate = true) { }
     }
 
     public sealed class EnableIfAttribute : Attribute
     {
         public EnableIfAttribute(string condition) { }
+        public EnableIfAttribute(string condition, object optionalValue) { }
     }
 
     public sealed class DisableIfAttribute : Attribute
     {
         public DisableIfAttribute(string condition) { }
+        public DisableIfAttribute(string condition, object optionalValue) { }
     }
 
     public sealed class ValueDropdownAttribute : Attribute

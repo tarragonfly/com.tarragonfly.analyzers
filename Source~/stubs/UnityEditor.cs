@@ -19,6 +19,11 @@ namespace UnityEditor
     {
     }
 
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class InitializeOnEnterPlayModeAttribute : Attribute
+    {
+    }
+
     public class Editor : UnityEngine.ScriptableObject
     {
     }

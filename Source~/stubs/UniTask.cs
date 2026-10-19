@@ -11,6 +11,9 @@ namespace Cysharp.Threading.Tasks
         public static UniTask CompletedTask => default;
         public static UniTask Delay(int milliseconds, CancellationToken cancellationToken = default) => default;
         public static UniTask Yield(CancellationToken cancellationToken = default) => default;
+        public static UniTask WhenAll(params UniTask[] tasks) => default;
+        public static Action Action(Func<UniTaskVoid> asyncAction) => null;
+        public static void Void(Func<UniTaskVoid> asyncAction) { }
         public Awaiter GetAwaiter() => default;
 
         public readonly struct Awaiter : ICriticalNotifyCompletion
@@ -26,6 +29,7 @@ namespace Cysharp.Threading.Tasks
     public readonly struct UniTask<T>
     {
         public Awaiter GetAwaiter() => default;
+        public UniTask AsUniTask() => default;
 
         public readonly struct Awaiter : ICriticalNotifyCompletion
         {
@@ -47,6 +51,8 @@ namespace Cysharp.Threading.Tasks
         public static void Forget(this UniTask task) { }
         public static void Forget<T>(this UniTask<T> task) { }
         public static UniTask Preserve(this UniTask task) => task;
+        public static UniTask<T> Preserve<T>(this UniTask<T> task) => task;
+        public static UniTask AttachExternalCancellation(this UniTask task, CancellationToken cancellationToken) => task;
         public static System.Collections.IEnumerator ToCoroutine(this UniTask task) => null;
     }
 }

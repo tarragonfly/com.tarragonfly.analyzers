@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis.Text;
 
 namespace TarragonFly.Analyzers.Tests.Harness
@@ -37,6 +38,13 @@ namespace TarragonFly.Analyzers.Tests.Harness
             }
             if (open.Count > 0) throw new FormatException("A '{|' marker is not closed.");
             return text.ToString();
+        }
+
+        // The markup with one rule's markers taken out and their text kept, so one snippet can test
+        // several rules.
+        public static string Without(string markup, string id)
+        {
+            return Regex.Replace(markup, @"\{\|" + Regex.Escape(id) + @":(.*?)\|\}", "$1", RegexOptions.Singleline);
         }
 
         private static bool StartsWith(string text, int index, string value)

@@ -62,7 +62,7 @@ namespace TarragonFly.Analyzers.Tests.Harness
         public static CSharpCompilation Compile(string source, SnippetAssembly assembly = null)
         {
             assembly ??= new SnippetAssembly();
-            SyntaxTree tree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp9), assembly.FilePath);
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(source, assembly.ParseOptions ?? CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp9), assembly.FilePath);
             ImmutableArray<MetadataReference> references = assembly.EditorOnly ? StubAssemblies.EditorReferences : StubAssemblies.GameReferences;
             CSharpCompilation compilation = CSharpCompilation.Create(
                 assembly.AssemblyName, new[] { tree }, references,

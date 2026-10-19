@@ -3,9 +3,8 @@ using Microsoft.CodeAnalysis;
 
 namespace TarragonFly.Analyzers.Frameworks
 {
-    // What rules need to know about UnityEngine and UnityEditor. There's no table of Unity message
-    // methods (Awake, Update, OnValidate...) yet; it gets forked from Microsoft.Unity.Analyzers along
-    // with the first Unity rules.
+    // What rules need to know about UnityEngine and UnityEditor. The table of Unity messages (Awake,
+    // Update, OnValidate...) is the one forked from Microsoft.Unity.Analyzers in Rules/Unity/ScriptInfo.cs.
     public static class Unity
     {
         private static readonly string[] ImplicitUseAttributes =
@@ -59,6 +58,18 @@ namespace TarragonFly.Analyzers.Frameworks
                 }
                 // JetBrains' [MeansImplicitUse] on an attribute class makes everything it marks used.
                 if (attribute.AttributeClass != null && SymbolNames.HasAttribute(attribute.AttributeClass, "JetBrains.Annotations.MeansImplicitUseAttribute")) return true;
+            }
+            return false;
+        }
+
+        // A method Unity calls by name, such as Start on a MonoBehaviour or OnGUI on an EditorWindow.
+        // Only the name and parameter count are compared, so "async UniTaskVoid Start()" counts too.
+        public static bool IsMessage(IMethodSymbol method)
+        {
+            if (method.IsStatic || method.ContainingType == null) return false;
+            foreach (System.Reflection.MethodInfo message in new Rules.Unity.ScriptInfo(method.ContainingType).GetMessages())
+            {
+                if (message.Name == method.Name && message.GetParameters().Length == method.Parameters.Length) return true;
             }
             return false;
         }

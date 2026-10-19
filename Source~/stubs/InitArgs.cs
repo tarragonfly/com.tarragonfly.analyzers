@@ -44,19 +44,31 @@ namespace Sisus.Init
     public struct Any<T>
     {
         public T Value => default;
+        public T GetValue(UnityEngine.Component client) => default;
+        public static implicit operator T(Any<T> instance) => instance.Value;
+        public static implicit operator Any<T>(T value) => default;
     }
 
     [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public class ServiceAttribute : UnityEngine.Scripting.PreserveAttribute
     {
-        public ServiceAttribute() { }
-        public ServiceAttribute(Type definingType) { }
+        public ServiceAttribute(params Type[] definingTypes) { }
+        public string ResourcePath { get; set; }
+        public string AddressableKey { get; set; }
+        public object FindFromScene { get; set; }
+        public object LoadScene { get; set; }
+        public bool Instantiate { get; set; }
+        public bool LazyInit { get; set; }
+        public bool LoadAsync { get; set; }
+        public bool DontDestroyOnLoad { get; set; }
     }
 
     public static class Service
     {
         public static T Get<T>() => default;
+        public static bool TryGetFor<T>(UnityEngine.Component client, out T service) { service = default; return false; }
         public static void Set<T>(T instance) { }
+        public static void SetInstance<T>(T instance) { }
     }
 
     public static class Service<TService>

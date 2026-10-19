@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis.CSharp;
 using TarragonFly.Analyzers.Settings;
 
 namespace TarragonFly.Analyzers.Tests.Harness
@@ -10,6 +11,9 @@ namespace TarragonFly.Analyzers.Tests.Harness
 
         // Adds the test runner and NUnit references Unity gives every editor-only assembly.
         public bool EditorOnly { get; set; }
+
+        // Null means C# 9 with no extra defines, as Unity compiles game code.
+        public CSharpParseOptions ParseOptions { get; set; }
 
         // Contents of the settings file, with optional {|TF0000:...|} markup; null means no file.
         public string Settings { get; set; }
