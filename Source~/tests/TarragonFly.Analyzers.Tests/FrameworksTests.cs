@@ -19,10 +19,10 @@ namespace TarragonFly.Analyzers.Tests
         {
             Compilation compilation = Compile("class Player : MonoBehaviour { } class Settings : ScriptableObject { } class Plain { }");
 
-            Assert.That(Unity.IsUnityObject(Type(compilation, "Player")), Is.True);
-            Assert.That(Unity.IsMonoBehaviour(Type(compilation, "Player")), Is.True);
-            Assert.That(Unity.IsScriptableObject(Type(compilation, "Settings")), Is.True);
-            Assert.That(Unity.IsUnityObject(Type(compilation, "Plain")), Is.False);
+            Assert.That(Frameworks.Unity.IsUnityObject(Type(compilation, "Player")), Is.True);
+            Assert.That(Frameworks.Unity.IsMonoBehaviour(Type(compilation, "Player")), Is.True);
+            Assert.That(Frameworks.Unity.IsScriptableObject(Type(compilation, "Settings")), Is.True);
+            Assert.That(Frameworks.Unity.IsUnityObject(Type(compilation, "Plain")), Is.False);
         }
 
         [TestCase("public int speed;", true)]
@@ -37,7 +37,7 @@ namespace TarragonFly.Analyzers.Tests
         {
             Compilation compilation = Compile("class Player : MonoBehaviour { " + field + " }");
 
-            Assert.That(Unity.IsSavedByUnity(Field(compilation, "Player", "speed")), Is.EqualTo(expected));
+            Assert.That(Frameworks.Unity.IsSavedByUnity(Field(compilation, "Player", "speed")), Is.EqualTo(expected));
         }
 
         [Test]
@@ -46,7 +46,7 @@ namespace TarragonFly.Analyzers.Tests
             Compilation compilation = Compile("class Player : MonoBehaviour { [field: SerializeField] public int Speed { get; private set; } }");
             IFieldSymbol backingField = Type(compilation, "Player").GetMembers().OfType<IFieldSymbol>().Single();
 
-            Assert.That(Unity.IsSavedByUnity(backingField), Is.True);
+            Assert.That(Frameworks.Unity.IsSavedByUnity(backingField), Is.True);
         }
 
         [TestCase("[Preserve]", true)]
@@ -63,7 +63,7 @@ namespace TarragonFly.Analyzers.Tests
                 "[MeansImplicitUse] class ImpliedAttribute : Attribute { } " +
                 "class Tools { " + attribute + " static void Run() { } }");
 
-            Assert.That(Unity.HasImplicitUseAttribute(Method(compilation, "Tools", "Run")), Is.EqualTo(expected));
+            Assert.That(Frameworks.Unity.HasImplicitUseAttribute(Method(compilation, "Tools", "Run")), Is.EqualTo(expected));
         }
 
         [Test]
@@ -72,7 +72,7 @@ namespace TarragonFly.Analyzers.Tests
             Compilation compilation = Compile("class Player : MonoBehaviour { [ContextMenuItem(\"Reset\", \"ResetSpeed\")] public int speed; void ResetSpeed() { } }");
             AttributeData attribute = Field(compilation, "Player", "speed").GetAttributes().Single();
 
-            Assert.That(Unity.GetMethodNamesReferencedBy(attribute), Is.EqualTo(new[] { "ResetSpeed" }));
+            Assert.That(Frameworks.Unity.GetMethodNamesReferencedBy(attribute), Is.EqualTo(new[] { "ResetSpeed" }));
         }
 
         [TestCase("UniTask", true)]
@@ -157,7 +157,7 @@ namespace TarragonFly.Analyzers.Tests
 
             Assert.That(InitArgs.IsAny(Field(compilation, "Player", "audio").Type), Is.True);
             Assert.That(InitArgs.IsServiceAttribute(audio.GetAttributes().Single()), Is.True);
-            Assert.That(Unity.HasImplicitUseAttribute(audio), Is.True, "[Service] derives from [Preserve].");
+            Assert.That(Frameworks.Unity.HasImplicitUseAttribute(audio), Is.True, "[Service] derives from [Preserve].");
             Assert.That(InitArgs.IsServiceAccess(calls.Single().ContainingType), Is.True);
             Assert.That(InitArgs.IsServiceAccess(instance.ContainingType), Is.True);
             Assert.That(InitArgs.IsServiceAccess(audio), Is.False);

@@ -1,0 +1,351 @@
+/*--------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *  Changed for tarragon.fly Analyzers: NUnit, TF rule IDs, no code fix checks.
+ *-------------------------------------------------------------------------------------------*/
+
+#nullable enable
+
+using System.Threading.Tasks;
+using NUnit.Framework;
+using TarragonFly.Analyzers.Rules.Unity;
+
+namespace TarragonFly.Analyzers.Tests.UnityRules;
+
+public class RequireComponentTests : BaseDiagnosticVerifierTest<RequireComponentAnalyzer>
+{
+	[Test]
+	public async Task GetComponent()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        var rb = GetComponent<Rigidbody>();
+    }
+}";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(8, 18);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+
+	[Test]
+	public async Task ThisGetComponent()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        var rb = this.GetComponent<Rigidbody>();
+    }
+}";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(8, 18);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+
+	[Test]
+	public async Task MonoBehaviourInstance()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class FooComponent : Component
+{
+    void Foo()
+    {
+        var rb = this.GetComponent<Rigidbody>();
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task ThisType()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        var foo = new GameObject();
+        var rb = foo.GetComponent<Rigidbody>();
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task AlreadyRequired()
+	{
+		const string test = @"
+using UnityEngine;
+
+[RequireComponent(typeof(object))]
+[RequireComponent(typeof(object), typeof(Rigidbody))]
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        var rb = GetComponent<Rigidbody>();
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task InvocationNullChecked()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        if (GetComponent<Rigidbody>() == null) {
+        }
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task InvocationNotNullChecked()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        if (null != GetComponent<Rigidbody>()) {
+        }
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task VariableDeclarationNotNullConditionTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    public void Update() 
+    {
+        var rb = gameObject.GetComponent<Rigidbody>();
+        if (rb != null) {
+            Debug.Log(rb.name);
+        }
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task VariableDeclarationNotNullConditionReverseOperandsTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    public void Update() 
+    {
+        var rb = gameObject.GetComponent<Rigidbody>();
+        if (null != rb) {
+            Debug.Log(rb.name);
+        }
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task VariableDeclarationNullConditionTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    public void Update() 
+    {
+        var rb = gameObject.GetComponent<Rigidbody>();
+        if (rb == null) {
+            Debug.Log(""null!"");
+        }
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task PropertyAssignmentNotNullConditionTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    private Rigidbody rb { get; set;}
+
+    public void Update() 
+    {
+        rb = gameObject.GetComponent<Rigidbody>();
+        if (rb != null) {
+            Debug.Log(rb.name);
+        }
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task NoGetComponentDerivatives()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    public void Update() 
+    {
+        var rb = gameObject.GetComponentInChildren<Rigidbody>();
+        if (rb != null) {
+            Debug.Log(rb.name);
+        }
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task GetComponentTrivia()
+	{
+		const string test = @"
+using UnityEngine;
+
+// class comment
+public class PlayerScript : MonoBehaviour
+{
+    void Start()
+    {
+        var rb = GetComponent<Rigidbody>(); // trailing comment
+    }
+}";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(9, 18);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+
+	[Test]
+	public async Task GenericTypeParameter()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    void Foo<T>()
+    {
+        var bar = GetComponent<T>();
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task GetComponentInResetMessage()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    public Rigidbody rb;
+
+    void Reset()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task GetComponentInOnValidateMessage()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    public Rigidbody rb;
+
+    void OnValidate()
+    {
+        rb = GetComponent<Rigidbody>();
+    }
+}";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task GetComponentInResetOverload()
+	{
+		const string test = @"
+using UnityEngine;
+
+public class PlayerScript : MonoBehaviour
+{
+    public Rigidbody rb;
+
+    void Reset(int value)
+    {
+        rb = GetComponent<Rigidbody>();
+    }
+}";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(10, 14);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+}

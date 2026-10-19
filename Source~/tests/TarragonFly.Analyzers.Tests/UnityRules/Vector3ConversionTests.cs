@@ -1,0 +1,134 @@
+/*--------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *  Changed for tarragon.fly Analyzers: NUnit, TF rule IDs, no code fix checks.
+ *-------------------------------------------------------------------------------------------*/
+
+#nullable enable
+
+using System.Threading.Tasks;
+using NUnit.Framework;
+using TarragonFly.Analyzers.Rules.Unity;
+
+namespace TarragonFly.Analyzers.Tests.UnityRules;
+
+public class Vector3ConversionTests : BaseDiagnosticVerifierTest<Vector3ConversionAnalyzer>
+{
+	[Test]
+	public async Task UseConversionTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    void Update()
+    {
+        Vector3 v3 = Vector3.zero;
+        Vector2 v2 = Vector2.zero;
+        var distance = Vector2.Distance(v2, new Vector2(v3.x, v3.y));
+    }
+}
+";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(10, 45);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+
+	[Test]
+	public async Task DoNotUseConversionWithoutSameIdentifierTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    void Update()
+    {
+        Vector3 v3 = Vector3.zero;
+        Vector3 v3b = Vector3.zero;
+        Vector2 v2 = Vector2.zero;
+        var distance = Vector2.Distance(v2, new Vector2(v3.x, v3b.y));
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task NoAmbiguityAfterConversionTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    void Update()
+    {
+        Vector3 v3 = Vector3.zero;
+        Vector2 v2 = Vector2.zero;
+        var test = new Vector2(v3.x, v3.y);
+        var result = v2 - test;
+    }
+}
+";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(10, 20);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+
+	[Test]
+	public async Task NoAmbiguousMethodCallTest()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    void Foo(Vector3 bar) {
+    }
+
+    void Foo(Vector2 bar) {
+    }
+
+    void Update()
+    {
+        Vector3 v3 = Vector3.zero;
+        Foo(new Vector2(v3.x, v3.y));
+    }
+}
+";
+
+		await VerifyCSharpDiagnosticAsync(test);
+	}
+
+	[Test]
+	public async Task UseConversionTrivia()
+	{
+		const string test = @"
+using UnityEngine;
+
+class Camera : MonoBehaviour
+{
+    void Update()
+    {
+        Vector3 v3 = Vector3.zero;
+        Vector2 v2 = Vector2.zero;
+        // leading comment
+        var distance = Vector2.Distance(v2, /* inner */ new Vector2(v3.x, v3.y) /* outer */);
+        // trailing comment
+    }
+}
+";
+
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(11, 57);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
+	}
+}

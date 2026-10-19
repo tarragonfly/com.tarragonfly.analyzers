@@ -1,0 +1,45 @@
+/*--------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See LICENSE in the project root for license information.
+ *  Changed for tarragon.fly Analyzers: TF rule IDs, analyzed-folder scoping, no code fixes.
+ *-------------------------------------------------------------------------------------------*/
+
+#nullable enable
+
+using System.Diagnostics.CodeAnalysis;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+
+namespace TarragonFly.Analyzers.Rules.Unity;
+
+public class BaseSetPositionAndRotationContext : BasePositionAndRotationContext
+{
+	protected BaseSetPositionAndRotationContext(string positionPropertyName, string rotationPropertyName, string positionAndRotationMethodName) : base(positionPropertyName, rotationPropertyName, positionAndRotationMethodName)
+	{
+	}
+
+	public override bool TryGetPropertyExpression(SemanticModel model, ExpressionSyntax expression, [NotNullWhen(true)] out MemberAccessExpressionSyntax? result)
+	{
+		result = null;
+
+		if (expression is not AssignmentExpressionSyntax assignment)
+			return false;
+
+		result = assignment.Left as MemberAccessExpressionSyntax;
+		return result != null;
+	}
+
+	public override bool TryGetArgumentExpression(SemanticModel model, ExpressionSyntax expression, [NotNullWhen(true)] out ArgumentSyntax? result)
+	{
+		result = null;
+
+		if (expression is not AssignmentExpressionSyntax assignment)
+			return false;
+
+		result = Argument(assignment.Right)
+			.WithLeadingTrivia(assignment.OperatorToken.TrailingTrivia);
+
+		return true;
+	}
+}

@@ -1,0 +1,727 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="EmptyUnityMessageCodeFixTitle" xml:space="preserve">
+    <value>Remove empty Unity message</value>
+  </data>
+  <data name="EmptyUnityMessageDiagnosticDescription" xml:space="preserve">
+    <value>Unity messages are called by the runtime even if they're empty. Remove them to avoid unnecessary processing.</value>
+  </data>
+  <data name="EmptyUnityMessageDiagnosticMessageFormat" xml:space="preserve">
+    <value>The Unity message '{0}' is empty.</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="EmptyUnityMessageDiagnosticTitle" xml:space="preserve">
+    <value>Empty Unity message</value>
+  </data>
+  <data name="TagComparisonCodeFixTitle" xml:space="preserve">
+    <value>Use CompareTag method</value>
+  </data>
+  <data name="TagComparisonDiagnosticDescription" xml:space="preserve">
+    <value>Comparing tags using == is slower than using the built-in CompareTag method.</value>
+  </data>
+  <data name="TagComparisonDiagnosticMessageFormat" xml:space="preserve">
+    <value>Comparing tags using == is inefficient.</value>
+  </data>
+  <data name="TagComparisonDiagnosticTitle" xml:space="preserve">
+    <value>Inefficient tag comparison</value>
+  </data>
+  <data name="NonGenericGetComponentCodeFixTitle" xml:space="preserve">
+    <value>Use the generic form of GetComponent</value>
+  </data>
+  <data name="NonGenericGetComponentDiagnosticDescription" xml:space="preserve">
+    <value>Usage of the generic form of GetComponent is preferred for type safety.</value>
+  </data>
+  <data name="NonGenericGetComponentDiagnosticMessageFormat" xml:space="preserve">
+    <value>Method '{0}' has a preferred generic overload.</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="NonGenericGetComponentDiagnosticTitle" xml:space="preserve">
+    <value>Usage of non generic GetComponent</value>
+  </data>
+  <data name="UpdateWithoutFixedDeltaTimeCodeFixTitle" xml:space="preserve">
+    <value>Use Time.deltaTime</value>
+  </data>
+  <data name="UpdateWithoutFixedDeltaTimeDiagnosticDescription" xml:space="preserve">
+    <value>Update is dependent on the frame rate. Use Time.deltaTime instead of Time.fixedDeltaTime.</value>
+  </data>
+  <data name="UpdateWithoutFixedDeltaTimeDiagnosticMessageFormat" xml:space="preserve">
+    <value>Update should use Time.deltaTime.</value>
+  </data>
+  <data name="UpdateWithoutFixedDeltaTimeDiagnosticTitle" xml:space="preserve">
+    <value>Time.fixedDeltaTime used with Update</value>
+  </data>
+  <data name="FixedUpdateWithoutDeltaTimeCodeFixTitle" xml:space="preserve">
+    <value>Use Time.fixedDeltaTime</value>
+  </data>
+  <data name="FixedUpdateWithoutDeltaTimeDiagnosticDescription" xml:space="preserve">
+    <value>FixedUpdate is independent of the frame rate. Use Time.fixedDeltaTime instead of Time.deltaTime.</value>
+  </data>
+  <data name="FixedUpdateWithoutDeltaTimeDiagnosticMessageFormat" xml:space="preserve">
+    <value>FixedUpdate should use Time.fixedDeltaTime.</value>
+  </data>
+  <data name="FixedUpdateWithoutDeltaTimeDiagnosticTitle" xml:space="preserve">
+    <value>Time.deltaTime used with FixedUpdate</value>
+  </data>
+  <data name="InitializeOnLoadStaticCtorCodeFixTitle" xml:space="preserve">
+    <value>Add static constructor</value>
+  </data>
+  <data name="InitializeOnLoadStaticCtorDiagnosticDescription" xml:space="preserve">
+    <value>Provide a static constructor when applying the InitializeOnLoad attribute to a class. This will call it when the editor launches.</value>
+  </data>
+  <data name="InitializeOnLoadStaticCtorDiagnosticMessageFormat" xml:space="preserve">
+    <value>Class '{0}' decorated with the InitializeOnLoad attribute is missing a static constructor.</value>
+    <comment>{0} is a type name</comment>
+  </data>
+  <data name="InitializeOnLoadStaticCtorDiagnosticTitle" xml:space="preserve">
+    <value>Missing static constructor with InitializeOnLoad</value>
+  </data>
+  <data name="MessageSignatureCodeFixTitle" xml:space="preserve">
+    <value>Fix message signature</value>
+  </data>
+  <data name="MessageSignatureDiagnosticDescription" xml:space="preserve">
+    <value>This Unity message uses an incorrect method signature.</value>
+  </data>
+  <data name="MessageSignatureDiagnosticMessageFormat" xml:space="preserve">
+    <value>The Unity message '{0}' has an incorrect signature.</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="MessageSignatureDiagnosticTitle" xml:space="preserve">
+    <value>Incorrect message signature</value>
+  </data>
+  <data name="UnityObjectNullCoalescingCodeFixTitle" xml:space="preserve">
+    <value>Use null comparison</value>
+  </data>
+  <data name="UnityObjectNullCoalescingDiagnosticDescription" xml:space="preserve">
+    <value>Unity overrides the null comparison operator for Unity objects, which is incompatible with null coalescing.</value>
+  </data>
+  <data name="UnityObjectNullCoalescingDiagnosticMessageFormat" xml:space="preserve">
+    <value>Unity objects should not use null coalescing.</value>
+  </data>
+  <data name="UnityObjectNullCoalescingDiagnosticTitle" xml:space="preserve">
+    <value>Null coalescing on Unity objects</value>
+  </data>
+  <data name="UnityObjectNullPropagationCodeFixTitle" xml:space="preserve">
+    <value>Use null comparison</value>
+  </data>
+  <data name="UnityObjectNullPropagationDiagnosticDescription" xml:space="preserve">
+    <value>Unity overrides the null comparison operator for Unity objects, which is incompatible with null propagation.</value>
+  </data>
+  <data name="UnityObjectNullPropagationDiagnosticMessageFormat" xml:space="preserve">
+    <value>Unity objects should not use null propagation.</value>
+  </data>
+  <data name="UnityObjectNullPropagationDiagnosticTitle" xml:space="preserve">
+    <value>Null propagation on Unity objects</value>
+  </data>
+  <data name="UnityObjectNullCoalescingSuppressorJustification" xml:space="preserve">
+    <value>Unity objects should not use null coalescing.</value>
+  </data>
+  <data name="UnityObjectIfNullCoalescingSuppressorJustification" xml:space="preserve">
+    <value>Unity objects should not use if null coalescing.</value>
+  </data>
+  <data name="UnityObjectNullPropagationSuppressorJustification" xml:space="preserve">
+    <value>Unity objects should not use null propagation.</value>
+  </data>
+  <data name="CreateMonoBehaviourInstanceCodeFixTitle" xml:space="preserve">
+    <value>Use gameObject.AddComponent()</value>
+  </data>
+  <data name="CreateMonoBehaviourInstanceDiagnosticDescription" xml:space="preserve">
+    <value>Use AddComponent() to create MonoBehaviours. A MonoBehaviour component needs to be attached to a GameObject.</value>
+  </data>
+  <data name="CreateComponentInstanceDiagnosticMessageFormat" xml:space="preserve">
+    <value>Component '{0}' should not be instantiated directly.</value>
+    <comment>{0} is a type name</comment>
+  </data>
+  <data name="CreateComponentInstanceDiagnosticTitle" xml:space="preserve">
+    <value>Component instance creation</value>
+  </data>
+  <data name="CreateScriptableObjectInstanceCodeFixTitle" xml:space="preserve">
+    <value>Use ScriptableObject.CreateInstance()</value>
+  </data>
+  <data name="CreateScriptableObjectInstanceDiagnosticDescription" xml:space="preserve">
+    <value>Use CreateInstance() to create a ScriptableObject. To handle Unity message methods, the Unity engine needs to create the ScriptableObject.</value>
+  </data>
+  <data name="CreateScriptableObjectInstanceDiagnosticMessageFormat" xml:space="preserve">
+    <value>ScriptableObject '{0}' should not be instantiated directly.</value>
+    <comment>{0} is a type name</comment>
+  </data>
+  <data name="CreateScriptableObjectInstanceDiagnosticTitle" xml:space="preserve">
+    <value>ScriptableObject instance creation</value>
+  </data>
+  <data name="MessageSuppressorJustification" xml:space="preserve">
+    <value>The Unity runtime invokes Unity messages.</value>
+  </data>
+  <data name="ReadonlySerializedFieldSuppressorJustification" xml:space="preserve">
+    <value>Don't flag fields decorated with serialization attributes to read-only.</value>
+  </data>
+  <data name="UnusedSerializedFieldSuppressorJustification" xml:space="preserve">
+    <value>Don't flag private fields decorated with serialization attributes as unused.</value>
+  </data>
+  <data name="NeverAssignedSerializedFieldSuppressorJustification" xml:space="preserve">
+    <value>Don't flag fields decorated with serialization attributes as never assigned.</value>
+  </data>
+  <data name="UnusedMethodSuppressorJustification" xml:space="preserve">
+    <value>Don't flag private methods used with Invoke/InvokeRepeating or StartCoroutine/StopCoroutine as unused.</value>
+  </data>
+  <data name="UnusedCoroutineReturnValueCodeFixTitle" xml:space="preserve">
+    <value>Use StartCoroutine()</value>
+  </data>
+  <data name="UnusedCoroutineReturnValueDiagnosticDescription" xml:space="preserve">
+    <value>Use StartCoroutine() to start a coroutine. Calling the coroutine method directly will result in the coroutine never being executed.</value>
+  </data>
+  <data name="UnusedCoroutineReturnValueDiagnosticMessageFormat" xml:space="preserve">
+    <value>Coroutine '{0}' should be called using StartCoroutine().</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="UnusedCoroutineReturnValueDiagnosticTitle" xml:space="preserve">
+    <value>Unused Unity Coroutine</value>
+  </data>
+  <data name="UnusedMethodContextMenuSuppressorJustification" xml:space="preserve">
+    <value>Don't flag methods with MenuItem/ContextMenu attribute or referenced by a field with the ContextMenuItem attribute as unused.</value>
+  </data>
+  <data name="ReadonlyContextMenuItemJustification" xml:space="preserve">
+    <value>Don't flag fields decorated with a ContextMenuItem attribute as readonly.</value>
+  </data>
+  <data name="UnusedContextMenuItemJustification" xml:space="preserve">
+    <value>Don't flag fields decorated with a ContextMenuItem attribute as unused.</value>
+  </data>
+  <data name="ImproperSerializeFieldCodeFixTitle" xml:space="preserve">
+    <value>Remove SerializeField attribute</value>
+  </data>
+  <data name="ImproperSerializeFieldDiagnosticDescription" xml:space="preserve">
+    <value>SerializeField attribute does not work on properties, and is unnecessary for public non-dictionary fields.</value>
+  </data>
+  <data name="ImproperSerializeFieldDiagnosticMessageFormat" xml:space="preserve">
+    <value>SerializeField attribute is invalid or redundant for property or field: '{0}'.</value>
+    <comment>{0} is an identifier declared with a SerializeField attribute</comment>
+  </data>
+  <data name="ImproperSerializeFieldDiagnosticTitle" xml:space="preserve">
+    <value>Remove invalid SerializeField attribute</value>
+  </data>
+  <data name="GetComponentIncorrectTypeDiagnosticDescription" xml:space="preserve">
+    <value>GetComponent only supports arguments that are a Unity Component or an interface type.</value>
+  </data>
+  <data name="GetComponentIncorrectTypeDiagnosticMessageFormat" xml:space="preserve">
+    <value>'{0}' is not a Unity Component.</value>
+    <comment>{0} is the type passed as an argument to GetComponent</comment>
+  </data>
+  <data name="GetComponentIncorrectTypeDiagnosticTitle" xml:space="preserve">
+    <value>Invalid type for call to GetComponent</value>
+  </data>
+  <data name="LoadAttributeMethodSuppressorJustification" xml:space="preserve">
+    <value>Don't flag private methods decorated with InitializeOnLoadMethod, RuntimeInitializeOnLoadMethod or DidReloadScripts attribute as unused.</value>
+  </data>
+  <data name="MethodInvocationNameOfCodeFixTitle" xml:space="preserve">
+    <value>Use nameof operator</value>
+  </data>
+  <data name="MethodInvocationDiagnosticDescription" xml:space="preserve">
+    <value>Usage of nameof or direct call is preferred for type safety.</value>
+  </data>
+  <data name="MethodInvocationDiagnosticMessageFormat" xml:space="preserve">
+    <value>Method '{0}' is invoked using a string literal.</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="MethodInvocationDiagnosticTitle" xml:space="preserve">
+    <value>Unsafe way to get the method name</value>
+  </data>
+  <data name="MethodInvocationDirectCallCodeFixTitle" xml:space="preserve">
+    <value>Use direct call</value>
+  </data>
+  <data name="LoadAttributeMethodCodeFixTitle" xml:space="preserve">
+    <value>Fix method signature</value>
+  </data>
+  <data name="LoadAttributeMethodDiagnosticDescription" xml:space="preserve">
+    <value>Unity needs a method decorated with InitializeOnLoadMethod, RuntimeInitializeOnLoadMethod or DidReloadScripts attribute to be static and parameterless. Else either Unity won't call it or will throw NullReferenceException.</value>
+  </data>
+  <data name="LoadAttributeMethodDiagnosticMessageFormat" xml:space="preserve">
+    <value>Method '{0}' decorated with InitializeOnLoadMethod, RuntimeInitializeOnLoadMethod or DidReloadScripts attribute must be static and parameterless.</value>
+    <comment>{0} is an identifier declared with a *InitializeOnLoadMethod attribute</comment>
+  </data>
+  <data name="LoadAttributeMethodDiagnosticTitle" xml:space="preserve">
+    <value>Use a static and parameterless method</value>
+  </data>
+  <data name="SetPixelsMethodUsageDiagnosticDescription" xml:space="preserve">
+    <value>Compared to SetPixels, SetPixels32 is much faster and uses less memory.</value>
+  </data>
+  <data name="SetPixelsMethodUsageDiagnosticMessageFormat" xml:space="preserve">
+    <value>'{0}' is slower than SetPixels32.</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="SetPixelsMethodUsageDiagnosticTitle" xml:space="preserve">
+    <value>SetPixels invocation is slow</value>
+  </data>
+  <data name="NullableReferenceTypesSuppressorJustification" xml:space="preserve">
+    <value>Objects deriving from 'UnityEngine.Object' cannot be initialized.</value>
+  </data>
+  <data name="ReflectionDiagnosticDescription" xml:space="preserve">
+    <value>You should not use System.Reflection features in performance critical messages.</value>
+  </data>
+  <data name="ReflectionDiagnosticMessageFormat" xml:space="preserve">
+    <value>System.Reflection usage detected in performance critical message '{0}'.</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="ReflectionDiagnosticTitle" xml:space="preserve">
+    <value>System.Reflection features in performance critical messages</value>
+  </data>
+  <data name="SetPositionAndRotationCodeFixTitle" xml:space="preserve">
+    <value>Use SetPositionAndRotation() method</value>
+  </data>
+  <data name="SetPositionAndRotationDiagnosticDescription" xml:space="preserve">
+    <value>Prefer using SetPositionAndRotation() method.</value>
+  </data>
+  <data name="SetPositionAndRotationDiagnosticMessageFormat" xml:space="preserve">
+    <value>Assigning position and rotation sequentially could be optimized.</value>
+  </data>
+  <data name="SetPositionAndRotationDiagnosticTitle" xml:space="preserve">
+    <value>Inefficient position/rotation assignment</value>
+  </data>
+  <data name="ImproperMenuItemMethodCodeFixTitle" xml:space="preserve">
+    <value>Use static method</value>
+  </data>
+  <data name="ImproperMenuItemMethodDiagnosticDescription" xml:space="preserve">
+    <value>MenuItem can only be used on static methods.</value>
+  </data>
+  <data name="ImproperMenuItemMethodDiagnosticMessageFormat" xml:space="preserve">
+    <value>This is not a static method.</value>
+  </data>
+  <data name="ImproperMenuItemMethodDiagnosticTitle" xml:space="preserve">
+    <value>Make method static</value>
+  </data>
+  <data name="IndirectionMessageCodeFixTitle" xml:space="preserve">
+    <value>Remove indirection call</value>
+  </data>
+  <data name="IndirectionMessageDiagnosticDescription" xml:space="preserve">
+    <value>Do not use unnecessary indirection.</value>
+  </data>
+  <data name="IndirectionMessageDiagnosticMessageFormat" xml:space="preserve">
+    <value>Indirection is redundant</value>
+  </data>
+  <data name="IndirectionMessageDiagnosticTitle" xml:space="preserve">
+    <value>Indirection call</value>
+  </data>
+  <data name="ProtectedUnityMessageCodeFixTitle" xml:space="preserve">
+    <value>Make Unity message protected</value>
+  </data>
+  <data name="ProtectedUnityMessageDiagnosticDescription" xml:space="preserve">
+    <value>Unity message should be protected.</value>
+  </data>
+  <data name="ProtectedUnityMessageDiagnosticMessageFormat" xml:space="preserve">
+    <value>Unity message should be protected.</value>
+  </data>
+  <data name="ProtectedUnityMessageDiagnosticTitle" xml:space="preserve">
+    <value>Prefer protected Unity Message.</value>
+  </data>
+  <data name="UnityObjectCoalescingAssignmentDiagnosticDescription" xml:space="preserve">
+    <value>Unity overrides the null comparison operator for Unity objects, which is incompatible with coalescing assignment.</value>
+  </data>
+  <data name="UnityObjectCoalescingAssignmentDiagnosticMessageFormat" xml:space="preserve">
+    <value>Unity objects should not use coalescing assignment.</value>
+  </data>
+  <data name="UnityObjectCoalescingAssignmentDiagnosticTitle" xml:space="preserve">
+    <value>Coalescing assignment on Unity objects</value>
+  </data>
+  <data name="UnityObjectCoalescingAssignmentSuppressorJustification" xml:space="preserve">
+    <value>Unity objects should not use coalescing assignment.</value>
+  </data>
+  <data name="UnityObjectCoalescingAssignmentCodeFixTitle" xml:space="preserve">
+    <value>Use null comparison</value>
+  </data>
+  <data name="VectorMathCodeFixTitle" xml:space="preserve">
+    <value>Re-order operands</value>
+  </data>
+  <data name="VectorMathDiagnosticDescription" xml:space="preserve">
+    <value>Scalar calculations are faster than vector calculations.</value>
+  </data>
+  <data name="VectorMathDiagnosticMessageFormat" xml:space="preserve">
+    <value>Re-order operands for better performance.</value>
+  </data>
+  <data name="VectorMathDiagnosticTitle" xml:space="preserve">
+    <value>Give priority to scalar calculations over vector calculations</value>
+  </data>
+  <data name="InputGetKeyCodeFixTitle" xml:space="preserve">
+    <value>Use KeyCode argument</value>
+  </data>
+  <data name="InputGetKeyDiagnosticDescription" xml:space="preserve">
+    <value>Usage of the method overload with KeyCode argument is preferred.</value>
+  </data>
+  <data name="InputGetKeyDiagnosticMessageFormat" xml:space="preserve">
+    <value>A method overload with KeyCode argument exists.</value>
+  </data>
+  <data name="InputGetKeyDiagnosticTitle" xml:space="preserve">
+    <value>Input.GetKey overloads with KeyCode argument</value>
+  </data>
+  <data name="TryGetComponentCodeFixTitle" xml:space="preserve">
+    <value>Use TryGetComponent instead</value>
+  </data>
+  <data name="TryGetComponentDiagnosticDescription" xml:space="preserve">
+    <value>TryGetComponent will not allocate memory in case it fails.</value>
+  </data>
+  <data name="TryGetComponentDiagnosticMessageFormat" xml:space="preserve">
+    <value>GetComponent allocates even if no component is found.</value>
+  </data>
+  <data name="TryGetComponentDiagnosticTitle" xml:space="preserve">
+    <value>GetComponent always allocates</value>
+  </data>
+  <data name="ThrowExpressionSuppressorJustification" xml:space="preserve">
+    <value>Do not use Throw expressions with Unity objects.</value>
+  </data>
+  <data name="ImplicitUsageAttributeSuppressorJustification" xml:space="preserve">
+    <value>Don't flag private members decorated with implicit-usage attributes as unused.</value>
+  </data>
+  <data name="PropertyDrawerOnGUICodeFixTitle" xml:space="preserve">
+    <value>Remove PropertyDrawer.OnGUI() call</value>
+  </data>
+  <data name="PropertyDrawerOnGUIDiagnosticDescription" xml:space="preserve">
+    <value>Default implementation for PropertyDrawer.OnGUI() will display "no GUI implemented" in the inspector.</value>
+  </data>
+  <data name="PropertyDrawerOnGUIDiagnosticMessageFormat" xml:space="preserve">
+    <value>PropertyDrawer.OnGUI() will display "no GUI implemented" in the inspector.</value>
+  </data>
+  <data name="PropertyDrawerOnGUIDiagnosticTitle" xml:space="preserve">
+    <value>Do not call PropertyDrawer.OnGUI()</value>
+  </data>
+  <data name="PhysicsAllocMethodUsageDiagnosticDescription" xml:space="preserve">
+    <value>Avoid using allocating versions of Physics functions.</value>
+  </data>
+  <data name="PhysicsAllocMethodUsageDiagnosticMessageFormat" xml:space="preserve">
+    <value>Compared to '{0}', '{1}' is not allocating memory.</value>
+  </data>
+  <data name="PhysicsAllocMethodUsageDiagnosticTitle" xml:space="preserve">
+    <value>Use non-allocating physics APIs</value>
+  </data>
+  <data name="UnityObjectIsPatternCodeFixTitle" xml:space="preserve">
+    <value>Use null comparison</value>
+  </data>
+  <data name="UnityObjectIsPatternDiagnosticDescription" xml:space="preserve">
+    <value>Unity overrides the null comparison operator for Unity objects, which is incompatible with pattern matching with null.</value>
+  </data>
+  <data name="UnityObjectIsPatternDiagnosticMessageFormat" xml:space="preserve">
+    <value>Unity objects should not use pattern matching with null.</value>
+  </data>
+  <data name="UnityObjectIsPatternDiagnosticTitle" xml:space="preserve">
+    <value>Pattern matching with null on Unity objects</value>
+  </data>
+  <data name="DestroyTransformCodeFixTitle" xml:space="preserve">
+    <value>Use gameObject instead</value>
+  </data>
+  <data name="DestroyTransformDiagnosticDescription" xml:space="preserve">
+    <value>You cannot destroy a Transform component of a GameObject, but you can destroy the whole GameObject.</value>
+  </data>
+  <data name="DestroyTransformDiagnosticMessageFormat" xml:space="preserve">
+    <value>Calling Destroy or DestroyImmediate on a Transform is not allowed.</value>
+  </data>
+  <data name="DestroyTransformDiagnosticTitle" xml:space="preserve">
+    <value>Calling Destroy or DestroyImmediate on a Transform</value>
+  </data>
+  <data name="AssetOperationInLoadAttributeMethodDiagnosticDescription" xml:space="preserve">
+    <value>Asset operations such as asset loading should be avoided in LoadAttribute method.</value>
+  </data>
+  <data name="AssetOperationInLoadAttributeMethodDiagnosticMessageFormat" xml:space="preserve">
+    <value>Avoid Asset operations in LoadAttribute method.</value>
+  </data>
+  <data name="AssetOperationInLoadAttributeMethodDiagnosticTitle" xml:space="preserve">
+    <value>Asset operations in LoadAttribute method</value>
+  </data>
+  <data name="SetLocalPositionAndRotationCodeFixTitle" xml:space="preserve">
+    <value>Use SetLocalPositionAndRotation() method</value>
+  </data>
+  <data name="SetLocalPositionAndRotationDiagnosticDescription" xml:space="preserve">
+    <value>Prefer using SetLocalPositionAndRotation() method.</value>
+  </data>
+  <data name="SetLocalPositionAndRotationDiagnosticMessageFormat" xml:space="preserve">
+    <value>Assigning localPosition and localRotation sequentially could be optimized.</value>
+  </data>
+  <data name="SetLocalPositionAndRotationDiagnosticTitle" xml:space="preserve">
+    <value>Inefficient localPosition/localRotation assignment</value>
+  </data>
+  <data name="ImproperMessageCaseCodeFixTitle" xml:space="preserve">
+    <value>Fix message case</value>
+  </data>
+  <data name="ImproperMessageCaseDiagnosticDescription" xml:space="preserve">
+    <value>This Unity message uses an incorrect method case</value>
+  </data>
+  <data name="ImproperMessageCaseDiagnosticMessageFormat" xml:space="preserve">
+    <value>The Unity message '{0}' has an incorrect case</value>
+    <comment>{0} is a method name</comment>
+  </data>
+  <data name="ImproperMessageCaseDiagnosticTitle" xml:space="preserve">
+    <value>Incorrect message case</value>
+  </data>
+  <data name="Vector3ConversionCodeFixTitle" xml:space="preserve">
+    <value>Use built-in conversion</value>
+  </data>
+  <data name="Vector3ConversionDiagnosticDescription" xml:space="preserve">
+    <value>A Vector3 can be converted into a Vector2. (The z is discarded).</value>
+  </data>
+  <data name="Vector3ConversionDiagnosticMessageFormat" xml:space="preserve">
+    <value>A Vector3 can be converted into a Vector2.</value>
+  </data>
+  <data name="Vector3ConversionDiagnosticTitle" xml:space="preserve">
+    <value>A Vector3 can be converted into a Vector2.</value>
+  </data>
+  <data name="Vector2ConversionCodeFixTitle" xml:space="preserve">
+    <value>Use built-in conversion</value>
+  </data>
+  <data name="Vector2ConversionDiagnosticDescription" xml:space="preserve">
+    <value>A Vector2 can be converted into a Vector3. (The z is set to 0).</value>
+  </data>
+  <data name="Vector2ConversionDiagnosticMessageFormat" xml:space="preserve">
+    <value>A Vector2 can be converted into a Vector3.</value>
+  </data>
+  <data name="Vector2ConversionDiagnosticTitle" xml:space="preserve">
+    <value>A Vector2 can be converted into a Vector3.</value>
+  </data>
+  <data name="UnityObjectUseIsNullSuppressorJustification" xml:space="preserve">
+    <value>Prefer reference equality</value>
+  </data>
+  <data name="GetPositionAndRotationCodeFixTitle" xml:space="preserve">
+    <value>Use GetPositionAndRotation() method</value>
+  </data>
+  <data name="GetPositionAndRotationDiagnosticDescription" xml:space="preserve">
+    <value>Prefer using GetPositionAndRotation() method.</value>
+  </data>
+  <data name="GetPositionAndRotationDiagnosticMessageFormat" xml:space="preserve">
+    <value>Reading position and rotation sequentially could be optimized.</value>
+  </data>
+  <data name="GetPositionAndRotationDiagnosticTitle" xml:space="preserve">
+    <value>Inefficient position/rotation read</value>
+  </data>
+  <data name="GetLocalPositionAndRotationCodeFixTitle" xml:space="preserve">
+    <value>Use GetLocalPositionAndRotation() method</value>
+  </data>
+  <data name="GetLocalPositionAndRotationDiagnosticDescription" xml:space="preserve">
+    <value>Prefer using GetLocalPositionAndRotation() method.</value>
+  </data>
+  <data name="GetLocalPositionAndRotationDiagnosticMessageFormat" xml:space="preserve">
+    <value>Reading localPosition and localRotation sequentially could be optimized.</value>
+  </data>
+  <data name="GetLocalPositionAndRotationDiagnosticTitle" xml:space="preserve">
+    <value>Inefficient localPosition/localRotation read</value>
+  </data>
+  <data name="CacheYieldInstructionAnalyzerCodeFixTitle" xml:space="preserve">
+    <value>Cache WaitForSeconds invocations</value>
+  </data>
+  <data name="CacheYieldInstructionAnalyzerDiagnosticDescription" xml:space="preserve">
+    <value>Creating WaitForSeconds instances has memory impacts.</value>
+  </data>
+  <data name="CacheYieldInstructionAnalyzerDiagnosticMessageFormat" xml:space="preserve">
+    <value>Cache WaitForSeconds invocations instead of creating new instances.</value>
+  </data>
+  <data name="CacheYieldInstructionAnalyzerDiagnosticTitle" xml:space="preserve">
+    <value>WaitForSeconds caching </value>
+  </data>
+  <data name="RequireComponentAnalyzerCodeFixTitle" xml:space="preserve">
+    <value>Use RequireComponent attribute</value>
+  </data>
+  <data name="RequireComponentAnalyzerDiagnosticDescription" xml:space="preserve">
+    <value>The RequireComponent attribute automatically adds required components as dependencies.</value>
+  </data>
+  <data name="RequireComponentAnalyzerDiagnosticMessageFormat" xml:space="preserve">
+    <value>Use RequireComponent attribute when self-invoking GetComponent</value>
+  </data>
+  <data name="RequireComponentAnalyzerDiagnosticTitle" xml:space="preserve">
+    <value>Use RequireComponent attribute when self-invoking GetComponent</value>
+  </data>
+  <data name="CodeStyleSuppressorJustification" xml:space="preserve">
+    <value>The Unity runtime invokes Unity messages.</value>
+  </data>
+  <data name="GameObjectIsStaticDiagnosticDescription" xml:space="preserve">
+    <value>GameObject.isStatic is only usable in the Editor. In builds, it always returns false. Use editor-only code or editor callbacks like OnValidate/Reset when accessing isStatic.</value>
+  </data>
+  <data name="GameObjectIsStaticDiagnosticMessageFormat" xml:space="preserve">
+    <value>GameObject.isStatic is editor-only and always returns false in builds.</value>
+  </data>
+  <data name="GameObjectIsStaticDiagnosticTitle" xml:space="preserve">
+    <value>GameObject.isStatic is editor-only</value>
+  </data>
+  <data name="AnimatorStringToHashCodeFixTitle" xml:space="preserve">
+    <value>Use Animator.StringToHash</value>
+  </data>
+  <data name="AnimatorStringToHashDiagnosticDescription" xml:space="preserve">
+    <value>String parameters in Animator methods are converted to hashes at runtime. Pre-computing the hash using Animator.StringToHash and caching the result improves performance.</value>
+  </data>
+  <data name="AnimatorStringToHashDiagnosticMessageFormat" xml:space="preserve">
+    <value>Use Animator.StringToHash for repeated Animator method calls with string parameter '{1}' in '{0}'.</value>
+    <comment>{0} is a method name, {1} is a string literal value</comment>
+  </data>
+  <data name="AnimatorStringToHashDiagnosticTitle" xml:space="preserve">
+    <value>Use Animator.StringToHash instead of strings</value>
+  </data>
+  <data name="MeshArrayPropertyInLoopCodeFixTitle" xml:space="preserve">
+    <value>Cache array property before loop</value>
+  </data>
+  <data name="MeshArrayPropertyInLoopDiagnosticDescription" xml:space="preserve">
+    <value>Accessing array properties like vertices, normals, etc. on Mesh inside a loop causes a new array allocation on each access. Cache the array in a local variable before the loop to avoid repeated allocations.</value>
+  </data>
+  <data name="MeshArrayPropertyInLoopDiagnosticMessageFormat" xml:space="preserve">
+    <value>Mesh.{0} allocates a new array on each access. Cache it before the loop.</value>
+    <comment>{0} is the property name (e.g., vertices, normals)</comment>
+  </data>
+  <data name="MeshArrayPropertyInLoopDiagnosticTitle" xml:space="preserve">
+    <value>Mesh array property accessed in loop</value>
+  </data>
+  <data name="ConditionalCompilationSymbolTypoDiagnosticDescription" xml:space="preserve">
+    <value>Conditional compilation symbols that are very close to project-level preprocessor symbols may be typos and can make #if or #elif blocks compile unexpectedly.</value>
+  </data>
+  <data name="ConditionalCompilationSymbolTypoCodeFixTitle" xml:space="preserve">
+    <value>Replace with '{0}'</value>
+    <comment>{0} is the suggested preprocessor symbol name</comment>
+  </data>
+  <data name="ConditionalCompilationSymbolTypoDiagnosticMessageFormat" xml:space="preserve">
+    <value>Conditional compilation symbol '{0}' is not defined. Did you mean '{1}'?</value>
+    <comment>{0} is the symbol used in source, {1} is the closest known symbol</comment>
+  </data>
+  <data name="ConditionalCompilationSymbolTypoDiagnosticTitle" xml:space="preserve">
+    <value>Possible typo in conditional compilation symbol</value>
+  </data>
+  <data name="TextMeshProSetTextDiagnosticDescription" xml:space="preserve">
+    <value>TextMeshPro SetText overloads can consume buffers or format numeric arguments without creating a temporary string. Review formatting, preprocessing, and update behavior before switching overloads.</value>
+  </data>
+  <data name="TextMeshProSetTextDiagnosticMessageFormat" xml:space="preserve">
+    <value>Consider '{0}' to avoid creating a temporary string</value>
+    <comment>{0} is the suggested TextMeshPro SetText overload</comment>
+  </data>
+  <data name="TextMeshProSetTextDiagnosticTitle" xml:space="preserve">
+    <value>Avoid temporary strings when setting TextMeshPro text</value>
+  </data>
+  <data name="NonAllocatingArrayAccessCodeFixTitle" xml:space="preserve">
+    <value>Use non-allocating access</value>
+  </data>
+  <data name="NonAllocatingArrayAccessDiagnosticDescription" xml:space="preserve">
+    <value>Use non-allocating Unity APIs instead of allocating an array to read its length or an element.</value>
+  </data>
+  <data name="NonAllocatingArrayAccessDiagnosticMessageFormat" xml:space="preserve">
+    <value>Use '{0}' instead of '{1}' to avoid allocating an array.</value>
+  </data>
+  <data name="NonAllocatingArrayAccessDiagnosticTitle" xml:space="preserve">
+    <value>Use non-allocating array access</value>
+  </data>
+  <data name="ShaderPropertyToIDCodeFixTitle" xml:space="preserve">
+    <value>Cache shader property ID</value>
+  </data>
+  <data name="ShaderPropertyToIDDiagnosticDescription" xml:space="preserve">
+    <value>Cache the result of Shader.PropertyToID in a static readonly field to avoid recomputing the ID.</value>
+  </data>
+  <data name="ShaderPropertyToIDDiagnosticMessageFormat" xml:space="preserve">
+    <value>Cache the shader property ID for '{0}' instead of calling Shader.PropertyToID repeatedly.</value>
+  </data>
+  <data name="ShaderPropertyToIDDiagnosticTitle" xml:space="preserve">
+    <value>Cache Shader.PropertyToID calls</value>
+  </data>
+</root>

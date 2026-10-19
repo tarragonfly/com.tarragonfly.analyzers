@@ -1,9 +1,37 @@
 # Third-party notices
 
-Nothing has been copied from another project yet.
+## Microsoft.Unity.Analyzers
 
-Code is planned to come from these two MIT-licensed projects. Each copied file keeps its upstream
-copyright notice at the top, and the project's full notice gets added here with the first copy.
+The Unity rules (TF4001 to TF4046) and their tests are forked from Microsoft.Unity.Analyzers 1.28.0,
+https://github.com/microsoft/Microsoft.Unity.Analyzers. Each copied file keeps Microsoft's copyright
+header and notes what was changed.
 
-- Microsoft.Unity.Analyzers, https://github.com/microsoft/Microsoft.Unity.Analyzers, for the Unity rules
-- Roslyn analyzers (Microsoft.CodeAnalysis.NetAnalyzers), https://github.com/dotnet/roslyn-analyzers, for ports of CA1068, CA1806 and CA1861
+```
+MIT License
+
+Copyright (c) Microsoft Corporation.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE
+```
+
+## Planned
+
+Ports of CA1068, CA1806 and CA1861 are planned from Roslyn analyzers
+(Microsoft.CodeAnalysis.NetAnalyzers), https://github.com/dotnet/roslyn-analyzers, also MIT. Its
+notice gets added here with the first copied file.

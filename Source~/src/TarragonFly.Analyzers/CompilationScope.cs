@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
@@ -79,6 +80,23 @@ namespace TarragonFly.Analyzers
                 if (ProjectPaths.IsUnder(path, folder)) return true;
             }
             return false;
+        }
+
+        // Wraps a registered action so it only runs on files in the analyzed folders.
+        public Action<SyntaxNodeAnalysisContext> OnlyAnalyzedNodes(Action<SyntaxNodeAnalysisContext> action)
+        {
+            return context =>
+            {
+                if (IsAnalyzed(context.Node.SyntaxTree)) action(context);
+            };
+        }
+
+        public Action<SyntaxTreeAnalysisContext> OnlyAnalyzedTrees(Action<SyntaxTreeAnalysisContext> action)
+        {
+            return context =>
+            {
+                if (IsAnalyzed(context.Tree)) action(context);
+            };
         }
 
         public bool HasAnalyzedFiles(Compilation compilation)

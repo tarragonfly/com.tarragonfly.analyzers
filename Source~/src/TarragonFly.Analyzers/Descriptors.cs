@@ -21,6 +21,7 @@ namespace TarragonFly.Analyzers
             DiagnosticSeverity severity = DiagnosticSeverity.Warning,
             string sourceRule = null,
             string description = null,
+            bool enabledByDefault = true,
             params string[] extraTags)
         {
             if (checks == CodeKind.None) throw new ArgumentException("A rule must check at least one kind of code.", nameof(checks));
@@ -33,7 +34,7 @@ namespace TarragonFly.Analyzers
             tags.AddRange(extraTags);
 
             return new DiagnosticDescriptor(
-                id, title, messageFormat, area, severity, isEnabledByDefault: true,
+                id, title, messageFormat, area, severity, isEnabledByDefault: enabledByDefault,
                 description: description, customTags: tags.ToArray());
         }
 
