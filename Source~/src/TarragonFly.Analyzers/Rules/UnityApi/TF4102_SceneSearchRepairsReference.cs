@@ -23,8 +23,9 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
     // null ("== null", "is null", "!field"), and "field ??= search" or "field = field ?? search".
     // Scene searches: Object.FindObjectOfType, FindFirstObjectByType, FindAnyObjectByType,
     // FindObjectsOfType and FindObjectsByType, and GameObject.Find, FindWithTag,
-    // FindGameObjectWithTag and FindGameObjectsWithTag. Reset and OnValidate are fine, since filling
-    // a field there saves it in the editor. Reported on the search call. Game code only.
+    // FindGameObjectWithTag and FindGameObjectsWithTag. Reset is fine, since filling a field there
+    // saves it in the editor; OnValidate is left to TF4103, which reports any search there. Reported
+    // on the search call. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SceneSearchRepairsReferenceAnalyzer : ScopedAnalyzer
     {

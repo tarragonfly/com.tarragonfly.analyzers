@@ -182,6 +182,9 @@ TF4046 | Performance | Info | ShaderPropertyToIDAnalyzer
 TF4100 | Unity | Warning | UnregisterNewLambdaAnalyzer
 TF4101 | Unity | Warning | UnsaveableSerializeFieldAnalyzer
 TF4102 | Unity | Warning | SceneSearchRepairsReferenceAnalyzer
+TF4103 | Unity | Warning | OnValidateReachesOtherObjectsAnalyzer
+TF4104 | Unity | Warning | OnValidateReachesOtherObjectsAnalyzer
+TF4105 | Unity | Warning | OnValidateReachesOtherObjectsAnalyzer
 TF5000 | Async | Warning | NeverDisposedAnalyzer
 TF5001 | Async | Warning | FieldDisposedOutsideDisposeAnalyzer
 TF5002 | Async | Warning | AsyncVoidAnalyzer

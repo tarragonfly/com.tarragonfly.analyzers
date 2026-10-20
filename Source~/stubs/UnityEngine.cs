@@ -8,6 +8,8 @@ namespace UnityEngine
     {
         public string name { get; set; }
         public static void Destroy(Object target) { }
+        public static void DestroyImmediate(Object target) { }
+        public static T Instantiate<T>(T original) where T : Object => original;
         public static T FindObjectOfType<T>() where T : Object => null;
         public static T FindFirstObjectByType<T>() where T : Object => null;
         public static T FindAnyObjectByType<T>() where T : Object => null;
@@ -22,7 +24,22 @@ namespace UnityEngine
     public class Component : Object
     {
         public GameObject gameObject => null;
+        public Transform transform => null;
         public T GetComponent<T>() => default;
+        public T GetComponentInChildren<T>() => default;
+        public T GetComponentInParent<T>() => default;
+        public T[] GetComponents<T>() => null;
+        public bool TryGetComponent<T>(out T component) { component = default; return false; }
+    }
+
+    public class Transform : Component
+    {
+        public Vector3 position { get; set; }
+        public Vector3 localScale { get; set; }
+        public Transform parent { get; set; }
+        public Transform Find(string name) => null;
+        public Transform GetChild(int index) => null;
+        public void SetParent(Transform parent) { }
     }
 
     public class Behaviour : Component
@@ -38,6 +55,12 @@ namespace UnityEngine
 
     public class ScriptableObject : Object
     {
+        public static T CreateInstance<T>() where T : ScriptableObject => null;
+    }
+
+    public static class Resources
+    {
+        public static T Load<T>(string path) where T : Object => null;
     }
 
     public class StateMachineBehaviour : ScriptableObject
@@ -48,7 +71,10 @@ namespace UnityEngine
     {
         public GameObject() { }
         public GameObject(string name) { }
+        public Transform transform => null;
         public T GetComponent<T>() => default;
+        public T AddComponent<T>() where T : Component => default;
+        public void SetActive(bool value) { }
         public static GameObject Find(string name) => null;
         public static GameObject FindWithTag(string tag) => null;
     }

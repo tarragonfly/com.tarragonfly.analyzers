@@ -6,9 +6,218 @@ using TarragonFly.Analyzers.Tests.Harness;
 namespace TarragonFly.Analyzers.Tests.Rules.UnityApi
 {
     // TF4100 new lambda unregistered, TF4101 serialized field Unity can't save, TF4102 scene search
-    // filling in an Inspector reference.
+    // filling in an Inspector reference, TF4103 to TF4105 OnValidate reaching other objects.
     public class UnityApiTests
     {
+        [Test]
+        public void OnValidateFindingOrAssigningAReference_IsReported()
+        {
+            AnalyzerVerifier.Verify(new OnValidateReachesOtherObjectsAnalyzer(), @"
+using UnityEngine;
+
+class Hud : MonoBehaviour { }
+class Skeleton : MonoBehaviour { }
+class Clip : Object { }
+
+[System.Serializable]
+class Channel
+{
+    public float volume;
+    public Clip clip;
+}
+
+class Player : MonoBehaviour
+{
+    [SerializeField] Skeleton skeleton;
+    [SerializeField] Hud hud;
+    [SerializeField] Clip clip;
+    [SerializeField] Channel music;
+    [SerializeField] int poolSize;
+    [SerializeField] string id;
+    Transform cachedRoot;
+    public Hud Owner { get; set; }
+
+    void OnValidate()
+    {
+        {|TF4103:skeleton = GetComponent<Skeleton>()|};
+        if (hud == null) {|TF4103:hud = FindFirstObjectByType<Hud>()|};
+        {|TF4103:hud ??= GameObject.Find(""Hud"").GetComponent<Hud>()|};
+        {|TF4103:clip = Resources.Load<Clip>(""Clips/Jump"")|};
+        {|TF4103:this.hud = null|};
+        {|TF4103:cachedRoot = transform.parent|};
+        {|TF4103:Owner = hud|};
+        {|TF4103:music.clip = clip|};
+        {|TF4103:GetComponentInChildren<Hud>|}();
+        {|TF4103:TryGetComponent|}(out Skeleton found);
+        Transform spawn = {|TF4103:transform.Find|}(""Spawn"");
+        Skeleton other = {|TF4103:FindAnyObjectByType<Skeleton>|}();
+        SanitizePool();
+        LookUpSkeleton();
+
+        poolSize = (int)Mathf.Max(1, poolSize);
+        id = id.Trim();
+        music.volume = Mathf.Clamp(music.volume, 0f, 1f);
+        enabled = poolSize > 0;
+        name = id;
+        if (skeleton == null) Debug.LogError(""[Player] Skeleton is not assigned."", this);
+        Hud read = hud;
+    }
+
+    void SanitizePool()
+    {
+        if (poolSize < 1) poolSize = 1;
+    }
+
+    void LookUpSkeleton()
+    {
+        if (skeleton == null) {|TF4103:skeleton = GetComponent<Skeleton>()|};
+    }
+
+    void Awake()
+    {
+        skeleton = GetComponent<Skeleton>();
+        LookUpSkeleton();
+    }
+
+    void Reset()
+    {
+        skeleton = GetComponent<Skeleton>();
+    }
+}
+
+class Settings : ScriptableObject
+{
+    [SerializeField] Hud hud;
+    [SerializeField] string id;
+
+    void OnValidate()
+    {
+        id = id.ToUpperInvariant();
+        {|TF4103:hud = FindFirstObjectByType<Hud>()|};
+    }
+}
+
+class NotAUnityObject
+{
+    Hud hud;
+
+    void OnValidate()
+    {
+        hud = Object.FindFirstObjectByType<Hud>();
+    }
+}");
+        }
+
+        [Test]
+        public void OnValidateChangingAnotherObject_IsReported()
+        {
+            AnalyzerVerifier.Verify(new OnValidateReachesOtherObjectsAnalyzer(), @"
+using UnityEngine;
+
+class Label : MonoBehaviour
+{
+    public string text;
+    public void SetText(string value) { }
+    public bool Has(string value) => false;
+}
+
+class VersionSetter : MonoBehaviour
+{
+    [SerializeField] Label versionText;
+
+    void OnValidate()
+    {
+        SetVersionText();
+        {|TF4104:versionText.SetText|}(""v1"");
+        {|TF4104:transform.position = new Vector3()|};
+        {|TF4104:gameObject.SetActive|}(false);
+        {|TF4104:transform.parent.localScale = new Vector3()|};
+
+        bool has = versionText.Has(""v"");
+        string read = versionText.text;
+        Debug.Log(versionText.text, this);
+        this.enabled = false;
+    }
+
+    void SetVersionText()
+    {
+        {|TF4104:versionText.text = ""v1""|};
+    }
+
+    void Start()
+    {
+        SetVersionText();
+    }
+}");
+        }
+
+        [Test]
+        public void OnValidateCreatingDestroyingOrSavingObjects_IsReported()
+        {
+            AnalyzerVerifier.Verify(new OnValidateReachesOtherObjectsAnalyzer(), @"
+using UnityEngine;
+using UnityEditor;
+
+class Hud : MonoBehaviour { }
+class Preset : ScriptableObject { }
+
+class Spawner : MonoBehaviour
+{
+    [SerializeField] Hud hudPrefab;
+    Hud spawned;
+
+    void OnValidate()
+    {
+        {|TF4105:Instantiate|}(hudPrefab);
+        {|TF4103:spawned = {|TF4105:Instantiate|}(hudPrefab)|};
+        {|TF4105:Destroy|}(spawned);
+        {|TF4105:DestroyImmediate|}(spawned);
+        {|TF4105:gameObject.AddComponent<Hud>|}();
+        Preset made = {|TF4105:ScriptableObject.CreateInstance<Preset>|}();
+        GameObject holder = {|TF4105:new GameObject(""Holder"")|};
+        {|TF4105:EditorUtility.SetDirty|}(this);
+        {|TF4105:AssetDatabase.SaveAssets|}();
+        {|TF4105:Undo.RecordObject|}(this, ""Validate"");
+    }
+}");
+        }
+
+        [Test]
+        public void OnValidateMessage_NamesTheHelperItReachesThrough()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new OnValidateReachesOtherObjectsAnalyzer(), @"
+using UnityEngine;
+
+class Label : MonoBehaviour
+{
+    public string text;
+}
+
+class VersionSetter : MonoBehaviour
+{
+    [SerializeField] Label versionText;
+    [SerializeField] Hud hud;
+
+    void OnValidate()
+    {
+        SetVersionText();
+        hud = GetComponent<Hud>();
+    }
+
+    void SetVersionText()
+    {
+        versionText.text = ""v1"";
+    }
+}
+
+class Hud : MonoBehaviour { }"),
+                Is.EqualTo(new[]
+                {
+                    "OnValidate sets 'hud' from 'GetComponent'; assign references in the Inspector or look them up in Awake",
+                    "OnValidate changes 'versionText.text' through 'SetVersionText'; change other objects from an editor command or at runtime"
+                }));
+        }
+
         [Test]
         public void NewLambdaUnregistered_IsReported()
         {

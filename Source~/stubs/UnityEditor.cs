@@ -42,4 +42,20 @@ namespace UnityEditor
 
         public static CallbackFunction delayCall;
     }
+
+    public static class EditorUtility
+    {
+        public static void SetDirty(UnityEngine.Object target) { }
+    }
+
+    public static class AssetDatabase
+    {
+        public static T LoadAssetAtPath<T>(string path) where T : UnityEngine.Object => null;
+        public static void SaveAssets() { }
+    }
+
+    public static class Undo
+    {
+        public static void RecordObject(UnityEngine.Object target, string name) { }
+    }
 }

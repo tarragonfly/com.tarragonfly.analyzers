@@ -10,7 +10,7 @@ looks like this:
 Assets/Game/Player.cs(42,13): warning TF4008: Unity objects should not use null propagation.
 ```
 
-The 233 rules fall into two groups:
+The 236 rules fall into two groups:
 
 - **General C# checks that understand Unity.** Likely bugs, dead code, swallowed exceptions,
   hard-to-read methods, allocation-heavy LINQ and weak tests. Where a general-purpose analyzer
@@ -27,7 +27,7 @@ The 233 rules fall into two groups:
 A project that does not use UniTask, Odin Inspector or Init(args) can still use the package. Those
 rules look for the frameworks' types by name and have nothing to report when the types are absent.
 
-This is an early release (0.1.1). The rules are tested, but they are still being tuned against real
+This is an early release (0.1.2). The rules are tested, but they are still being tuned against real
 projects, so expect some of them to get narrower or wider between versions.
 
 ## Requirements
@@ -46,13 +46,13 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.2
    ```
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.2"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -375,7 +375,7 @@ TF4001 to TF4046 are the rules of
 [Microsoft.Unity.Analyzers](https://github.com/microsoft/Microsoft.Unity.Analyzers) 1.28.0 with new
 IDs: UNT0008 is TF4008, and so on. They behave the same, with one change: TF4039 counts a
 `[RequireComponent]` inherited from a base class, which UNT0039 missed. Microsoft's code fixes and
-suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4102 are new rules
+suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4105 are new rules
 for Unity API mistakes.
 
 | Rule | Title | Checks | Replaces |
@@ -429,9 +429,25 @@ for Unity API mistakes.
 | TF4100 | New lambda unregistered from a callback | all | |
 | TF4101 | Serialized field of a type Unity can't save (quiet on 6000.6 and newer) | all | |
 | TF4102 | Scene search fills in a missing Inspector reference | game | |
+| TF4103 | OnValidate finds or assigns a reference | game | |
+| TF4104 | OnValidate changes another Unity object | game | |
+| TF4105 | OnValidate creates, destroys or saves objects | game | |
 
 TF4101 stays quiet on Unity 6000.6 and newer, which can save dictionaries and checks serialized
 fields itself.
+
+TF4103 to TF4105 keep `OnValidate` to clamping and normalizing the object's own values. Unity runs
+it often, while loading and on a loading thread, and the other objects might not have had `Awake`
+yet, so a `GetComponent` there finds whatever happens to be loaded, and a field set there simply
+hides a missing Inspector assignment until a build. TF4103 reports a Unity object field or property
+set in `OnValidate`, including to null, and `GetComponent`, scene searches and `Resources` or
+`AssetDatabase` loads there. TF4104 reports an assignment to, or a void call on, a member of another
+Unity object, such as `transform.position = ...` or `gameObject.SetActive(false)`. TF4105 reports
+`Instantiate`, `Destroy`, `AddComponent`, `CreateInstance`, `new GameObject`, `SetDirty`, `Undo` and
+asset or scene saves. All three follow the private helpers `OnValidate` calls in the same file and
+count lambdas, since deferred work is still `OnValidate`'s work. Ints, strings and `[Serializable]`
+classes are the object's own values, so `_id = _id.Trim()` or
+`_config.volume = Mathf.Clamp01(_config.volume)` is fine.
 
 ### Async code, disposables and UniTask (TF5000s)
 
