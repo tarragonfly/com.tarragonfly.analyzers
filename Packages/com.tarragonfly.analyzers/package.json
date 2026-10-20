@@ -1,6 +1,6 @@
 {
   "name": "com.tarragonfly.analyzers",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "displayName": "Tarragon.Fly() Analyzers",
   "description": "Roslyn analyzers for Unity games: rules for Unity itself, plus optional rules for Init(args), UniTask and Odin Inspector that only apply when those packages are installed. Rules and settings are listed in README.md.",
   "unity": "6000.0",
