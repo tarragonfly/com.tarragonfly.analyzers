@@ -14,6 +14,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // Arrays, IList<T> and IReadOnlyList<T> (List<T> included) count; strings and plain sequences
     // don't, and neither do the overloads taking a condition. Reported on the method name.
+    // Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FirstInsteadOfIndexAnalyzer : ScopedAnalyzer
     {
@@ -22,7 +23,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "First, Last or ElementAt on an indexable list",
             "Use the indexer instead of {0}(); this collection can reach the item directly",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

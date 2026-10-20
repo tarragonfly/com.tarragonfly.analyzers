@@ -14,6 +14,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // IndexOf, LastIndexOf, IndexOfAny and LastIndexOfAny count, straight after Substring, also when
     // Substring is called with ?., as in "name?.Substring(1).IndexOf('x')". Reported on the whole call.
+    // Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SubstringThenIndexOfAnalyzer : ScopedAnalyzer
     {
@@ -22,7 +23,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "Substring followed by IndexOf",
             "Pass a start index to {0} instead; Substring copies the text first",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

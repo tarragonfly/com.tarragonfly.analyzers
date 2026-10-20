@@ -14,6 +14,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // Classes derived from List count too, called directly or through ?.. FirstOrDefault without a
     // condition, and other collection types, are fine. Reported on the FirstOrDefault name.
+    // Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FirstOrDefaultInsteadOfFindAnalyzer : ScopedAnalyzer
     {
@@ -22,7 +23,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "FirstOrDefault where Find works",
             "Use Find instead of FirstOrDefault; it loops over the {0} without allocating a LINQ enumerator",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

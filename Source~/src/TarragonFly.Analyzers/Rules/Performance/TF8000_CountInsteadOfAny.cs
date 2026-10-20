@@ -13,7 +13,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // Checked: > 0, != 0 and >= 1 (meaning Any), == 0, <= 0 and < 1 (meaning !Any), either way round,
     // with or without a condition, also through ?. as in "enemies?.Count() > 0". The Count property
-    // and other comparisons are fine. Reported on the Count name.
+    // and other comparisons are fine. Reported on the Count name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class CountInsteadOfAnyAnalyzer : ScopedAnalyzer
     {
@@ -22,7 +22,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "Count() used to test for any items",
             "Use {0} instead; Count() goes through every item while Any() stops at the first",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

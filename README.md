@@ -240,25 +240,25 @@ stay quiet.
 | TF7005 | Static field read before it is initialized | all | |
 | TF7100 | Static value not reset when Play Mode starts | runtime | |
 | TF7101 | Static event not cleared when Play Mode starts | runtime | |
-| TF8000 | Count() used to test for any items | all | |
+| TF8000 | Count() used to test for any items | game | |
 | TF8001 | Empty method | all | |
 | TF8002 | String built with + in a loop | game | |
 | TF8003 | Property copies a collection on every read | game | |
-| TF8004 | LINQ chain with an unneeded step | all | |
-| TF8005 | ToCharArray only to loop over or index a string | all | |
-| TF8006 | Array built by hand for a params parameter | all | |
+| TF8004 | LINQ chain with an unneeded step | game | |
+| TF8005 | ToCharArray only to loop over or index a string | game | |
+| TF8006 | Array built by hand for a params parameter | game | |
 | TF8007 | Equals(T) without IEquatable<T> | all | |
-| TF8008 | Substring followed by IndexOf | all | |
+| TF8008 | Substring followed by IndexOf | game | |
 | TF8009 | DateTime.Now used to measure time | all | |
-| TF8010 | FirstOrDefault where Find works | all | |
-| TF8011 | All where TrueForAll works | all | |
-| TF8012 | Any where Exists works | all | |
-| TF8013 | OrderBy before Where | all | |
-| TF8014 | First, Last or ElementAt on an indexable list | all | |
+| TF8010 | FirstOrDefault where Find works | game | |
+| TF8011 | All where TrueForAll works | game | |
+| TF8012 | Any where Exists works | game | |
+| TF8013 | OrderBy before Where | game | |
+| TF8014 | First, Last or ElementAt on an indexable list | game | |
 | TF8015 | LINQ Min or Max on a SortedSet | all | |
-| TF8016 | String overload of StartsWith or EndsWith for one character | all | |
+| TF8016 | String overload of StartsWith or EndsWith for one character | game | |
 | TF8017 | LINQ First or Last on a LinkedList | all | |
-| TF8018 | Any used for an equality check | all | |
+| TF8018 | Any used for an equality check | game | |
 | TF8100 | Constant array built on every call | game | CA1861 |
 | TF9000 | Ignored test without an end date | tests | |
 | TF9001 | Test fixture with no tests | tests | |

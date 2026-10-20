@@ -22,7 +22,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // wouldn't compile there, as when they'd land on an optional parameter left out before the params
     // one: Label("x", types: new[] { a, b }) for Label(string name, string group = "", params Type[]
     // types). Items that pick another overload still count: name.Split(new[] { ' ' }) is reported,
-    // since name.Split(' ') does the same. Reported on the argument.
+    // since name.Split(' ') does the same. Reported on the argument. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ArrayForParamsAnalyzer : ScopedAnalyzer
     {
@@ -31,7 +31,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "Array built by hand for a params parameter",
             "Pass the items directly; '{0}' is a params parameter and builds the array itself",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

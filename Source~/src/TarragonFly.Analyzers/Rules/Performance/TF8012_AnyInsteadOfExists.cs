@@ -12,7 +12,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // Classes derived from List count too, called directly or through ?.. Any() without a condition,
     // and other collection types, are fine, and equality checks such as Any(id => id == wanted) are
-    // left to TF8018, which suggests Contains. Reported on the Any name.
+    // left to TF8018, which suggests Contains. Reported on the Any name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AnyInsteadOfExistsAnalyzer : ScopedAnalyzer
     {
@@ -21,7 +21,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "Any where Exists works",
             "Use Exists instead of Any; it checks the {0} without allocating a LINQ enumerator",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

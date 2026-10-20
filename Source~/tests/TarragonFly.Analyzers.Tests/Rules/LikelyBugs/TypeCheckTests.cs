@@ -32,6 +32,31 @@ class Target
 }");
         }
 
+        // A public class may have a subclass in another assembly that implements the interface. (A sealed
+        // class is the compiler's job: casting it to an interface it doesn't implement is CS0030.)
+        [Test]
+        public void CastFromClassAnotherAssemblyCanSubclass_IsFine()
+        {
+            AnalyzerVerifier.Verify(new ImpossibleInterfaceCastAnalyzer(), @"
+public interface IDamageable { }
+public class OpenPickup { }
+public class HiddenPickup { private HiddenPickup() { } }
+public class Container { internal class NestedPickup { } }
+public class Chest { }
+public class OpenChest : Chest { }
+
+class Target
+{
+    void Check(OpenPickup open, HiddenPickup hidden, Container.NestedPickup nested, Chest chest)
+    {
+        IDamageable r1 = (IDamageable)open;
+        IDamageable r2 = ({|TF2009:IDamageable|})hidden;
+        IDamageable r3 = ({|TF2009:IDamageable|})nested;
+        IDamageable r4 = (IDamageable)chest;
+    }
+}");
+        }
+
         [Test]
         public void MemberSetThroughReadonlyGenericField_IsReported()
         {

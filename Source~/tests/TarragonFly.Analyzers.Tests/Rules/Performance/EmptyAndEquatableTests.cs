@@ -50,7 +50,8 @@ class Empty : Base, IRunner
 
 class Player : MonoBehaviour
 {
-    void {|TF8001:Update|}() { }
+    void Update() { }
+    void {|TF8001:Respawn|}() { }
 }";
 
         [Test]
@@ -59,15 +60,11 @@ class Player : MonoBehaviour
             AnalyzerVerifier.Verify(new EmptyMethodAnalyzer(), EmptyMembers);
         }
 
+        // TF4001 reports empty Unity messages, so TF8001 leaves them alone.
         [Test]
-        public void EmptyUnityMessage_NamesTheMessage()
+        public void EmptyUnityMessage_IsLeftToTF4001()
         {
-            Microsoft.CodeAnalysis.Diagnostic diagnostic = null;
-            foreach (Microsoft.CodeAnalysis.Diagnostic reported in AnalyzerVerifier.Run(new EmptyMethodAnalyzer(), "class Player : UnityEngine.MonoBehaviour { void Update() { } }"))
-            {
-                diagnostic = reported;
-            }
-            Assert.That(diagnostic?.GetMessage(), Does.Contain("empty Update message"));
+            Assert.That(AnalyzerVerifier.Run(new EmptyMethodAnalyzer(), "class Player : UnityEngine.MonoBehaviour { void Update() { } void OnEnable() { } }"), Is.Empty);
         }
 
         // Test base classes often have empty hooks that fixtures override and leave empty.

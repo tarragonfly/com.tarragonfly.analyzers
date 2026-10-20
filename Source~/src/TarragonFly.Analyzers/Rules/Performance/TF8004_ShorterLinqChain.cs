@@ -28,7 +28,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // SingleOrDefault, Any, Count and LongCount, called without arguments. ToList before a List
     // method such as ForEach is fine. A Count property inherited from an interface, as on IList<T>,
     // or from a base class counts too. Calls made with ?. count, reported from their ".", except
-    // for the Count() check.
+    // for the Count() check. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ShorterLinqChainAnalyzer : ScopedAnalyzer
     {
@@ -37,7 +37,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "LINQ chain with an unneeded step",
             "{0}",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         private static readonly HashSet<string> TakesCondition = new HashSet<string>
         {

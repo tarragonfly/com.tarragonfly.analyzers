@@ -12,7 +12,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // results; the char overload, path.EndsWith('/'), is an ordinal check of one character.
     //
     // Only a string literal one character long, with no other arguments, counts; named constants aren't
-    // checked. Reported on the method name.
+    // checked. Reported on the method name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SingleCharStringPrefixAnalyzer : ScopedAnalyzer
     {
@@ -21,7 +21,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "String overload of StartsWith or EndsWith for one character",
             "Use the char overload of {0}; it is a fast ordinal check instead of a culture-aware string compare",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

@@ -11,7 +11,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // List.TrueForAll and Array.TrueForAll do the same check without allocating a LINQ enumerator.
     //
     // Classes derived from List count too, called directly or through ?.. Other collection types
-    // are fine. Reported on the All name.
+    // are fine. Reported on the All name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AllInsteadOfTrueForAllAnalyzer : ScopedAnalyzer
     {
@@ -20,7 +20,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "All where TrueForAll works",
             "Use TrueForAll instead of All; it checks the {0} without allocating a LINQ enumerator",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

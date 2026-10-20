@@ -13,16 +13,18 @@ namespace TarragonFly.Analyzers.Rules.Async
     // bypasses every try/catch around the call. In Unity, return UniTask, or UniTaskVoid with
     // .Forget() for fire-and-forget work, including async Unity messages such as Start.
     //
-    // Event handlers are fine: methods with the (object sender, EventArgs e) shape, and methods the
-    // same type subscribes to an event with +=. So are overrides and interface implementations, whose
-    // signature is fixed elsewhere. Lambdas and local functions aren't checked. Reported on "void".
+    // Methods with the (object sender, EventArgs e) shape are fine, as are overrides and interface
+    // implementations, whose signature is fixed elsewhere. A method the type subscribes to an event
+    // with += is still reported, with the advice TF5104 gives for lambdas: make it UniTaskVoid and
+    // subscribe a wrapper, "() => OnPlayAsync().Forget()", or UniTask.Action(OnPlayAsync). Lambdas
+    // and local functions aren't checked. Reported on "void".
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AsyncVoidAnalyzer : ScopedAnalyzer
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF5002",
             "Async void method",
-            "Callers can't await '{0}' or catch its exceptions; return UniTask, or UniTaskVoid and call .Forget()",
+            "{0}",
             "Async",
             CodeKind.All);
 
@@ -35,8 +37,11 @@ namespace TarragonFly.Analyzers.Rules.Async
                 MethodDeclarationSyntax declaration = (MethodDeclarationSyntax)context.Node;
                 if (!declaration.Modifiers.Any(SyntaxKind.AsyncKeyword) || !(declaration.ReturnType is PredefinedTypeSyntax returnType) || !returnType.Keyword.IsKind(SyntaxKind.VoidKeyword)) return;
                 if (!(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is IMethodSymbol method)) return;
-                if (BaseMembers.IsOverrideOrImplementation(method) || HasEventHandlerShape(method) || IsSubscribedToAnEvent(context, method)) return;
-                context.ReportDiagnostic(Diagnostic.Create(Rule, returnType.GetLocation(), method.Name));
+                if (BaseMembers.IsOverrideOrImplementation(method) || HasEventHandlerShape(method)) return;
+                string message = IsSubscribedToAnEvent(context, method)
+                    ? $"'{method.Name}' runs as async void when the event fires, so its exceptions are lost; make it UniTaskVoid and subscribe () => {method.Name}().Forget() or UniTask.Action({method.Name})"
+                    : $"Callers can't await '{method.Name}' or catch its exceptions; return UniTask, or UniTaskVoid and call .Forget()";
+                context.ReportDiagnostic(Diagnostic.Create(Rule, returnType.GetLocation(), message));
             }), SyntaxKind.MethodDeclaration);
         }
 
@@ -47,7 +52,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 && SymbolNames.IsOrDerivesFrom(method.Parameters[1].Type, "System.EventArgs");
         }
 
-        // "someEvent += Handler" anywhere in the declaring type.
+        // "someEvent += Handler" anywhere in the declaring type; picks the advice, not whether to report.
         private static bool IsSubscribedToAnEvent(SyntaxNodeAnalysisContext context, IMethodSymbol method)
         {
             foreach (SyntaxReference part in method.ContainingType.DeclaringSyntaxReferences)

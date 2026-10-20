@@ -13,7 +13,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // array first, which is garbage in a dialogue printer that runs each frame.
     //
     // Only the overload without arguments counts, as the foreach collection or an indexed value.
-    // Keeping the array or passing it on is fine. Reported on the ToCharArray name.
+    // Keeping the array or passing it on is fine. Reported on the ToCharArray name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ToCharArrayNotNeededAnalyzer : ScopedAnalyzer
     {
@@ -22,7 +22,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "ToCharArray only to loop over or index a string",
             "Use the string directly; ToCharArray() copies every character into a new array",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

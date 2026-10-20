@@ -15,7 +15,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // Checked: "x == value", "value == x" and "x.Equals(value)", where value doesn't use x, on a type
     // with a public Contains method, such as List<T>, HashSet<T> and ICollection<T>. Arrays and plain
-    // sequences aren't checked. Reported on the Any name.
+    // sequences aren't checked. Reported on the Any name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AnyInsteadOfContainsAnalyzer : ScopedAnalyzer
     {
@@ -24,7 +24,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "Any used for an equality check",
             "Use Contains instead of Any; it checks for the value without a lambda or a LINQ enumerator",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

@@ -15,7 +15,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // OrderBy and OrderByDescending count when Where follows directly, also through parentheses, "!"
     // or ?.; a ThenBy, Select or cast in between, query syntax, and the Where overload whose
     // condition takes the index, which depends on the sorted order, aren't checked. Reported on the
-    // Where name.
+    // Where name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class OrderByBeforeWhereAnalyzer : ScopedAnalyzer
     {
@@ -24,7 +24,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
             "OrderBy before Where",
             "Call Where before {0} so the sort only handles the items that are kept",
             "Performance",
-            CodeKind.All);
+            CodeKind.Game);
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

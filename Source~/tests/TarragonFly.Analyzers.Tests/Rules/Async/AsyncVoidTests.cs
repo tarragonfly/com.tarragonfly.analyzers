@@ -43,7 +43,6 @@ class Spawner : Base, IHandler
     event Action<int> Counted;
 
     async void OnSpawned(object sender, EventArgs e) { await Task.Delay(1); }
-    async void OnCounted(int count) { await Task.Delay(1); }
     public async void Handle() { await Task.Delay(1); }
     public override async void Run() { await Task.Delay(1); }
     public async UniTaskVoid SpawnForget() { await UniTask.Yield(); }
@@ -51,10 +50,36 @@ class Spawner : Base, IHandler
 
     void Subscribe()
     {
-        Counted += OnCounted;
+        Counted += (count) => { };
         Action lambda = async () => await Task.Delay(1);
     }
 }");
+        }
+
+        // The method-group form of the UI Toolkit handler TF5104 catches as a lambda.
+        [Test]
+        public void AsyncVoidSubscribedToAnEvent_IsReportedWithTheWrapperAdvice()
+        {
+            Microsoft.CodeAnalysis.Diagnostic diagnostic = null;
+            foreach (Microsoft.CodeAnalysis.Diagnostic reported in AnalyzerVerifier.Run(new AsyncVoidAnalyzer(), @"
+using System;
+using System.Threading.Tasks;
+
+class PauseMenu
+{
+    event Action Clicked;
+
+    async void OnPlayAsync() { await Task.Delay(1); }
+
+    void Bind()
+    {
+        Clicked += OnPlayAsync;
+    }
+}"))
+            {
+                diagnostic = reported;
+            }
+            Assert.That(diagnostic?.GetMessage(), Does.Contain("() => OnPlayAsync().Forget()").And.Contain("UniTask.Action(OnPlayAsync)"));
         }
     }
 }
