@@ -32,7 +32,7 @@ public class GetLocalPositionAndRotationAnalyzer() : BasePositionAndRotationAnal
 		title: Strings.GetLocalPositionAndRotationDiagnosticTitle,
 		messageFormat: Strings.GetLocalPositionAndRotationDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0037",

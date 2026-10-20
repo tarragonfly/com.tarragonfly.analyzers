@@ -28,7 +28,7 @@ public class InitializeOnLoadStaticCtorAnalyzer : ScopedAnalyzer
 		title: Strings.InitializeOnLoadStaticCtorDiagnosticTitle,
 		messageFormat: Strings.InitializeOnLoadStaticCtorDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0009",

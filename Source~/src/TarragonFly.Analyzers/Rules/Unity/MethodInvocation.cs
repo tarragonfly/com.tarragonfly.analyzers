@@ -31,7 +31,7 @@ public class MethodInvocationAnalyzer : ScopedAnalyzer
 		title: Strings.MethodInvocationDiagnosticTitle,
 		messageFormat: Strings.MethodInvocationDiagnosticMessageFormat,
 		area: DiagnosticCategory.TypeSafety,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0016",

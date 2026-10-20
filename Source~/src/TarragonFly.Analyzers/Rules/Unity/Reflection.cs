@@ -27,7 +27,7 @@ public class ReflectionAnalyzer : ScopedAnalyzer
 		title: Strings.ReflectionDiagnosticTitle,
 		messageFormat: Strings.ReflectionDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0018",

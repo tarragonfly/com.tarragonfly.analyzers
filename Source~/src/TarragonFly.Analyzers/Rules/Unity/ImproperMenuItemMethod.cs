@@ -28,7 +28,7 @@ public class ImproperMenuItemMethodAnalyzer : ScopedAnalyzer
 		title: Strings.ImproperMenuItemMethodDiagnosticTitle,
 		messageFormat: Strings.ImproperMenuItemMethodDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0020",

@@ -29,7 +29,7 @@ public class PhysicsAllocMethodUsageAnalyzer : MethodUsageAnalyzer<PhysicsAllocM
 		title: Strings.PhysicsAllocMethodUsageDiagnosticTitle,
 		messageFormat: Strings.PhysicsAllocMethodUsageDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0028",

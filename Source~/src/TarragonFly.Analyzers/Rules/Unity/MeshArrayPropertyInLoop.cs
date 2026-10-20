@@ -30,7 +30,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 		title: Strings.MeshArrayPropertyInLoopDiagnosticTitle,
 		messageFormat: Strings.MeshArrayPropertyInLoopDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0042",

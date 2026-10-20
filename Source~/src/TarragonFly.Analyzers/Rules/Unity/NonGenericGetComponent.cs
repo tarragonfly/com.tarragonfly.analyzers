@@ -29,7 +29,7 @@ public class NonGenericGetComponentAnalyzer : BaseGetComponentAnalyzer
 		title: Strings.NonGenericGetComponentDiagnosticTitle,
 		messageFormat: Strings.NonGenericGetComponentDiagnosticMessageFormat,
 		area: DiagnosticCategory.TypeSafety,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0003",

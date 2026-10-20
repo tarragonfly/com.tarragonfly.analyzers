@@ -28,7 +28,7 @@ public class TextMeshProSetTextAnalyzer : ScopedAnalyzer
 		title: Strings.TextMeshProSetTextDiagnosticTitle,
 		messageFormat: Strings.TextMeshProSetTextDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0044",

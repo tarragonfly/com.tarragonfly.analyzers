@@ -29,7 +29,7 @@ public class ImproperSerializeFieldAnalyzer : ScopedAnalyzer
 		title: Strings.ImproperSerializeFieldDiagnosticTitle,
 		messageFormat: Strings.ImproperSerializeFieldDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0013",

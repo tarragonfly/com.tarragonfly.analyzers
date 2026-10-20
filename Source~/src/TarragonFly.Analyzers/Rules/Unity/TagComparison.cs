@@ -29,7 +29,7 @@ public class TagComparisonAnalyzer : ScopedAnalyzer
 		title: Strings.TagComparisonDiagnosticTitle,
 		messageFormat: Strings.TagComparisonDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0002",

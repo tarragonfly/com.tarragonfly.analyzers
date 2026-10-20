@@ -27,7 +27,7 @@ The 236 rules fall into two groups:
 A project that does not use UniTask, Odin Inspector or Init(args) can still use the package. Those
 rules look for the frameworks' types by name and have nothing to report when the types are absent.
 
-This is an early release (0.1.3). The rules are tested, but they are still being tuned against real
+This is an early release (0.1.4). The rules are tested, but they are still being tuned against real
 projects, so expect some of them to get narrower or wider between versions.
 
 ## Requirements
@@ -46,13 +46,13 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.3
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.4
    ```
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.3"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.4"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -76,9 +76,9 @@ compile with the analyzer but never produce a finding. Third-party code that liv
 such as asset store imports and samples, is reported like your own until you narrow `analyze_paths`
 (see [Settings](#settings)) or switch rules off for those assemblies (next section).
 
-Most rules report as warnings. The Unity rules forked from Microsoft keep their original severities,
-so some of them are infos, and two of them, TF4005 and TF4021, are off until you turn them on.
-TF6502 is an info as well.
+Nearly every rule reports as a warning. Five Unity rules are style or micro-optimisation nudges and
+report as infos instead: TF4019, TF4024, TF4034, TF4035 and TF4039. TF6502 is an info too. Two Unity
+rules, TF4005 and TF4021, are off until you turn them on.
 
 ## Choosing rules and severities
 

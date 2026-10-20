@@ -28,7 +28,7 @@ public class AnimatorStringToHashAnalyzer : ScopedAnalyzer
 		title: Strings.AnimatorStringToHashDiagnosticTitle,
 		messageFormat: Strings.AnimatorStringToHashDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0041",

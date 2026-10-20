@@ -30,7 +30,7 @@ public class DestroyTransformAnalyzer : ScopedAnalyzer
 		title: Strings.DestroyTransformDiagnosticTitle,
 		messageFormat: Strings.DestroyTransformDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0030",

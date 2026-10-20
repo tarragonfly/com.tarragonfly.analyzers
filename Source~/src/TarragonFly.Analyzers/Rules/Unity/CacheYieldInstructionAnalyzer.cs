@@ -28,7 +28,7 @@ public class CacheYieldInstructionAnalyzerAnalyzer : ScopedAnalyzer
 		title: Strings.CacheYieldInstructionAnalyzerDiagnosticTitle,
 		messageFormat: Strings.CacheYieldInstructionAnalyzerDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0038",

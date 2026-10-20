@@ -32,7 +32,7 @@ public class NonAllocatingArrayAccessAnalyzer : ScopedAnalyzer
 		title: Strings.NonAllocatingArrayAccessDiagnosticTitle,
 		messageFormat: Strings.NonAllocatingArrayAccessDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0045",

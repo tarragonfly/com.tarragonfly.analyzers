@@ -25,7 +25,7 @@ public class GetComponentIncorrectTypeAnalyzer : BaseGetComponentAnalyzer
 		title: Strings.GetComponentIncorrectTypeDiagnosticTitle,
 		messageFormat: Strings.GetComponentIncorrectTypeDiagnosticMessageFormat,
 		area: DiagnosticCategory.TypeSafety,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0014",

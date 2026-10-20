@@ -28,7 +28,7 @@ public class PropertyDrawerOnGUIAnalyzer : ScopedAnalyzer
 		title: Strings.PropertyDrawerOnGUIDiagnosticTitle,
 		messageFormat: Strings.PropertyDrawerOnGUIDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0027",

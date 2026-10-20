@@ -32,7 +32,7 @@ public class InputGetKeyAnalyzer : ScopedAnalyzer
 		title: Strings.InputGetKeyDiagnosticTitle,
 		messageFormat: Strings.InputGetKeyDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0025",

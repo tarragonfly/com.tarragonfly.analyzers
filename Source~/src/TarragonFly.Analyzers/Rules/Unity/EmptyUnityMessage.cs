@@ -28,7 +28,7 @@ public class EmptyUnityMessageAnalyzer : ScopedAnalyzer
 		title: Strings.EmptyUnityMessageDiagnosticTitle,
 		messageFormat: Strings.EmptyUnityMessageDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0001",

@@ -28,7 +28,7 @@ public class SetPixelsMethodUsageAnalyzer : MethodUsageAnalyzer<SetPixelsMethodU
 		title: Strings.SetPixelsMethodUsageDiagnosticTitle,
 		messageFormat: Strings.SetPixelsMethodUsageDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0017",

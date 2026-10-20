@@ -26,7 +26,7 @@ public class GameObjectIsStaticAnalyzer : ScopedAnalyzer
 		title: Strings.GameObjectIsStaticDiagnosticTitle,
 		messageFormat: Strings.GameObjectIsStaticDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0040",

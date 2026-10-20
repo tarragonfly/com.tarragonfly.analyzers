@@ -29,7 +29,7 @@ public class UpdateDeltaTimeAnalyzer : ScopedAnalyzer
 		title: Strings.UpdateWithoutFixedDeltaTimeDiagnosticTitle,
 		messageFormat: Strings.UpdateWithoutFixedDeltaTimeDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0004",

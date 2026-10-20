@@ -34,7 +34,7 @@ public class ConditionalCompilationSymbolTypoAnalyzer : ScopedAnalyzer
 		title: Strings.ConditionalCompilationSymbolTypoDiagnosticTitle,
 		messageFormat: Strings.ConditionalCompilationSymbolTypoDiagnosticMessageFormat,
 		area: DiagnosticCategory.Correctness,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0043",

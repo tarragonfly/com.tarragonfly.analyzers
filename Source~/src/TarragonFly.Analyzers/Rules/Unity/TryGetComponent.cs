@@ -29,7 +29,7 @@ public class TryGetComponentAnalyzer : BaseGetComponentAnalyzer
 		title: Strings.TryGetComponentDiagnosticTitle,
 		messageFormat: Strings.TryGetComponentDiagnosticMessageFormat,
 		area: DiagnosticCategory.Performance,
-		severity: DiagnosticSeverity.Info,
+		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0026",
