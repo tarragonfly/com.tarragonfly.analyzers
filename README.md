@@ -1,21 +1,46 @@
 # tarragon.fly Analyzers
 
-Roslyn analyzers for Unity games built on Init(args), UniTask and Odin Inspector.
+Extra compiler warnings for Unity games, with rules for Unity itself and for UniTask, Odin Inspector
+and Init(args).
 
-This is still early. The package has the groundwork (settings, assembly scoping, framework checks
-and tests), the settings check TF0000, the 46 Unity rules forked from Microsoft.Unity.Analyzers
-1.28.0, 164 general rules for readability, likely bugs, dead code, exceptions, async code,
-performance and tests, three rules written from the NetAnalyzers rules CA1068, CA1806 and CA1861,
-and 20 rules for the mistakes Unity, UniTask, Odin Inspector and Init(args) projects tend to make.
+The package is a Roslyn analyzer: a set of checks that Unity's C# compiler runs over your scripts
+every time it compiles them. Findings appear where compiler warnings already appear, in the Unity
+Console, in Rider and Visual Studio, and in Project Auditor. Nothing runs in Play Mode and nothing
+ends up in a build. Each finding carries a rule ID that starts with `TF`, so a line in the Console
+looks like this:
 
-It works on Unity 6.0 and later, and we've tested it on 6.3, 6.6 and 6.7. The DLL in `Analyzers/`
-carries the `RoslynAnalyzer` label, so Unity runs it on every assembly, Rider picks it up from its
-generated project files and Project Auditor lists its warnings. Severities live in each assembly's
-`.ruleset`, same as any other analyzer.
+```
+Assets/Game/Player.cs(42,13): warning TF4008: Unity objects should not use null propagation.
+```
+
+The 234 rules fall into two groups:
+
+- **General C# checks that understand Unity.** Likely bugs, dead code, swallowed exceptions,
+  hard-to-read methods, allocation-heavy LINQ and weak tests. Where a general-purpose analyzer
+  would flag normal Unity code, these rules know better: a Unity message such as `Awake` counts as
+  called, a `[SerializeField]` field counts as assigned, a coroutine counts as a method that runs,
+  and Odin attributes count as uses of the members they name.
+- **Checks for mistakes specific to Unity and its popular add-ons.** The 46 rules of Microsoft's
+  Unity analyzers (`?.` on a destroyed object, `GetComponent` with a string, an `Update` with no
+  body) plus rules for UniTask, Odin Inspector and Init(args): a `UniTask` awaited twice, an Odin
+  `[ShowIf("isOpen")]` naming a member that does not exist, a `[Service]` that will be created
+  without its Inspector values, a static field that keeps its value when Play Mode starts without
+  a domain reload.
+
+A project that does not use UniTask, Odin Inspector or Init(args) can still use the package. Those
+rules look for the frameworks' types by name and have nothing to report when the types are absent.
+
+This is an early release (0.1.1). The rules are tested, but they are still being tuned against real
+projects, so expect some of them to get narrower or wider between versions.
+
+## Requirements
+
+- Unity 6000.0 or newer. Tested on 6000.3, 6000.6 and 6000.7.
+- git on your PATH, since Unity fetches the package with the `git` command.
+- Nothing else to use it. The .NET 8 SDK is only needed to change the rules themselves (see
+  [Working on the rules](#working-on-the-rules)).
 
 ## Installing
-
-Unity fetches the package with the `git` command, so git needs to be on your PATH.
 
 From the Package Manager:
 
@@ -27,7 +52,7 @@ From the Package Manager:
    https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1
    ```
 
-Or add it to `Packages/manifest.json` yourself:
+Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
 "com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1"
@@ -37,20 +62,149 @@ Keep the tag. Without it, Unity locks the package to whatever `main` was when yo
 upgrading is guesswork. With it, you upgrade by changing the tag. Versions are listed under Tags on
 GitHub.
 
-If you want to work on the rules inside a game project, clone it into
+If you want to change the rules inside a game project, clone the repository into
 `Packages/com.tarragonfly.analyzers` instead, for example as a git submodule. Unity then treats it
 as an embedded package and you can edit it in place. An embedded copy takes priority over a git URL
 entry with the same name, so keep only one of them.
 
+## What happens after installing
+
+Unity recompiles every script assembly, and the findings show up in the Console alongside the
+compiler's own warnings. The analyzer DLL in `Analyzers/` carries Unity's `RoslynAnalyzer` label,
+which is what makes Unity run it on every assembly in the project; Rider picks it up from the
+project files Unity generates, and Project Auditor lists its findings in its code view.
+
+Only code under `Assets/` is reported. Packages, including everything in `Library/PackageCache/`,
+compile with the analyzer but never produce a finding. Third-party code that lives inside `Assets/`,
+such as asset store imports and samples, is reported like your own until you narrow `analyze_paths`
+(see [Settings](#settings)) or switch rules off for those assemblies (next section).
+
+Most rules report as warnings. The Unity rules forked from Microsoft keep their original severities,
+so some of them are infos, and two of them, TF4005 and TF4021, are off until you turn them on.
+TF6502 is an info as well.
+
+## Choosing rules and severities
+
+Severities are set with Unity's rule set files, the same way as for any other analyzer. A rule set
+is an XML file that lists rule IDs with an action: `None` switches a rule off, `Info`, `Warning` and
+`Error` set its severity, and `Error` fails the compile.
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<RuleSet Name="Game scripts" ToolsVersion="10.0">
+  <Rules AnalyzerId="TarragonFly.Analyzers" RuleNamespace="TarragonFly.Analyzers">
+    <Rule Id="TF1004" Action="None" />    <!-- long methods are fine here -->
+    <Rule Id="TF4008" Action="Error" />   <!-- ?. on a Unity object fails the compile -->
+    <Rule Id="TF4005" Action="Warning" /> <!-- on, it is off by default -->
+  </Rules>
+</RuleSet>
+```
+
+Where the file goes decides which assemblies it covers:
+
+| File | Covers |
+|---|---|
+| `Assets/Default.ruleset` | Every assembly without a rule set of its own, including `Assembly-CSharp` and the assemblies of third-party `.asmdef` files |
+| `Assets/Assembly-CSharp.ruleset`, `Assets/Assembly-CSharp-Editor.ruleset` and so on | That predefined assembly |
+| A `.ruleset` in the same folder as an `.asmdef` | That assembly |
+
+A common setup is a `Default.ruleset` that switches everything off, so plugins and samples stay
+quiet, and a shared rule set for your own code that each of your `.asmdef` folders includes:
+
+```xml
+<Include Path="..\..\GameRules.ruleset" Action="Default" />
+```
+
+Unity watches the rule set it reads, not the files that one includes. After editing an included
+file, change a script in the assembly or reimport it so Unity compiles again.
+
+To silence one finding instead of a rule, use the compiler's usual pragma around the code:
+
+```csharp
+#pragma warning disable TF1004 // one long switch is the clearest way to write this
+...
+#pragma warning restore TF1004
+```
+
+## Which code a rule checks
+
+Each rule declares which kind of code it looks at, shown in the Checks column of the tables below:
+
+| Checks | Meaning |
+|---|---|
+| all | Every assembly |
+| game | Runtime and editor assemblies, not tests |
+| runtime | Runtime assemblies only |
+| tests | Test assemblies only |
+
+An assembly's kind is decided by name, because Unity gives editor and test assemblies the same
+references and defines. An assembly whose name matches `test_assemblies` holds tests. Otherwise it
+holds editor code if its name matches `editor_assemblies` or it references `UnityEngine.TestRunner`,
+which Unity adds to every editor-only assembly once the Test Framework package is installed.
+Everything else is runtime code. Both name patterns are settings.
+
+## Settings
+
+Settings are optional. They live in one plain text file named
+`Settings.TarragonFly.Analyzers.additionalfile`, anywhere under `Assets/`. Unity hands files named
+`Name.[AnalyzerName].additionalfile` to the matching analyzer in every assembly, and Rider's project
+files list it too.
+
+```
+# Report our own folder only; the rest of Assets/ is plugins and samples.
+analyze_paths = Assets/Game
+
+# TF3100: log messages start with the class name in brackets, "[Player] ...".
+log_prefix = [{Type}]
+
+# Longer switch sections are fine in our save and load code.
+max_switch_section_statements = 12
+```
+
+Each line is `key = value`. Lines starting with `#` are comments, and lists are comma separated.
+Every key has a default, so a missing file or a missing key changes nothing. A line the analyzer
+cannot use, such as a misspelled key or a limit that is not a whole number, is reported as TF0000
+and the setting keeps its default.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `analyze_paths` | `Assets/` | Folders (or single `.cs` files) whose code is reported, relative to the project |
+| `test_assemblies` | `*.Tests, *.Test` | Assembly names that hold tests; `*` matches anything, case is ignored |
+| `editor_assemblies` | `*.Editor, *.Editor.*, *-Editor, *-Editor-*` | Assembly names that hold editor code |
+| `max_parameters` | 7 | TF1001. Limits are whole numbers of 1 or more |
+| `max_method_lines` | 80 | TF1004 |
+| `max_file_lines` | 1000 | TF1000 |
+| `max_nesting` | 3 | TF1003 |
+| `max_condition_operators` | 3 | TF1007 |
+| `max_switch_section_statements` | 8 | TF1010 |
+| `max_cognitive_complexity` | 15 | TF1019 |
+| `log_prefix` | `[{Type}]` | Tag TF3100 expects at the start of log messages. Any name without spaces can stand in for `{Type}`, and the warning suggests the calling class. Without `{Type}`, messages have to start with it exactly |
+| `command_base_types` | none | Full names of base classes whose code reports failures instead of throwing (TF3101), such as a scenario command base |
+| `allowed_service_set_types` | none | Full names of types allowed to call Init(args)' `Service.Set` (TF6506) |
+
+Some Unity 6000.0 patches have a bug that drops additional files. On those, add a `csc.rsp` next
+to an `.asmdef` with the line `-additionalfile:Assets/Settings.TarragonFly.Analyzers.additionalfile`.
+
 ## Rules
 
-The Checks column says which code a rule looks at: all of it, game code (runtime and editor
-assemblies), runtime code only or tests. Only code under `Assets/` gets reported by default, so third-party packages
-stay quiet.
+Every rule's source file under `Source~/src/TarragonFly.Analyzers/Rules/` opens with a comment that
+gives an example of what it reports, why that matters in a Unity game and which cases it leaves
+alone. The tables below are the short version. The Replaces column names the Microsoft rule a TF
+rule stands in for, where there is one.
+
+### Settings
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
 | TF0000 | Fix the analyzer settings file | all | |
+
+### Hard-to-read code (TF1000s)
+
+Methods, files and conditions that have grown past the limits in the settings, plus layouts that
+hide what the code does, such as a statement indented as if it belonged to an unbraced `if`.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF1000 | File is too long | all | |
 | TF1001 | Too many parameters | all | |
 | TF1002 | Commented-out code | all | |
@@ -76,6 +230,14 @@ stay quiet.
 | TF1022 | Unbraced body not indented | all | |
 | TF1023 | Overloads are not together | all | |
 | TF1024 | Methods with identical bodies | all | |
+
+### Dead code (TF1500s)
+
+Members, locals and values nothing reads. Unity messages, serialized fields and members named by
+Odin attributes are not dead, and these rules know that.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF1500 | Unused private member | all | |
 | TF1501 | Unused local variable | all | |
 | TF1502 | Value stored but never read | all | |
@@ -83,6 +245,15 @@ stay quiet.
 | TF1504 | Catch that only rethrows | game | |
 | TF1505 | StringBuilder filled but never read | game | |
 | TF1506 | Private field never read | all | |
+
+### Likely bugs (TF2000s)
+
+Code that compiles but almost never does what was meant: a loop counter moving the wrong way,
+`&` where `&&` was meant, an integer division stored in a float, a regular expression that does not
+parse.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF2000 | Empty statement | all | |
 | TF2001 | Equals without GetHashCode | game | |
 | TF2002 | Parameter or catch variable overwritten before use | all | |
@@ -156,6 +327,14 @@ stay quiet.
 | TF2070 | Return type named 'partial' | all | |
 | TF2071 | 'scoped' in lambda parameters | game | |
 | TF2100 | Result of a TryParse call is ignored | all | CA1806 |
+
+### Inheritance and events (TF2500s)
+
+Members that quietly hide, shadow or fail to override what a base class or an event subscriber
+expects.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF2500 | Default parameter value differs from the base declaration | all | |
 | TF2501 | Overridable method called in a constructor | game | |
 | TF2502 | Virtual field-like event | all | |
@@ -167,6 +346,15 @@ stay quiet.
 | TF2508 | Hiding member is less visible than the base member | all | |
 | TF2509 | Method accidentally hides a base method | all | |
 | TF2510 | Field differs from a base class field only by case | all | |
+
+### Silent failures, exceptions, logging and culture (TF3000s)
+
+Places where a problem disappears instead of being seen: a swallowed exception, a `Console.WriteLine`
+that no Unity log collects, a log line with no tag to search for, a string comparison that changes
+with the player's language.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF3000 | Console output in a Unity game | game | |
 | TF3001 | Empty block | all | |
 | TF3002 | Null returned instead of an empty collection | game | |
@@ -180,6 +368,22 @@ stay quiet.
 | TF3101 | Throw in a scenario command | game | |
 | TF3500 | Text operation that depends on the player's culture | game | |
 | TF3501 | Date or time parsed without a culture | all | |
+
+TF3100 takes its tag shape from the `log_prefix` setting. TF3101 checks nothing until
+`command_base_types` names a base class; it is for projects where command objects report failures
+through state and logs rather than exceptions.
+
+### Unity (TF4000s)
+
+TF4001 to TF4046 are the rules of
+[Microsoft.Unity.Analyzers](https://github.com/microsoft/Microsoft.Unity.Analyzers) 1.28.0 with new
+IDs: UNT0008 is TF4008, and so on. They behave the same, with one change: TF4039 counts a
+`[RequireComponent]` inherited from a base class, which UNT0039 missed. Microsoft's code fixes and
+suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4102 are new rules
+for Unity API mistakes.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF4001 | Empty Unity message | all | UNT0001 |
 | TF4002 | Inefficient tag comparison | all | UNT0002 |
 | TF4003 | Usage of non generic GetComponent | all | UNT0003 |
@@ -229,6 +433,17 @@ stay quiet.
 | TF4100 | New lambda unregistered from a callback | all | |
 | TF4101 | Serialized field of a type Unity can't save (quiet on 6000.6 and newer) | all | |
 | TF4102 | Scene search fills in a missing Inspector reference | game | |
+
+TF4101 stays quiet on Unity 6000.6 and newer, which can save dictionaries and checks serialized
+fields itself.
+
+### Async code, disposables and UniTask (TF5000s)
+
+Tasks that are awaited twice or never, `async void` methods whose exceptions vanish, cancellation
+tokens that stop halfway, and the UniTask naming and parameter conventions.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF5000 | Disposable object never disposed | all | |
 | TF5001 | Field disposed outside Dispose | game | |
 | TF5002 | Async void method | all | |
@@ -240,6 +455,15 @@ stay quiet.
 | TF5102 | Async suffix missing or misplaced | all | |
 | TF5103 | MonoBehaviour async method awaits without a cancellation token | all | |
 | TF5104 | Async lambda used as a void delegate | all | |
+
+### Odin Inspector and Init(args) (TF6000s)
+
+Odin attributes take member names as strings, which the compiler cannot check; TF6000 and TF6001
+do. The TF6500 rules cover the ways an Init(args) `[Service]` ends up wired differently from what
+the Inspector shows.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF6000 | Odin attribute names a member that doesn't exist | all | |
 | TF6001 | Odin attribute names a member of the wrong type | all | |
 | TF6500 | Service creates a new instance without its Inspector values | all | |
@@ -249,6 +473,17 @@ stay quiet.
 | TF6504 | Any<T>.Value used in a component | all | |
 | TF6505 | Work started from Init(...) | all | |
 | TF6506 | Service registered by hand | all | |
+
+TF6506 reports every `Service.Set` call outside the types listed in `allowed_service_set_types`.
+
+### Static state (TF7000s)
+
+Static fields are the usual reason a game behaves differently on the second Play Mode entry when
+domain reload is off. TF7100 and TF7101 check that runtime statics are reset or cleared when Play
+Mode starts.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF7000 | Non-private static field that isn't constant | game | |
 | TF7001 | Mutable public static collection | game | |
 | TF7002 | Instance member writes a static field | game | |
@@ -257,6 +492,15 @@ stay quiet.
 | TF7005 | Static field read before it is initialized | all | |
 | TF7100 | Static value not reset when Play Mode starts | runtime | |
 | TF7101 | Static event not cleared when Play Mode starts | runtime | |
+
+### Performance (TF8000s)
+
+Allocations and extra work that show up as garbage collector spikes when the code runs every frame:
+LINQ where a `List<T>` method does the same without an iterator, strings built with `+` in a loop,
+a constant array rebuilt on every call.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF8000 | Count() used to test for any items | game | |
 | TF8001 | Empty method | all | |
 | TF8002 | String built with + in a loop | game | |
@@ -277,6 +521,14 @@ stay quiet.
 | TF8017 | LINQ First or Last on a LinkedList | all | |
 | TF8018 | Any used for an equality check | game | |
 | TF8100 | Constant array built on every call | game | CA1861 |
+
+### Tests (TF9000s)
+
+Checked in test assemblies only: tests that cannot fail, cannot run or were switched off and
+forgotten.
+
+| Rule | Title | Checks | Replaces |
+|---|---|---|---|
 | TF9000 | Ignored test without an end date | tests | |
 | TF9001 | Test fixture with no tests | tests | |
 | TF9002 | Test without an assertion | tests | |
@@ -285,83 +537,45 @@ stay quiet.
 | TF9005 | Expected and actual swapped in an assertion | tests | |
 | TF9006 | Test method the runner can't run | tests | |
 
-The TF1000 to TF9006 rules know about Unity: Unity messages, serialized fields, Odin attributes,
-coroutines and UniTask count where they matter, and each rule's source file says how.
-
-The TF4xxx rules keep the upstream number (UNT0008 is TF4008) and behave the same, with one
-change: TF4039 counts a `[RequireComponent]` inherited from a base class, which UNT0039 missed. Code
-fixes and the upstream suppressors aren't included, since Unity's compiler never runs them.
-
-Two rules need project settings: TF3101 checks nothing until `command_base_types` names a base
-class, and TF6506 reports every `Service.Set` call outside the types in
-`allowed_service_set_types`. TF4101 stays quiet on Unity 6000.6 and newer, which can save dictionaries
-and check serialized fields themselves.
-
-## Settings
-
-Settings go in a file named `Settings.TarragonFly.Analyzers.additionalfile`, anywhere under
-`Assets/`. Unity hands files named `Name.[AnalyzerName].additionalfile` to the matching analyzer in
-every assembly, and Rider's project files list it too. Some 6000.0 patches have a bug with this; on
-those, add a `csc.rsp` next to an asmdef with the line
-`-additionalfile:Assets/Settings.TarragonFly.Analyzers.additionalfile`.
-
-Each line is `key = value`. Lines starting with `#` are comments, and lists are comma separated.
-Every key has a default, so leaving the file out changes nothing. A line the analyzer can't use,
-like a misspelled key, shows up as TF0000.
-
-| Key | Default | Meaning |
-|---|---|---|
-| `analyze_paths` | `Assets/` | Folders (or single `.cs` files) whose code is reported, relative to the project |
-| `test_assemblies` | `*.Tests, *.Test` | Assembly names that hold tests; `*` matches anything, case is ignored |
-| `editor_assemblies` | `*.Editor, *.Editor.*, *-Editor, *-Editor-*` | Assembly names that hold editor code |
-| `max_parameters` | 7 | Limits, each a whole number of 1 or more |
-| `max_method_lines` | 80 | |
-| `max_file_lines` | 1000 | |
-| `max_nesting` | 3 | |
-| `max_condition_operators` | 3 | |
-| `max_switch_section_statements` | 8 | |
-| `max_cognitive_complexity` | 15 | |
-| `log_prefix` | `[{Type}]` | Tag TF3100 expects at the start of log messages. Any name without spaces can stand in for `{Type}`, and the warning suggests the calling class. Without `{Type}`, messages have to start with it exactly |
-| `command_base_types` | none | Full names of base classes whose code reports failures instead of throwing (TF3101), such as a scenario command base |
-| `allowed_service_set_types` | none | Full names of types allowed to call Init(args)' `Service.Set` (TF6506) |
-
-Test code is decided by name. Unity gives editor and test assemblies the same references and
-defines, so there's nothing else to go on. An assembly whose name matches `test_assemblies` is
-tests. Otherwise it's editor code if the name matches `editor_assemblies` or it references
-`UnityEngine.TestRunner`, which Unity adds to every editor-only assembly once the Test Framework
-package is installed. Everything else is runtime code.
-
 ## Working on the rules
 
-You need the .NET 8 SDK. From a Unity project with the package under `Packages/`:
+You need the .NET 8 SDK and, for the forked Unity rule tests, a Unity editor. From a Unity project
+with the package under `Packages/`:
 
 ```powershell
-# Build and run the tests.
+# Build the analyzer and run its tests.
 & Packages/com.tarragonfly.analyzers/Tools~/Check.ps1
 
-# See every analyzer warning in the project without opening Unity.
+# List every analyzer finding in the project without opening Unity.
 & Packages/com.tarragonfly.analyzers/Tools~/Analyze.ps1
 ```
-
-Every rule's source file opens with a comment covering what it reports, why it matters in a Unity
-game, the framework cases it handles and, for a forked Unity rule, how it differs from the original. Tests mark the
-expected warnings inline with `{|TF1000:...|}`.
-
-The Unity rules in `Source~/src/TarragonFly.Analyzers/Rules/Unity/` are forked files and keep
-upstream's code style, so later upstream changes are easier to bring over. Their tests compile
-against a real editor's assemblies: they find one through `UNITY_EDITOR_PATH` (Unity.exe or its
-Editor folder) or Unity Hub's install folders, and fail when there's no editor, so a green run
-always means every test ran.
 
 | Folder | Contents |
 |---|---|
 | `Analyzers/` | The built `TarragonFly.Analyzers.dll` that Unity loads |
-| `Source~/` | The solution: analyzer (`src/`), NUnit tests (`tests/`) and stubs |
-| `Tools~/` | `Analyze.ps1`, `Build.ps1`, `Check.ps1` |
+| `Source~/` | The .NET solution: the analyzer in `src/`, NUnit tests in `tests/`, and stubs of the Unity, UniTask, Odin, Init(args) and NUnit types the tests compile against |
+| `Tools~/` | `Build.ps1`, `Check.ps1` and `Analyze.ps1` |
 
-Unity skips folders ending in `~`, so none of the sources or tools get compiled or imported.
+Unity skips folders whose names end in `~`, so the sources and tools are never compiled or imported
+into the project; only the DLL in `Analyzers/` is.
+
+`Build.ps1` builds in Release and copies the DLL into `Analyzers/` only when its bytes changed,
+because a new DLL makes Unity recompile every assembly in the project. `Check.ps1` runs the build
+and then the tests. `Analyze.ps1` replays Unity's last compile with the editor's own compiler and
+writes findings as SARIF plus a summary under `Logs/analyzers/`; its header comment lists the
+filters (`-Assembly`, `-Rule`, `-Changed`) and exit codes.
+
+Each rule lives in its own file named after its ID, such as `Rules/Performance/TF8002_StringConcatInLoop.cs`,
+and the file's opening comment is its documentation. Tests mark the expected findings inline with
+`{|TF8002:...|}` around the offending code. A test checks that this README's rule tables match the
+descriptors in the DLL, so a new or renamed rule has to be added here before the tests pass.
+
+The forked Unity rules in `Rules/Unity/` keep Microsoft's code style so that later upstream changes
+are easier to bring over. Their tests compile against a real editor's assemblies: they find one
+through `UNITY_EDITOR_PATH` (Unity.exe or its Editor folder) or Unity Hub's install folders, and
+fail when there is none, so a green run always means every test ran.
 
 ## License
 
-MIT, see [LICENSE.md](LICENSE.md). Anything copied from other projects is listed in
+MIT, see [LICENSE.md](LICENSE.md). Code taken from other projects is listed in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
