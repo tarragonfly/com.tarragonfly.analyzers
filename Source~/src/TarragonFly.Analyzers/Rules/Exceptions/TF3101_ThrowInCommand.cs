@@ -25,7 +25,7 @@ namespace TarragonFly.Analyzers.Rules.Exceptions
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF3101",
-            "Throw in a scenario command",
+            "Throw in a class that should log and carry on",
             "'{0}' is a {1}, which reports failures with a prefixed log and its error state instead of throwing",
             "Exceptions",
             CodeKind.Game);

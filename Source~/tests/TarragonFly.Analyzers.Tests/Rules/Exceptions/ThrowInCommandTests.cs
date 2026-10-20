@@ -4,7 +4,7 @@ using TarragonFly.Analyzers.Tests.Harness;
 
 namespace TarragonFly.Analyzers.Tests.Rules.Exceptions
 {
-    // TF3101 throw in a scenario command.
+    // TF3101 throw in a class that should log and carry on.
     public class ThrowInCommandTests
     {
         private const string Code = @"
