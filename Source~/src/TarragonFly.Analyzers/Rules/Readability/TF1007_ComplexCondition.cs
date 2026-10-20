@@ -8,7 +8,7 @@ using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.Readability
 {
-    // TF1007: an expression with more &&, || and ?: operators than max_condition_operators (default 3).
+    // TF1007: an expression with more &&, || and ?: operators than max_condition_operators (default 4).
     //
     // A condition like "if (alive && !stunned && (grounded || coyoteTime > 0) && !paused)" is hard to
     // check by eye. Name its parts with locals or a method such as CanJump().

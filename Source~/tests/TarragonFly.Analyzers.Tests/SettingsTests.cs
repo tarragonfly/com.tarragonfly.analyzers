@@ -17,6 +17,8 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.File, Is.Null);
             Assert.That(settings.MaxParameters, Is.EqualTo(7));
             Assert.That(settings.MaxCognitiveComplexity, Is.EqualTo(15));
+            Assert.That(settings.MaxConditionOperators, Is.EqualTo(4));
+            Assert.That(settings.MaxSwitchSectionStatements, Is.EqualTo(8));
             Assert.That(settings.AnalyzePaths, Is.EqualTo(new[] { "Assets/" }));
             Assert.That(settings.CommandBaseTypes, Is.Empty);
         }

@@ -37,7 +37,7 @@ namespace TarragonFly.Analyzers.Settings
         public int MaxMethodLines { get; private set; } = 80;
         public int MaxFileLines { get; private set; } = 1000;
         public int MaxNesting { get; private set; } = 3;
-        public int MaxConditionOperators { get; private set; } = 3;
+        public int MaxConditionOperators { get; private set; } = 4;
         public int MaxSwitchSectionStatements { get; private set; } = 8;
         public int MaxCognitiveComplexity { get; private set; } = 15;
 

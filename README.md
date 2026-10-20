@@ -151,13 +151,19 @@ Settings are optional. They live in one plain text file named
 files list it too.
 
 ```
-# Report our own folder only; the rest of Assets/ is plugins and samples.
+# Report our own scripts only. The rest of Assets/ is plugins and samples.
 analyze_paths = Assets/Game
 
-# TF3100: log messages start with the class name in brackets, "[Player] ...".
-log_prefix = [{Type}]
+# TF3101: commands report failures through state and logs instead of throwing.
+command_base_types = Game.Commands.CommandBase
 
-# Longer switch sections are fine in our save and load code.
+# TF6506: the two views that re-register their services for Enter Play Mode without reloads.
+allowed_service_set_types = Game.UI.ViewManager, Game.UI.ConfirmationPopup
+
+# TF1007: a 5-operator condition is the plain way to write a parser check; 6 and up still report.
+max_condition_operators = 5
+
+# TF1010: the save and load switches have one case per step and read fine up to 12 statements.
 max_switch_section_statements = 12
 ```
 
@@ -175,7 +181,7 @@ and the setting keeps its default.
 | `max_method_lines` | 80 | TF1004 |
 | `max_file_lines` | 1000 | TF1000 |
 | `max_nesting` | 3 | TF1003 |
-| `max_condition_operators` | 3 | TF1007 |
+| `max_condition_operators` | 4 | TF1007 |
 | `max_switch_section_statements` | 8 | TF1010 |
 | `max_cognitive_complexity` | 15 | TF1019 |
 | `log_prefix` | `[{Type}]` | Tag TF3100 expects at the start of log messages. Any name without spaces can stand in for `{Type}`, and the warning suggests the calling class. Without `{Type}`, messages have to start with it exactly |

@@ -6,6 +6,9 @@ namespace TarragonFly.Analyzers.Tests.Rules.Readability
 {
     public class ComplexConditionTests
     {
+        // Most tests check how operators are counted, which reads easiest at a limit of 3.
+        private static readonly SnippetAssembly LimitOfThree = SnippetAssembly.WithSettings("max_condition_operators = 3");
+
         private static void Verify(string statements, SnippetAssembly assembly = null)
         {
             AnalyzerVerifier.Verify(new ComplexConditionAnalyzer(), @"
@@ -21,7 +24,7 @@ class Player
 " + statements + @"
         return null;
     }
-}", assembly);
+}", assembly ?? LimitOfThree);
         }
 
         [Test]
@@ -43,9 +46,17 @@ class Player
         }
 
         [Test]
+        public void DefaultLimit_IsFourOperators()
+        {
+            Verify(@"
+        if (a && b && c && d && e) { }
+        if ({|TF1007:a && b && c && d && e && a|}) { }", new SnippetAssembly());
+        }
+
+        [Test]
         public void Message_GivesTheOperatorCountAndLimit()
         {
-            Assert.That(AnalyzerVerifier.Messages(new ComplexConditionAnalyzer(), "class Player { bool Run(bool a, bool b, bool c, bool d, bool e) => a && b || c && d && e; }"),
+            Assert.That(AnalyzerVerifier.Messages(new ComplexConditionAnalyzer(), "class Player { bool Run(bool a, bool b, bool c, bool d, bool e) => a && b || c && d && e; }", LimitOfThree),
                 Is.EqualTo(new[] { "This expression has 4 &&, || and ?: operators, more than the limit of 3; name its parts with locals or a method" }));
         }
 
@@ -85,7 +96,7 @@ class Cell : IEquatable<Cell>
     public override bool Equals(object obj) => obj is Cell other && x == other.x && y == other.y && z == other.z && w == other.w;
 
     public override int GetHashCode() => {|TF1007:x > 0 && y > 0 && z > 0 && w > 0 ? 1 : 0|};
-}");
+}", LimitOfThree);
         }
 
         [Test]
@@ -93,7 +104,7 @@ class Cell : IEquatable<Cell>
         {
             AnalyzerVerifier.Verify(new ComplexConditionAnalyzer(), @"#if {|TF1007:DEBUG || TRACE || UNITY_EDITOR || UNITY_IOS || UNITY_ANDROID|}
 #endif
-class Player { }");
+class Player { }", LimitOfThree);
         }
 
         [Test]
