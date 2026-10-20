@@ -15,15 +15,32 @@ generated project files and Project Auditor lists its warnings. Severities live 
 
 ## Installing
 
-Add it to `Packages/manifest.json`, pinned to a release tag:
+Unity fetches the package with the `git` command, so git needs to be on your PATH.
+
+From the Package Manager:
+
+1. Open **Window > Package Manager**.
+2. Click **+** at the top left and choose **Install package from git URL...**
+3. Paste the URL with a release tag after the `#` and click **Install**:
+
+   ```
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1
+   ```
+
+Or add it to `Packages/manifest.json` yourself:
 
 ```json
 "com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1"
 ```
 
+Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
+upgrading is guesswork. With it, you upgrade by changing the tag. Versions are listed under Tags on
+GitHub.
+
 If you want to work on the rules inside a game project, clone it into
 `Packages/com.tarragonfly.analyzers` instead, for example as a git submodule. Unity then treats it
-as an embedded package and you can edit it in place.
+as an embedded package and you can edit it in place. An embedded copy takes priority over a git URL
+entry with the same name, so keep only one of them.
 
 ## Rules
 
