@@ -27,7 +27,7 @@ The 236 rules fall into two groups:
 A project that does not use UniTask, Odin Inspector or Init(args) can still use the package. Those
 rules look for the frameworks' types by name and have nothing to report when the types are absent.
 
-This is an early release (0.1.2). The rules are tested, but they are still being tuned against real
+This is an early release (0.1.3). The rules are tested, but they are still being tuned against real
 projects, so expect some of them to get narrower or wider between versions.
 
 ## Requirements
@@ -46,13 +46,13 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.2
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.3
    ```
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.2"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.3"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -444,10 +444,10 @@ set in `OnValidate`, including to null, and `GetComponent`, scene searches and `
 `AssetDatabase` loads there. TF4104 reports an assignment to, or a void call on, a member of another
 Unity object, such as `transform.position = ...` or `gameObject.SetActive(false)`. TF4105 reports
 `Instantiate`, `Destroy`, `AddComponent`, `CreateInstance`, `new GameObject`, `SetDirty`, `Undo` and
-asset or scene saves. All three follow the private helpers `OnValidate` calls in the same file and
-count lambdas, since deferred work is still `OnValidate`'s work. Ints, strings and `[Serializable]`
-classes are the object's own values, so `_id = _id.Trim()` or
-`_config.volume = Mathf.Clamp01(_config.volume)` is fine.
+asset or scene saves. All three follow the same-file private helpers that `OnValidate` calls or
+hands to a callback such as `EditorApplication.delayCall`, and they count lambdas, since deferred
+work is still `OnValidate`'s work. Ints, strings and `[Serializable]` classes are the object's own
+values, so `_id = _id.Trim()` or `_config.volume = Mathf.Clamp01(_config.volume)` is fine.
 
 ### Async code, disposables and UniTask (TF5000s)
 

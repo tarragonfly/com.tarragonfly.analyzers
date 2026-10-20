@@ -52,10 +52,12 @@ namespace UnityEditor
     {
         public static T LoadAssetAtPath<T>(string path) where T : UnityEngine.Object => null;
         public static void SaveAssets() { }
+        public static bool DeleteAsset(string path) => false;
     }
 
     public static class Undo
     {
         public static void RecordObject(UnityEngine.Object target, string name) { }
+        public static void DestroyObjectImmediate(UnityEngine.Object target) { }
     }
 }

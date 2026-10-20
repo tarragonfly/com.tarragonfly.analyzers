@@ -175,9 +175,18 @@ class Spawner : MonoBehaviour
         {|TF4105:gameObject.AddComponent<Hud>|}();
         Preset made = {|TF4105:ScriptableObject.CreateInstance<Preset>|}();
         GameObject holder = {|TF4105:new GameObject(""Holder"")|};
+        GameObject shorthand = {|TF4105:new(""Holder"")|};
         {|TF4105:EditorUtility.SetDirty|}(this);
         {|TF4105:AssetDatabase.SaveAssets|}();
+        {|TF4105:AssetDatabase.DeleteAsset|}(""Assets/Old.asset"");
         {|TF4105:Undo.RecordObject|}(this, ""Validate"");
+        {|TF4105:Undo.DestroyObjectImmediate|}(spawned);
+        EditorApplication.delayCall += Save;
+    }
+
+    void Save()
+    {
+        {|TF4105:EditorUtility.SetDirty|}(this);
     }
 }");
         }

@@ -31,8 +31,9 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
     // DestroyImmediate, AddComponent, CreateInstance and new GameObject; SetDirty, Undo, prefab and
     // asset saves and scene dirtying. That's a job for an editor command you run on purpose.
     //
-    // All three look at OnValidate on any Unity object and at the private helpers it calls from the
-    // same file. Lambdas in OnValidate count too, since deferred work is still OnValidate's work.
+    // All three look at OnValidate on any Unity object and at the same-file private helpers it calls
+    // or hands to a callback such as EditorApplication.delayCall. Lambdas in OnValidate count too,
+    // since deferred work is still OnValidate's work.
     // Values that are not Unity objects, such as ints, strings and [Serializable] classes, are this
     // object's own. Reported on the assignment or the call. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -84,14 +85,21 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
             ["UnityEngine.Object"] = new HashSet<string> { "Instantiate", "Destroy", "DestroyImmediate" },
             ["UnityEngine.GameObject"] = new HashSet<string> { "AddComponent" },
             ["UnityEngine.ScriptableObject"] = new HashSet<string> { "CreateInstance" },
-            ["UnityEditor.AssetDatabase"] = new HashSet<string> { "SaveAssets", "SaveAssetIfDirty", "CreateAsset", "AddObjectToAsset", "ImportAsset", "Refresh" },
+            ["UnityEditor.AssetDatabase"] = new HashSet<string>
+            {
+                "SaveAssets", "SaveAssetIfDirty", "CreateAsset", "AddObjectToAsset", "ImportAsset", "Refresh",
+                "DeleteAsset", "DeleteAssets", "MoveAsset", "CopyAsset", "RenameAsset"
+            },
             ["UnityEditor.EditorUtility"] = new HashSet<string> { "SetDirty" },
-            ["UnityEditor.Undo"] = new HashSet<string> { "RecordObject", "RecordObjects", "RegisterCompleteObjectUndo", "RegisterCreatedObjectUndo" },
+            ["UnityEditor.Undo"] = new HashSet<string> { "RecordObject", "RecordObjects", "RegisterCompleteObjectUndo", "RegisterCreatedObjectUndo", "DestroyObjectImmediate" },
             ["UnityEditor.PrefabUtility"] = new HashSet<string> { "RecordPrefabInstancePropertyModifications", "SaveAsPrefabAsset", "SaveAsPrefabAssetAndConnect", "ApplyPrefabInstance", "ApplyPropertyOverride" },
             ["UnityEditor.SceneManagement.EditorSceneManager"] = new HashSet<string> { "MarkSceneDirty", "MarkAllScenesDirty", "SaveScene", "SaveScenes", "SaveOpenScenes" }
         };
 
-        private static readonly HashSet<string> CreatingOrDestroying = new HashSet<string> { "Instantiate", "Destroy", "DestroyImmediate", "AddComponent", "CreateInstance" };
+        private static readonly HashSet<string> CreatingOrDestroying = new HashSet<string>
+        {
+            "Instantiate", "Destroy", "DestroyImmediate", "AddComponent", "CreateInstance", "DeleteAsset", "DeleteAssets", "DestroyObjectImmediate"
+        };
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(FindsOrAssignsReference, ChangesAnotherObject, CreatesDestroysOrSaves);
 
@@ -135,18 +143,24 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
                 }
                 foreach (InvocationExpressionSyntax invocation in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
                 {
-                    if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol called)) continue;
-                    if (!reported.Contains(invocation)) CheckInvocation(invocation, called, helper);
-                    FollowHelper(called);
+                    if (reported.Contains(invocation)) continue;
+                    if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol called) CheckInvocation(invocation, called, helper);
                 }
-                foreach (ObjectCreationExpressionSyntax creation in body.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+                // Every method name, called or handed over as a callback such as "delayCall += Save".
+                foreach (SimpleNameSyntax name in body.DescendantNodes().OfType<SimpleNameSyntax>())
+                {
+                    if (context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol is IMethodSymbol named) FollowHelper(named);
+                }
+                // BaseObjectCreationExpressionSyntax covers "new GameObject()" and the target-typed "new()".
+                foreach (BaseObjectCreationExpressionSyntax creation in body.DescendantNodes().OfType<BaseObjectCreationExpressionSyntax>())
                 {
                     if (!SymbolNames.IsNamed(context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type, "UnityEngine.GameObject")) continue;
                     Report(CreatesDestroysOrSaves, creation, "creates a GameObject", helper);
                 }
             }
 
-            // A non-virtual method of the same type in the same file is OnValidate's own work.
+            // A non-virtual method of the same type in the same file is OnValidate's own work, whether
+            // OnValidate calls it or hands it to a callback.
             private void FollowHelper(IMethodSymbol called)
             {
                 if (called.IsVirtual || called.IsAbstract || called.IsOverride) return;
