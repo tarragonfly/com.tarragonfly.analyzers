@@ -438,16 +438,35 @@ fields itself.
 
 TF4103 to TF4105 keep `OnValidate` to clamping and normalizing the object's own values. Unity runs
 it often, while loading and on a loading thread, and the other objects might not have had `Awake`
-yet, so a `GetComponent` there finds whatever happens to be loaded, and a field set there simply
-hides a missing Inspector assignment until a build. TF4103 reports a Unity object field or property
-set in `OnValidate`, including to null, and `GetComponent`, scene searches and `Resources` or
-`AssetDatabase` loads there. TF4104 reports an assignment to, or a void call on, a member of another
-Unity object, such as `transform.position = ...` or `gameObject.SetActive(false)`. TF4105 reports
-`Instantiate`, `Destroy`, `AddComponent`, `CreateInstance`, `new GameObject`, `SetDirty`, `Undo` and
-asset or scene saves. All three follow the same-file private helpers that `OnValidate` calls or
-hands to a callback such as `EditorApplication.delayCall`, and they count lambdas, since deferred
-work is still `OnValidate`'s work. Ints, strings and `[Serializable]` classes are the object's own
-values, so `_id = _id.Trim()` or `_config.volume = Mathf.Clamp01(_config.volume)` is fine.
+yet. Three rules, one per kind of fix:
+
+- **TF4103, a reference found or set there.** A Unity object field or property set in `OnValidate`,
+  including to null, and `GetComponent`, scene searches and `Resources` or `AssetDatabase` loads. A
+  `GetComponent` there finds whatever happens to be loaded, and a field set there hides a missing
+  Inspector assignment until a build. Assign the reference in the Inspector or look it up in
+  `Awake`.
+- **TF4104, a change to another Unity object.** An assignment to one of its members, or a void call
+  on it, such as `transform.position = ...` or `gameObject.SetActive(false)`. Change other objects
+  from an editor command or at runtime.
+- **TF4105, objects made, destroyed or saved.** `Instantiate`, `Destroy`, `AddComponent`,
+  `CreateInstance`, `new GameObject`, `SetDirty`, `Undo` and asset or scene saves. That's a job for
+  an editor command you run on purpose.
+
+```csharp
+void OnValidate()
+{
+    _id = _id.Trim();                            // fine: the object's own value
+    _volume = Mathf.Clamp01(_volume);            // fine
+    _renderer = GetComponent<SpriteRenderer>();  // TF4103
+    _label.text = "v" + Application.version;     // TF4104
+    EditorUtility.SetDirty(this);                // TF4105
+}
+```
+
+Ints, strings and `[Serializable]` classes are the object's own values and are never reported. All
+three rules also follow the same-file private helpers that `OnValidate` calls or hands to a callback
+such as `EditorApplication.delayCall`, and they look inside lambdas, since deferred work is still
+`OnValidate`'s work.
 
 ### Async code, disposables and UniTask (TF5000s)
 
