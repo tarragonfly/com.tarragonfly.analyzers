@@ -13,7 +13,7 @@ looks like this:
 Assets/Game/Player.cs(42,13): warning TF4008: Unity objects should not use null propagation.
 ```
 
-The 234 rules fall into two groups:
+The 233 rules fall into two groups:
 
 - **General C# checks that understand Unity.** Likely bugs, dead code, swallowed exceptions,
   hard-to-read methods, allocation-heavy LINQ and weak tests. Where a general-purpose analyzer
@@ -154,9 +154,6 @@ files list it too.
 # Report our own scripts only. The rest of Assets/ is plugins and samples.
 analyze_paths = Assets/Game
 
-# TF3101: no throw allowed in cutscene commands; they log the problem and carry on.
-command_base_types = Game.Cutscenes.CommandBase
-
 # TF6506: the two views that re-register their services for Enter Play Mode without reloads.
 allowed_service_set_types = Game.UI.ViewManager, Game.UI.ConfirmationPopup
 
@@ -185,7 +182,6 @@ and the setting keeps its default.
 | `max_switch_section_statements` | 8 | TF1010 |
 | `max_cognitive_complexity` | 15 | TF1019 |
 | `log_prefix` | `[{Type}]` | Tag TF3100 expects at the start of log messages. Any name without spaces can stand in for `{Type}`, and the warning suggests the calling class. Without `{Type}`, messages have to start with it exactly |
-| `command_base_types` | none | Full names of base classes whose subclasses are not allowed to throw. TF3101 flags every `throw` in them. Use it for classes that should log a problem and carry on, such as cutscene commands. With the list empty, TF3101 does nothing |
 | `allowed_service_set_types` | none | Full names of types allowed to call Init(args)' `Service.Set` (TF6506) |
 
 Some Unity 6000.0 patches have a bug that drops additional files. On those, add a `csc.rsp` next
@@ -371,15 +367,10 @@ with the player's language.
 | TF3052 | Exception thrown from a member that shouldn't throw | all | |
 | TF3053 | Argument check in an iterator runs late | all | |
 | TF3100 | Log message without a tag | game | |
-| TF3101 | Throw in a class that should log and carry on | game | |
 | TF3500 | Text operation that depends on the player's culture | game | |
 | TF3501 | Date or time parsed without a culture | all | |
 
-TF3100 takes its tag shape from the `log_prefix` setting. TF3101 flags every `throw` in a class
-that inherits from a base class listed in `command_base_types`, and does nothing while that list
-is empty. Use it for classes that should log a problem and carry on rather than stop everything,
-such as cutscene or dialogue commands: one exception there halts the whole sequence and leaves the
-player stuck.
+TF3100 takes its tag shape from the `log_prefix` setting.
 
 ### Unity (TF4000s)
 

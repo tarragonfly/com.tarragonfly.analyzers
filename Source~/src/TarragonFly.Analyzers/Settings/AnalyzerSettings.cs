@@ -50,7 +50,6 @@ namespace TarragonFly.Analyzers.Settings
         public ImmutableArray<string> EditorAssemblies { get; private set; } = ImmutableArray.Create("*.Editor", "*.Editor.*", "*-Editor", "*-Editor-*");
 
         public string LogPrefix { get; private set; } = "[{Type}]";
-        public ImmutableArray<string> CommandBaseTypes { get; private set; } = ImmutableArray<string>.Empty;
         public ImmutableArray<string> AllowedServiceSetTypes { get; private set; } = ImmutableArray<string>.Empty;
 
         public static bool IsSettingsFile(AdditionalText file)
@@ -130,7 +129,6 @@ namespace TarragonFly.Analyzers.Settings
                 case "test_assemblies": TestAssemblies = SplitList(value); return null;
                 case "editor_assemblies": EditorAssemblies = SplitList(value); return null;
                 case "log_prefix": LogPrefix = value; return null;
-                case "command_base_types": CommandBaseTypes = SplitList(value); return null;
                 case "allowed_service_set_types": AllowedServiceSetTypes = SplitList(value); return null;
                 default: return $"Unknown setting '{key}'. The package README lists the keys.";
             }

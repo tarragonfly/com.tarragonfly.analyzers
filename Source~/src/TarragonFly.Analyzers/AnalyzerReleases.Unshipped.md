@@ -131,7 +131,6 @@ TF3051 | Exceptions | Warning | RethrowResetsStackTraceAnalyzer
 TF3052 | Exceptions | Warning | ThrowInSpecialMemberAnalyzer
 TF3053 | Exceptions | Warning | LateIteratorArgumentCheckAnalyzer
 TF3100 | Logging | Warning | LogWithoutPrefixAnalyzer
-TF3101 | Exceptions | Warning | ThrowInCommandAnalyzer
 TF3500 | Culture | Warning | CultureSensitiveTextAnalyzer
 TF3501 | Culture | Warning | DateParsedWithoutCultureAnalyzer
 TF4001 | Performance | Info | EmptyUnityMessageAnalyzer

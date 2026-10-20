@@ -20,7 +20,7 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.MaxConditionOperators, Is.EqualTo(4));
             Assert.That(settings.MaxSwitchSectionStatements, Is.EqualTo(8));
             Assert.That(settings.AnalyzePaths, Is.EqualTo(new[] { "Assets/" }));
-            Assert.That(settings.CommandBaseTypes, Is.Empty);
+            Assert.That(settings.AllowedServiceSetTypes, Is.Empty);
         }
 
         [Test]
@@ -33,14 +33,14 @@ namespace TarragonFly.Analyzers.Tests
                 "  max_nesting=2  \n" +
                 "analyze_paths = Assets/Game, Assets/Tools/ ,\n" +
                 "log_prefix = [{Type}] \n" +
-                "command_base_types = ScenarioEngine.Runtime.CommandBase\n");
+                "allowed_service_set_types = Game.UI.ViewManager\n");
 
             Assert.That(settings.Problems, Is.Empty);
             Assert.That(settings.MaxParameters, Is.EqualTo(4));
             Assert.That(settings.MaxNesting, Is.EqualTo(2));
             Assert.That(settings.AnalyzePaths, Is.EqualTo(new[] { "Assets/Game", "Assets/Tools/" }));
             Assert.That(settings.LogPrefix, Is.EqualTo("[{Type}]"));
-            Assert.That(settings.CommandBaseTypes, Is.EqualTo(new[] { "ScenarioEngine.Runtime.CommandBase" }));
+            Assert.That(settings.AllowedServiceSetTypes, Is.EqualTo(new[] { "Game.UI.ViewManager" }));
         }
 
         [TestCase("max_parameters = seven")]
