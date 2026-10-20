@@ -14,8 +14,15 @@ namespace TarragonFly.Analyzers.Rules
             return !(ifStatement.Parent is ElseClauseSyntax);
         }
 
-        // The body of every branch in order, the final else included.
-        public static List<StatementSyntax> OfIfChain(IfStatementSyntax first, out bool endsWithElse)
+        // An if that is all an else block holds, as in "else { if (...) ... }".
+        public static bool IsOnlyStatementOfElse(IfStatementSyntax ifStatement)
+        {
+            return ifStatement.Parent is BlockSyntax block && block.Statements.Count == 1 && block.Parent is ElseClauseSyntax;
+        }
+
+        // The body of every branch in order, the final else included. With throughElseBlocks, an else
+        // block holding nothing but an if continues the chain like "else if".
+        public static List<StatementSyntax> OfIfChain(IfStatementSyntax first, out bool endsWithElse, bool throughElseBlocks = false)
         {
             List<StatementSyntax> branches = new List<StatementSyntax>();
             IfStatementSyntax current = first;
@@ -26,6 +33,7 @@ namespace TarragonFly.Analyzers.Rules
                 ElseClauseSyntax elseClause = current.Else;
                 if (elseClause == null) break;
                 current = elseClause.Statement as IfStatementSyntax;
+                if (current == null && throughElseBlocks && elseClause.Statement is BlockSyntax block && block.Statements.Count == 1) current = block.Statements[0] as IfStatementSyntax;
                 if (current == null)
                 {
                     branches.Add(elseClause.Statement);

@@ -18,9 +18,10 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // and not inside lambdas. Any other write rules the field out: an assignment, ++ or +=, or a ref or
     // out argument. Static fields, fields with attributes, fields nothing ever sets, and fields of
     // struct types other than the built-in ones (int, float, DateTime and so on) aren't checked; on a
-    // struct such as Vector3, readonly turns member changes into changes to a copy. Fields set in
-    // Init(...), Awake or by Unity serialization never qualify, since those aren't constructors and
-    // serialized fields carry [SerializeField]. Reported on the field name.
+    // struct such as Vector3, readonly turns member changes into changes to a copy. Pointers and
+    // function pointers are checked like the built-in types. Fields set in Init(...), Awake or by
+    // Unity serialization never qualify, since those aren't constructors and serialized fields carry
+    // [SerializeField]. Reported on the field name.
     //
     // A field set in an init accessor counts as set during construction, since C# allows readonly
     // fields to be set there, and types split into several partial parts are checked too.
@@ -48,7 +49,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 IFieldSymbol field = (IFieldSymbol)context.Symbol;
                 if (field.DeclaredAccessibility != Accessibility.Private || field.IsStatic || field.IsReadOnly || field.IsConst || field.IsImplicitlyDeclared) return;
                 if (!field.GetAttributes().IsEmpty || field.ContainingType.TypeKind == TypeKind.Interface) return;
-                if (field.Type.IsValueType && field.Type.SpecialType == SpecialType.None && field.Type.TypeKind != TypeKind.Enum) return;
+                if (IsStructOtherThanBuiltIn(field.Type)) return;
                 candidates[field] = true;
                 if (field.DeclaringSyntaxReferences.Any(r => r.GetSyntax(context.CancellationToken) is VariableDeclaratorSyntax declarator && declarator.Initializer != null))
                 {
@@ -75,6 +76,12 @@ namespace TarragonFly.Analyzers.Rules.Readability
                     if (scope.IsAnalyzed(location.SourceTree)) context.ReportDiagnostic(Diagnostic.Create(Rule, location, field.Name));
                 }
             });
+        }
+
+        private static bool IsStructOtherThanBuiltIn(ITypeSymbol type)
+        {
+            if (!type.IsValueType || type.SpecialType != SpecialType.None) return false;
+            return type.TypeKind != TypeKind.Enum && type.TypeKind != TypeKind.Pointer && type.TypeKind != TypeKind.FunctionPointer;
         }
 
         private static bool IsWrite(IFieldReferenceOperation reference)

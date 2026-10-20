@@ -12,8 +12,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // start index, line.IndexOf(':', start), and searches in place. Note the result then counts from
     // the start of the whole string.
     //
-    // IndexOf, LastIndexOf, IndexOfAny and LastIndexOfAny count, straight after Substring. Reported on
-    // the whole call.
+    // IndexOf, LastIndexOf, IndexOfAny and LastIndexOfAny count, straight after Substring, also when
+    // Substring is called with ?., as in "name?.Substring(1).IndexOf('x')". Reported on the whole call.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SubstringThenIndexOfAnalyzer : ScopedAnalyzer
     {
@@ -34,7 +34,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 if (!(invocation.Expression is MemberAccessExpressionSyntax access)) return;
                 string name = access.Name.Identifier.ValueText;
                 if (name != "IndexOf" && name != "LastIndexOf" && name != "IndexOfAny" && name != "LastIndexOfAny") return;
-                if (!(access.Expression is InvocationExpressionSyntax inner) || !(inner.Expression is MemberAccessExpressionSyntax innerAccess) || innerAccess.Name.Identifier.ValueText != "Substring") return;
+                if (!(access.Expression is InvocationExpressionSyntax inner) || LinqCalls.Name(inner)?.Identifier.ValueText != "Substring") return;
                 if (!(context.SemanticModel.GetSymbolInfo(inner, context.CancellationToken).Symbol is IMethodSymbol substring) || substring.ContainingType.SpecialType != SpecialType.System_String) return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol search) || search.ContainingType.SpecialType != SpecialType.System_String) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation(), name));

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -13,10 +14,16 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // Readers look for the other versions of PlayClip right below the first one; spread out, one
     // gets missed or changed alone.
     //
-    // Overloads are grouped by name, static or not, and accessibility, so a public and a private
-    // overload may sit apart. Any member in between splits a group, fields and nested types included.
-    // Operators and explicit interface implementations aren't checked. Reported once per group, on the
-    // first overload.
+    // Overloads are grouped by name, static or not, abstract or not, and accessibility, so a public
+    // and a private overload, or an abstract and a concrete one, may sit apart. Any member in between
+    // splits a group, fields and nested types included, except other overloads of the same name. An
+    // explicit interface implementation isn't an overload, so "int IShop.Buy(string item)" between
+    // two Buy overloads splits them too.
+    // Classes often keep one section per interface they implement. So an overload may sit apart from
+    // the one before it, whatever is in between, when it implements a member of an interface that one
+    // doesn't and sits next to another member of that interface. Overloads that belong to the same
+    // interface still have to be together. Operators and explicit interface implementations aren't
+    // checked. Reported once per group, on the first overload.
     //
     // A partial type is checked across all its parts, as if they were one file, so overloads split
     // between two partial files are reported.
@@ -66,15 +73,83 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 positions.Add(i);
             }
 
+            Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>> interfaces = ImplementedInterfaces(type, context.CancellationToken);
             foreach (string key in order)
             {
                 List<int> positions = groups[key];
-                if (positions[positions.Count - 1] - positions[0] == positions.Count - 1) continue;
+                if (AreTogether(members, positions, interfaces)) continue;
 
                 MemberDeclarationSyntax first = members[positions[0]];
                 if (!scope.IsAnalyzed(first.SyntaxTree)) continue;
                 SyntaxToken name = Name(first);
                 context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), name.ValueText));
+            }
+        }
+
+        private static bool AreTogether(List<MemberDeclarationSyntax> members, List<int> positions, Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>> interfaces)
+        {
+            string name = OverloadName(members[positions[0]]);
+            for (int k = 1; k < positions.Count; k++)
+            {
+                if (StartsOtherInterfaceSection(members, positions[k], positions[k - 1], interfaces)) continue;
+                for (int i = positions[k - 1] + 1; i < positions[k]; i++)
+                {
+                    MemberDeclarationSyntax between = members[i];
+                    if (between == null || OverloadName(between) != name) return false;
+                }
+            }
+            return true;
+        }
+
+        // The overload implements a member of an interface the earlier one doesn't, and the member
+        // next to it implements one of that interface too, so it sits in that interface's section.
+        private static bool StartsOtherInterfaceSection(List<MemberDeclarationSyntax> members, int later, int earlier, Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>> interfaces)
+        {
+            if (!interfaces.TryGetValue(members[later], out HashSet<INamedTypeSymbol> own)) return false;
+            if (interfaces.TryGetValue(members[earlier], out HashSet<INamedTypeSymbol> previous) && previous.Overlaps(own)) return false;
+            return SharesInterface(members, later - 1, own, interfaces) || SharesInterface(members, later + 1, own, interfaces);
+        }
+
+        private static bool SharesInterface(List<MemberDeclarationSyntax> members, int index, HashSet<INamedTypeSymbol> own, Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>> interfaces)
+        {
+            if (index < 0 || index >= members.Count || members[index] == null) return false;
+            return interfaces.TryGetValue(members[index], out HashSet<INamedTypeSymbol> theirs) && theirs.Overlaps(own);
+        }
+
+        // For each declaration of this type's members, the interfaces whose members it implements,
+        // explicitly or not.
+        private static Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>> ImplementedInterfaces(INamedTypeSymbol type, CancellationToken cancellationToken)
+        {
+            Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>> interfaces = new Dictionary<SyntaxNode, HashSet<INamedTypeSymbol>>();
+            foreach (INamedTypeSymbol contract in type.AllInterfaces)
+            {
+                foreach (ISymbol member in contract.GetMembers())
+                {
+                    ISymbol implementation = type.FindImplementationForInterfaceMember(member);
+                    if (implementation == null || !SymbolEqualityComparer.Default.Equals(implementation.ContainingType, type)) continue;
+                    foreach (SyntaxReference reference in implementation.DeclaringSyntaxReferences)
+                    {
+                        // A field-like event's declarator sits inside its declaration.
+                        SyntaxNode declaration = reference.GetSyntax(cancellationToken);
+                        if (declaration is VariableDeclaratorSyntax) declaration = declaration.Parent?.Parent;
+                        if (declaration == null) continue;
+                        if (!interfaces.TryGetValue(declaration, out HashSet<INamedTypeSymbol> contracts)) interfaces[declaration] = contracts = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+                        contracts.Add(contract);
+                    }
+                }
+            }
+            return interfaces;
+        }
+
+        // What makes members overloads of each other: the method name, or being a constructor.
+        // Explicit interface implementations have none.
+        private static string OverloadName(MemberDeclarationSyntax member)
+        {
+            switch (member)
+            {
+                case MethodDeclarationSyntax method when method.ExplicitInterfaceSpecifier == null: return method.Identifier.ValueText;
+                case ConstructorDeclarationSyntax _: return ".ctor";
+                default: return null;
             }
         }
 
@@ -98,8 +173,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
             return method.Modifiers.Any(SyntaxKind.PartialKeyword) && (method.Body != null || method.ExpressionBody != null);
         }
 
-        // Accessibility and static, in a fixed order so "static public" matches "public static". No
-        // accessibility modifier means the default: public in an interface, private elsewhere.
+        // Accessibility, static and abstract, in a fixed order so "static public" matches "public
+        // static". No accessibility modifier means the default: public in an interface, private
+        // elsewhere.
         private static string Modifiers(MemberDeclarationSyntax member)
         {
             string key = "";
@@ -108,7 +184,8 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 if (HasModifier(member, accessibility)) key += " " + accessibility;
             }
             if (key.Length == 0) key = member.Parent is InterfaceDeclarationSyntax ? " public" : " private";
-            return HasModifier(member, "static") ? key + " static" : key;
+            if (HasModifier(member, "static")) key += " static";
+            return HasModifier(member, "abstract") ? key + " abstract" : key;
         }
 
         private static bool HasModifier(MemberDeclarationSyntax member, string modifier)

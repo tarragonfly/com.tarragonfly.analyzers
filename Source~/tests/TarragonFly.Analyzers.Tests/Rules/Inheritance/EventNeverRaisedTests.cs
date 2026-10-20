@@ -60,5 +60,42 @@ class Nested
     }
 }");
         }
+
+        [Test]
+        public void ForwardedHandlersAndRaisedOverrides_CountAsRaised()
+        {
+            AnalyzerVerifier.Verify(new EventNeverRaisedAnalyzer(), @"
+using System;
+
+class Clipboard
+{
+    public event Action BrushPicked;
+    public event Action {|TF2506:Unforwarded|};
+    public void Pick() => BrushPicked?.Invoke();
+}
+
+class ClipboardElement
+{
+    private readonly Clipboard clipboard = new Clipboard();
+    public event Action BrushPicked;
+    public void Attach()
+    {
+        clipboard.BrushPicked += BrushPicked;
+        clipboard.Unforwarded += () => { };
+    }
+}
+
+abstract class TextBase
+{
+    public virtual event Action<int> PreRender = delegate { };
+    public virtual event Action<int> {|TF2506:PostRender|};
+}
+
+class TextMesh : TextBase
+{
+    public override event Action<int> PreRender;
+    public void Render() => PreRender?.Invoke(1);
+}");
+        }
     }
 }

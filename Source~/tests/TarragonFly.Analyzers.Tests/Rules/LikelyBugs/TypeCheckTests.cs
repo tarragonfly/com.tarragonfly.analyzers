@@ -78,6 +78,70 @@ class AssetHolder<T> where T : StatsAsset
         }
 
         [Test]
+        public void AnyChangeThroughReadonlyGenericField_IsReported()
+        {
+            AnalyzerVerifier.Verify(new ReadonlyFieldCopyChangedAnalyzer(), @"
+using System;
+
+interface IStats
+{
+    int Health { get; set; }
+    int Armor { get; set; }
+    string Name { get; set; }
+    event Action Changed;
+}
+
+class Holder<T> where T : IStats
+{
+    static readonly T Shared;
+    readonly T stats;
+
+    static Holder()
+    {
+        Shared.Health = 1;
+        Action reset = () => {|TF2036:Shared.Health|} = 0;
+    }
+
+    Holder(T value, Holder<T> other)
+    {
+        stats = value;
+        stats.Health++;
+        this.stats.Health = 2;
+        {|TF2036:other.stats.Health|} = 2;
+        {|TF2036:Shared.Health|} = 3;
+        Action heal = () => {|TF2036:this.stats.Health|} = 2;
+        Action later = delegate { {|TF2036:stats.Health|} = 1; };
+        void Hurt() { {|TF2036:stats.Health|} -= 1; }
+    }
+
+    int Value
+    {
+        get => 0;
+        init { stats.Health = value; }
+    }
+
+    Holder<T> Other { get; init; }
+
+    int OtherValue
+    {
+        get => 0;
+        init { {|TF2036:Other.stats.Health|} = value; }
+    }
+
+    void Check(Action handler)
+    {
+        {|TF2036:stats.Health|} *= 2;
+        {|TF2036:stats.Health|} |= 1;
+        {|TF2036:stats.Name|} ??= ""x"";
+        {|TF2036:stats.Health|}++;
+        --{|TF2036:stats.Health|};
+        ({|TF2036:stats.Health|}, {|TF2036:stats.Armor|}) = (1, 2);
+        {|TF2036:stats.Changed|} += handler;
+    }
+}");
+        }
+
+        [Test]
         public void UnconstrainedGenericComparedWithNull_IsReported()
         {
             AnalyzerVerifier.Verify(new GenericComparedWithNullAnalyzer(), @"
@@ -287,6 +351,47 @@ class Target
         bool r2 = {|TF2058:typeof(System.Nullable<float>) != value.GetType()|};
         bool r3 = value.GetType() == typeof(int);
     }
+}");
+        }
+
+        [Test]
+        public void BareGetTypeCounts_ButOwnGetTypeMethodsAndThisInATypeDoNot()
+        {
+            AnalyzerVerifier.Verify(new GetTypeComparedWithNullableAnalyzer(), @"
+using System;
+
+struct Cell
+{
+    bool Check() => {|TF2058:GetType() == typeof(Cell?)|};
+}
+
+class Holder
+{
+    public new Type GetType() => typeof(int?);
+
+    bool Check(Holder other) => other.GetType() == typeof(int?);
+}");
+            AnalyzerVerifier.Verify(new GetTypeOnTypeAnalyzer(), @"
+using System;
+using System.Reflection;
+
+class Wrapped : TypeDelegator
+{
+    public Wrapped() : base(typeof(int)) { }
+
+    public override string ToString() => this.GetType().Name;
+}
+
+class Kind
+{
+    public Type Value = typeof(int);
+
+    public new Kind GetType() => this;
+}
+
+class Target
+{
+    Kind Check(Kind kind) => kind.GetType();
 }");
         }
     }

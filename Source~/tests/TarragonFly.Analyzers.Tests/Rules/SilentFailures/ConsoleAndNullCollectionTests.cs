@@ -67,5 +67,36 @@ class Loot
     }
 }");
         }
+
+        [Test]
+        public void StructsNullableReturnsAndTransforms_AreSkipped()
+        {
+            AnalyzerVerifier.Verify(new NullCollectionReturnedAnalyzer(), @"
+#nullable enable
+using System.Collections;
+using System.Collections.Generic;
+
+namespace UnityEngine
+{
+    public class Transform : IEnumerable
+    {
+        public IEnumerator GetEnumerator() { yield break; }
+    }
+}
+
+public struct Bag : IEnumerable<int>
+{
+    public IEnumerator<int> GetEnumerator() { yield break; }
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+public class Batches
+{
+    public Bag SectionOrDefault(bool has) => has ? new Bag() : default;
+    public byte[]? Kinds(byte[] sig) => sig.Length < 2 ? null : sig;
+    public byte[] Required(bool b) => b ? {|TF3002:default|} : new byte[0];
+    public UnityEngine.Transform Target() => null;
+}");
+        }
     }
 }

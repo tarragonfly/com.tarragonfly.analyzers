@@ -16,8 +16,10 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // A run is a series of statements in one block that each set an element of the same collection,
     // with "collection[key] = value" or a dictionary's Add(key, value); any other statement, or a value
-    // that reads the collection, ends the run. Keys match when written the same way. Reported on the
-    // statement that overwrites.
+    // that reads the collection, ends the run. Keys match when written the same way. A key that
+    // changes something, with ++, --, an assignment or a call, as in "buffer[count++] = a", never
+    // matches and starts the run over, since the keys before it may name other elements afterwards.
+    // Reported on the statement that overwrites.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ElementOverwrittenUnreadAnalyzer : ScopedAnalyzer
     {
@@ -46,15 +48,27 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                         keys.Clear();
                         continue;
                     }
-                    if (!SymbolEqualityComparer.Default.Equals(collection, target))
+                    if (!SymbolEqualityComparer.Default.Equals(collection, target) || ChangesSomething(key))
                     {
                         collection = target;
                         keys.Clear();
+                        if (ChangesSomething(key)) continue;
                     }
                     if (keys.Any(k => SyntaxFactory.AreEquivalent(k, key))) context.ReportDiagnostic(Diagnostic.Create(Rule, statement.GetLocation(), text));
                     keys.Add(key);
                 }
             }), SyntaxKind.Block);
+        }
+
+        private static bool ChangesSomething(SyntaxNode key)
+        {
+            foreach (SyntaxNode node in key.DescendantNodes())
+            {
+                if (node is AssignmentExpressionSyntax || node is InvocationExpressionSyntax) return true;
+                if (node.IsKind(SyntaxKind.PreIncrementExpression) || node.IsKind(SyntaxKind.PreDecrementExpression)
+                    || node.IsKind(SyntaxKind.PostIncrementExpression) || node.IsKind(SyntaxKind.PostDecrementExpression)) return true;
+            }
+            return false;
         }
 
         // "collection[key] = value;" or "dictionary.Add(key, value);".

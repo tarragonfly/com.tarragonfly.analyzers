@@ -13,8 +13,9 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // Wait for the condition itself, use "yield return null" frames in a [UnityTest], or await the
     // task under test.
     //
-    // Calls in the test body and in lambdas inside it count, any overload; setup methods and helpers
-    // aren't checked. [UnityTest] methods are checked too. Reported on the call.
+    // Calls in the test body and in lambdas inside it count, any overload, also a bare Sleep(...)
+    // under "using static System.Threading.Thread"; setup methods and helpers aren't checked.
+    // [UnityTest] methods are checked too. Reported on the call.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ThreadSleepInTestAnalyzer : ScopedAnalyzer
     {
@@ -32,7 +33,8 @@ namespace TarragonFly.Analyzers.Rules.Tests
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access) || access.Name.Identifier.ValueText != "Sleep") return;
+                SimpleNameSyntax name = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name : invocation.Expression as IdentifierNameSyntax;
+                if (name == null || name.Identifier.ValueText != "Sleep") return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method) || !SymbolNames.IsNamed(method.ContainingType, "System.Threading.Thread")) return;
                 MethodDeclarationSyntax declaration = invocation.FirstAncestorOrSelf<MethodDeclarationSyntax>();
                 if (declaration == null || !(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is IMethodSymbol test) || !Frameworks.NUnit.IsTest(test)) return;

@@ -65,5 +65,104 @@ class Target
     static int Compute() => 1;
 }");
         }
+
+        [Test]
+        public void StoresInLambdasLocalFunctionsTryBlocksAndBeforeOutArguments_AreChecked()
+        {
+            AnalyzerVerifier.Verify(new DeadStoreAnalyzer(), @"
+using System;
+
+class Pool
+{
+    object item;
+
+    static int Compute() => 7;
+    static void Risky() { }
+    static bool TryGet(int key, out int value) { value = key; return true; }
+
+    void Release()
+    {
+        void Free(object resource)
+        {
+            if (resource != null)
+            {
+                {|TF1502:resource = null|};
+            }
+        }
+
+        Free(item);
+    }
+
+    Action<bool> Later()
+    {
+        int shared = 0;
+        return flag =>
+        {
+            int id;
+            if (flag) {|TF1502:id = Compute()|};
+            else {|TF1502:id = Compute() + 1|};
+            shared = 2;
+        };
+    }
+
+    int Import()
+    {
+        int output = Compute();
+        try
+        {
+            Risky();
+            output = 2;
+        }
+        catch (Exception)
+        {
+            Console.WriteLine(""failed"");
+        }
+        return output;
+    }
+
+    void Find(int key)
+    {
+        int {|TF1502:value = Compute()|};
+        TryGet(key, out value);
+    }
+}");
+        }
+
+        // A lambda's own graph ends at its root region; the try and catch around the lambda belong to
+        // the method's graph.
+        [Test]
+        public void LambdaAndLocalFunctionInsideATryWithACatch_AreCheckedOnTheirOwn()
+        {
+            AnalyzerVerifier.Verify(new DeadStoreAnalyzer(), @"
+using System;
+using System.Threading.Tasks;
+
+class Spine
+{
+    static IDisposable Register(Action callback) => null;
+
+    async Task Play(bool loop)
+    {
+        int step = 0;
+        void OnComplete(int track) { int {|TF1502:last = track|}; last = 2; Console.WriteLine(last); }
+        try
+        {
+            using (Register(() => { int {|TF1502:count = step|}; count = 3; Console.WriteLine(count); }))
+            {
+                await Task.Yield();
+                OnComplete(1);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            if (loop) throw;
+        }
+        finally
+        {
+            step = 1;
+        }
+    }
+}");
+        }
     }
 }

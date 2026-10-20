@@ -70,6 +70,112 @@ static class Helpers
         }
 
         [Test]
+        public void AssertionWords_OnlyCountAsWholeWords()
+        {
+            AnalyzerVerifier.Verify(new TestWithoutAssertionAnalyzer(), @"
+using NUnit.Framework;
+
+class Player
+{
+    public void Checkpoint() { }
+    public int GetExpectedDamage() => 1;
+    public void LogAssertion() { }
+    public void AssertHealth() { }
+    public void PreCheck() { }
+    public void assert_value() { }
+    public bool ShouldRespawn() => true;
+}
+
+class PlayerTests
+{
+    Player player = new Player();
+
+    [Test]
+    public void {|TF9002:ReachesCheckpoint|}() => player.Checkpoint();
+
+    [Test]
+    public void {|TF9002:ReadsDamage|}() => player.GetExpectedDamage();
+
+    [Test]
+    public void {|TF9002:Logs|}() => player.LogAssertion();
+
+    [Test]
+    public void Health() => player.AssertHealth();
+
+    [Test]
+    public void Pre() => player.PreCheck();
+
+    [Test]
+    public void Value() => player.assert_value();
+
+    [Test]
+    public void Respawns() => player.ShouldRespawn();
+}", SnippetAssembly.Tests());
+        }
+
+        [Test]
+        public void TestsCheckedThroughExpectedResultsDelegatesDynamicCallsOrThrows_AreNotReported()
+        {
+            AnalyzerVerifier.Verify(new TestWithoutAssertionAnalyzer(), @"
+using System;
+using System.Threading.Tasks;
+using NUnit.Framework;
+
+class ScoreTests
+{
+    static object[] Cases = { new object[] { 2 } };
+    dynamic helper = null;
+
+    [TestCase(2, ExpectedResult = 4)]
+    public int Doubles(int value) => value * 2;
+
+    [Test(ExpectedResult = 1)]
+    public async Task<int> LoadsAsync()
+    {
+        await Task.Yield();
+        return 1;
+    }
+
+    [TestCaseSource(nameof(Cases))]
+    public int FromSource(int value) => value * 2;
+
+    [Test]
+    public int {|TF9002:ReturnsWithoutExpectedResult|}() => 1;
+
+    [Test]
+    public void CallsDynamic() => helper.Run();
+
+    [Test]
+    public void ThrowsStoredAssertion()
+    {
+        AssertionException failure = new AssertionException(""x"");
+        throw failure;
+    }
+
+    [Test]
+    public void CallsCheckDelegate()
+    {
+        Action check = () => { };
+        check();
+    }
+
+    [Test]
+    public void InvokesVerifyDelegate()
+    {
+        Action verify = () => { };
+        verify.Invoke();
+    }
+
+    [Test]
+    public void {|TF9002:CallsOtherDelegate|}()
+    {
+        Action run = () => { };
+        run();
+    }
+}", SnippetAssembly.Tests());
+        }
+
+        [Test]
         public void LiteralBoolPassedToAssert_IsReported()
         {
             AnalyzerVerifier.Verify(new BoolLiteralInAssertionAnalyzer(), @"
@@ -125,6 +231,28 @@ class Waits
         }
 
         [Test]
+        public void SleepImportedWithUsingStatic_IsReported()
+        {
+            AnalyzerVerifier.Verify(new ThreadSleepInTestAnalyzer(), @"
+using NUnit.Framework;
+using static System.Threading.Thread;
+
+class Waits
+{
+    [Test]
+    public void Sleeps() => {|TF9004:Sleep(1)|};
+}
+
+class Frames
+{
+    static void Sleep(int frames) { }
+
+    [Test]
+    public void SkipsFrames() => Sleep(1);
+}", SnippetAssembly.Tests());
+        }
+
+        [Test]
         public void ConstantPassedAsActual_IsReported()
         {
             AnalyzerVerifier.Verify(new SwappedExpectedAndActualAnalyzer(), @"
@@ -147,6 +275,34 @@ class Order
         Assert.That(actual, Is.EqualTo(5));
         Assert.AreEqual(""a"", ""b"");
         Assert.AreEqual(actual, Compute());
+    }
+
+    static int Compute() => 5;
+}", SnippetAssembly.Tests());
+        }
+
+        [Test]
+        public void NamedArguments_AreMatchedToTheirParameters()
+        {
+            AnalyzerVerifier.Verify(new SwappedExpectedAndActualAnalyzer(), @"
+using NUnit.Framework;
+
+class Order
+{
+    [Test]
+    public void Cases()
+    {
+        int actual = Compute();
+        bool done = actual > 0;
+        Assert.AreEqual({|TF9005:expected: actual, actual: 5|});
+        Assert.AreEqual({|TF9005:actual: 5, expected: actual|});
+        Assert.AreEqual({|TF9005:actual, actual: 5|});
+        Assert.AreEqual({|TF9005:expected: done, actual: true|}, message: ""m"");
+        Assert.AreEqual(delta: 0.1, {|TF9005:actual: 5.0, expected: actual|});
+        Assert.AreEqual(actual: actual, expected: 5);
+        Assert.AreEqual(expected: 5, actual: actual);
+        Assert.That(5, expression: Is.EqualTo(actual));
+        Assert.That(expression: Is.EqualTo(actual), actual: 5);
     }
 
     static int Compute() => 5;

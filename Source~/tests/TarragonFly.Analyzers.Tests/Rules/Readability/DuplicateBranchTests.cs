@@ -92,11 +92,102 @@ class QuitButton { }", assembly);
         }
 
         [Test]
-        public void ShortBranches_AreReported_WhenAllAreTheSameWithoutAnElse()
+        public void FinalBreakReturnOrThrow_DoesNotCountTowardShort()
+        {
+            Verify(@"
+        switch (button)
+        {
+            case 1:
+                Use(1, 0);
+                return;
+            case 2:
+                Use(2, 0);
+                return;
+            case 3:
+                Use(1, 0);
+                return;
+            default:
+                Use(1, 0); throw new System.InvalidOperationException();
+        }
+
+        if (button == 1) { Use(1, 0); return; }
+        else if (button == 2) { Use(2, 0); }
+        else { Use(1, 0); return; }
+
+        foreach (int other in new[] { 1, 2 })
+        {
+            switch (other)
+            {
+                case 1:
+                    Use(1, 0); continue;
+                case 2:
+                    score++; break;
+                {|TF1014:case 3:
+                    Use(1, 0); continue;|}
+            }
+        }");
+        }
+
+        [Test]
+        public void ElseBlockHoldingOnlyAnIf_ContinuesTheChain()
+        {
+            Verify(@"
+        if (button == 1)
+        {
+            score = 1;
+            Use(score, 2);
+        }
+        else
+        {
+            if (button == 2)
+            {|TF1014:{
+                score = 1;
+                Use(score, 2);
+            }|}
+            else if (button == 3)
+            {|TF1014:{
+                score = 1;
+                Use(score, 2);
+            }|}
+        }");
+        }
+
+        [Test]
+        public void ShortBranches_AreReported_WhenEveryEarlierOneIsTheSameWithoutAnElse()
         {
             Verify(@"
         if (button == 1) { score++; }
         else if (button == 2) {|TF1014:{ score++; }|}
+
+        if (button == 1) { score++; }
+        else if (button == 2) {|TF1014:{ score++; }|}
+        else if (button == 3) { score--; }
+
+        switch (button)
+        {
+            case 1:
+                score++;
+                return;
+            {|TF1014:case 2:
+                score++;
+                return;|}
+            case 3:
+                score--;
+                break;
+        }
+
+        switch (button)
+        {
+            case 1:
+                score++;
+                return;
+            case 2:
+                score--;
+                break;
+            case 3:
+                score++;
+                return;
+        }
 
         switch (button)
         {

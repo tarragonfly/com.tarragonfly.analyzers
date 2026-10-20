@@ -33,6 +33,25 @@ class ParkedTests
         }
 
         [Test]
+        public void IgnoreOnMethodsAndClassesWithoutTests_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new IgnoredTestAnalyzer(), @"
+using NUnit.Framework;
+
+class Helpers
+{
+    [Ignore(""unused"")]
+    public void Prepare() { }
+}
+
+[Ignore(""unused"")]
+class Tools
+{
+    public void Run() { }
+}", SnippetAssembly.Tests());
+        }
+
+        [Test]
         public void Ignore_OutsideTestCode_IsNotChecked()
         {
             AnalyzerVerifier.Verify(new IgnoredTestAnalyzer(), "class Tools { [NUnit.Framework.Ignore(\"x\")] public void Run() { } }", new SnippetAssembly { EditorOnly = true });
@@ -85,6 +104,19 @@ class PlainTests
 [TestFixture]
 class InheritedTests : PlainTests
 {
+}
+
+[TestFixture]
+record {|TF9001:EmptyRecordTests|}
+{
+    public void NotATest() { }
+}
+
+[TestFixture]
+record RecordTests
+{
+    [Test]
+    public void Works() { }
 }", SnippetAssembly.Tests());
         }
 
@@ -132,6 +164,20 @@ class SaveTests
 
     [Test]
     public static void Static() { }
+
+    static object[] Cases = { new object[] { 2 } };
+
+    [TestCaseSource(nameof(Cases))]
+    public int FromSource(int value) => value * 2;
+
+    [Test]
+    public void Holder()
+    {
+        [Test]
+        void {|TF9006:Local|}() { }
+
+        Local();
+    }
 }", SnippetAssembly.Tests());
         }
     }

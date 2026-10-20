@@ -11,9 +11,11 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // when Unity moves to a newer C# version.
     //
     // Reported: class, struct, interface, enum, record and delegate declarations named "extension",
-    // type parameters with that name, and fields, properties, indexers, methods and operators whose
-    // declared type starts with it ("extension", "extension[]", "extension?"). Parameter, local,
-    // generic argument and conversion types are fine, as is "@extension". Game code only.
+    // constructors of such a type, using aliases and type parameters with that name, and fields,
+    // properties, indexers, methods and operators whose declared type starts with it ("extension",
+    // "extension[]", "extension?", "extension.Inner"). A member starting with "ref" doesn't start with
+    // it. Parameter, local, generic argument and conversion types are fine, as is "@extension". Game
+    // code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ExtensionKeywordNameAnalyzer : ScopedAnalyzer
     {
@@ -42,12 +44,15 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                     case BasePropertyDeclarationSyntax property when !(property is EventDeclarationSyntax): token = property.Type.GetFirstToken(); break;
                     case MethodDeclarationSyntax method: token = method.ReturnType.GetFirstToken(); break;
                     case OperatorDeclarationSyntax op: token = op.ReturnType.GetFirstToken(); break;
+                    case ConstructorDeclarationSyntax constructor: token = constructor.Identifier; break;
+                    case UsingDirectiveSyntax usingDirective when usingDirective.Alias != null: token = usingDirective.Alias.Name.Identifier; break;
                     default: return;
                 }
                 if (token.IsKind(SyntaxKind.IdentifierToken) && token.Text == Name) context.ReportDiagnostic(Diagnostic.Create(Rule, token.GetLocation()));
             }), SyntaxKind.ClassDeclaration, SyntaxKind.StructDeclaration, SyntaxKind.InterfaceDeclaration, SyntaxKind.EnumDeclaration,
                 SyntaxKind.RecordDeclaration, SyntaxKind.DelegateDeclaration, SyntaxKind.TypeParameter, SyntaxKind.FieldDeclaration,
-                SyntaxKind.PropertyDeclaration, SyntaxKind.IndexerDeclaration, SyntaxKind.MethodDeclaration, SyntaxKind.OperatorDeclaration);
+                SyntaxKind.PropertyDeclaration, SyntaxKind.IndexerDeclaration, SyntaxKind.MethodDeclaration, SyntaxKind.OperatorDeclaration,
+                SyntaxKind.ConstructorDeclaration, SyntaxKind.UsingDirective);
         }
     }
 }

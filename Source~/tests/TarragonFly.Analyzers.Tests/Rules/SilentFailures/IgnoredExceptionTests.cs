@@ -42,6 +42,38 @@ class SaveSystem
         }
 
         [Test]
+        public void CancellationCatches_AreFine()
+        {
+            AnalyzerVerifier.Verify(new IgnoredExceptionAnalyzer(), @"
+using System;
+using System.Threading.Tasks;
+
+class AsyncOperationCanceledException : OperationCanceledException { }
+class LoadCanceledError : Exception { }
+
+class Loader
+{
+    void Load()
+    {
+        try { Load(); }
+        catch (OperationCanceledException) { }
+
+        try { Load(); }
+        catch (TaskCanceledException e) { }
+
+        try { Load(); }
+        catch (AsyncOperationCanceledException) { }
+
+        try { Load(); }
+        {|TF3004:catch (LoadCanceledError) { }|}
+
+        try { Load(); }
+        {|TF3004:catch (InvalidOperationException) { }|}
+    }
+}");
+        }
+
+        [Test]
         public void TestCode_IsNotChecked()
         {
             AnalyzerVerifier.Verify(new IgnoredExceptionAnalyzer(), Code.Replace("{|TF3004:", "").Replace("}|}", "}"), SnippetAssembly.Tests());

@@ -15,8 +15,12 @@ namespace TarragonFly.Analyzers.Rules.Readability
     //
     // The next statement is reported when it starts on the line where the body ends, or, for a body on
     // its own line, at or past the body's column, or, for a body on the same line as its keyword, past
-    // the keyword's column, with tabs counted as 4 columns. Blank lines and comments in between don't
-    // matter. For an else-if chain the last branch's body is the one compared. do loops aren't checked.
+    // the keyword's column, with tabs counted as 4 columns. A body on its own line that isn't indented
+    // past its keyword doesn't look nested by itself, so the innermost statement it ends with, through
+    // nested ifs and loops, is compared instead. For an if wrapping a loop at the same column, that's
+    // the loop's indented body; when it's a block, nothing is reported. A body that is indented counts
+    // even when it's another if or loop. Blank lines and comments in between don't matter. For an
+    // else-if chain the last branch's body is the one compared. do loops aren't checked.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StatementAfterUnbracedBodyAnalyzer : ScopedAnalyzer
     {
@@ -52,7 +56,12 @@ namespace TarragonFly.Analyzers.Rules.Readability
             bool looksInside;
             if (nextLine == bodyLines.EndLinePosition.Line) looksInside = true;
             else if (bodyLines.StartLinePosition.Line == keywordLine) looksInside = nextColumn > VisualColumns.Of(keyword);
-            else looksInside = nextColumn >= VisualColumns.Of(body);
+            else if (VisualColumns.Of(body) > VisualColumns.Of(keyword)) looksInside = nextColumn >= VisualColumns.Of(body);
+            else
+            {
+                StatementSyntax innermost = InnermostBody(body);
+                looksInside = !(innermost is BlockSyntax) && nextColumn >= VisualColumns.Of(innermost);
+            }
 
             if (looksInside) context.ReportDiagnostic(Diagnostic.Create(Rule, next.GetLocation()));
         }
@@ -82,6 +91,16 @@ namespace TarragonFly.Analyzers.Rules.Readability
                     keyword = whileStatement.WhileKeyword;
                     return whileStatement.Statement;
             }
+        }
+
+        // The statement an unbraced body ends with, through nested ifs and loops.
+        private static StatementSyntax InnermostBody(StatementSyntax body)
+        {
+            while (body is IfStatementSyntax || body is ForStatementSyntax || body is CommonForEachStatementSyntax || body is WhileStatementSyntax)
+            {
+                body = LastBody(body, out _);
+            }
+            return body;
         }
 
         private static StatementSyntax NextStatement(StatementSyntax statement)

@@ -17,9 +17,13 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // Calls that change nothing: string methods, methods on numbers, bool and char (int.Parse,
     // ToString, CompareTo), LINQ's Enumerable methods, object's own methods such as ToString and
     // GetHashCode (overrides may do more, so they aren't counted), methods marked [Pure], System.Math,
-    // Unity's Mathf and the static methods of Vector2, Vector3, Vector4, Quaternion and Color. Methods
-    // with out or ref parameters, such as int.TryParse, are fine. Instance methods such as
-    // Vector3.Normalize() change the value and aren't checked. Reported on the call. Game code only.
+    // Unity's Mathf and the static methods of Vector2, Vector3, Vector4, Quaternion and Color. So are
+    // the immutable collections' methods, since ImmutableList<T>.Add and the rest return a new
+    // collection, plus their static helpers such as ImmutableList.Create and ToImmutableList and
+    // ImmutableArray's LINQ methods. Their builders change in place and aren't counted, and neither
+    // are interfaces such as IImmutableSet<T>. Methods with out or ref parameters, such as
+    // int.TryParse, are fine. Instance methods such as Vector3.Normalize() change the value and
+    // aren't checked. Reported on the call. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class IgnoredResultAnalyzer : ScopedAnalyzer
     {
@@ -33,6 +37,13 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         private static readonly HashSet<string> UnityValueTypes = new HashSet<string>
         {
             "UnityEngine.Vector2", "UnityEngine.Vector3", "UnityEngine.Vector4", "UnityEngine.Quaternion", "UnityEngine.Color"
+        };
+
+        // In System.Collections.Immutable, generic and static alike. Their builders are nested types,
+        // which the namespace check leaves out.
+        private static readonly HashSet<string> ImmutableCollections = new HashSet<string>
+        {
+            "ImmutableArray", "ImmutableDictionary", "ImmutableHashSet", "ImmutableList", "ImmutableQueue", "ImmutableSortedDictionary", "ImmutableSortedSet", "ImmutableStack"
         };
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
@@ -59,6 +70,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             if (type.SpecialType == SpecialType.System_Object) return true;
             if (SymbolNames.IsNamed(type, "System.Linq.Enumerable") || SymbolNames.IsNamed(type, "System.Math") || SymbolNames.IsNamed(type, "UnityEngine.Mathf")) return true;
             if (method.IsStatic && UnityValueTypes.Contains(type.ToDisplayString())) return true;
+            if (ImmutableCollections.Contains(type.Name) && SymbolNames.IsInNamespace(type, "System.Collections.Immutable")) return true;
+            if (SymbolNames.IsNamed(type, "System.Linq.ImmutableArrayExtensions")) return true;
             return SymbolNames.HasAttribute(method, "System.Diagnostics.Contracts.PureAttribute");
         }
 

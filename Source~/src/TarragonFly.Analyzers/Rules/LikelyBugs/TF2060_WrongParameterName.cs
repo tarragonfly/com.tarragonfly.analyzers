@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,23 +11,35 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
     // TF2060: an ArgumentException, ArgumentNullException or other argument exception whose parameter
     // name isn't a parameter where it is thrown, as in "throw new ArgumentNullException("target")" in
-    // "void Follow(Transform player)".
+    // "void Follow(Transform player)", or that names no parameter, as in a bare
+    // "throw new ArgumentOutOfRangeException()".
     //
-    // The name ends up in the error message and the exception's ParamName, so a renamed or wrong name
-    // sends whoever reads the log after the wrong argument. nameof() keeps it right through renames.
+    // The name ends up in the error message and the exception's ParamName, so a missing, renamed or
+    // wrong name sends whoever reads the log after the wrong argument. nameof() keeps it right through
+    // renames.
     //
     // The parameters of every enclosing method, constructor, operator, lambda and local function count;
-    // inside a property accessor "value" and the property name do too. Only constant names are checked.
-    // Reported on the "new" expression.
+    // inside a property accessor "value" and the property name do too. Only constant names are checked,
+    // and a null name counts as none. The parameterless constructors of ArgumentException,
+    // ArgumentNullException, ArgumentOutOfRangeException and DuplicateWaitObjectException are reported
+    // wherever they're used. Other argument exceptions aren't, since they may have no constructor that
+    // takes a name. Reported on the "new" expression.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class WrongParameterNameAnalyzer : ScopedAnalyzer
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF2060",
-            "Argument exception names a parameter that doesn't exist",
-            "'{0}' isn't a parameter here; pass the real parameter name, ideally with nameof()",
+            "Argument exception without the right parameter name",
+            "{0}",
             "LikelyBugs",
             CodeKind.All);
+
+        private const string NoNameMessage = "This doesn't say which parameter is wrong; pass its name, ideally with nameof()";
+
+        private static readonly string[] TypesTakingAName =
+        {
+            "System.ArgumentException", "System.ArgumentNullException", "System.ArgumentOutOfRangeException", "System.DuplicateWaitObjectException",
+        };
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
@@ -35,18 +48,30 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 BaseObjectCreationExpressionSyntax creation = (BaseObjectCreationExpressionSyntax)context.Node;
-                if (creation.ArgumentList == null) return;
                 if (!(context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol constructor)) return;
                 if (!SymbolNames.IsOrDerivesFrom(constructor.ContainingType, "System.ArgumentException")) return;
 
-                string name = ParamNameArgument(context.SemanticModel, creation, constructor, context.CancellationToken);
-                if (name == null || NamesInScope(context.SemanticModel, creation, context.CancellationToken).Contains(name)) return;
-                context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), name));
+                if (constructor.Parameters.IsEmpty)
+                {
+                    if (TypesTakingAName.Any(type => SymbolNames.IsNamed(constructor.ContainingType, type))) context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), NoNameMessage));
+                    return;
+                }
+                if (!TryGetParamName(context.SemanticModel, creation, constructor, context.CancellationToken, out string name)) return;
+                if (name == null)
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), NoNameMessage));
+                    return;
+                }
+                if (NamesInScope(context.SemanticModel, creation, context.CancellationToken).Contains(name)) return;
+                context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), $"'{name}' isn't a parameter here; pass the real parameter name, ideally with nameof()"));
             }), SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression);
         }
 
-        private static string ParamNameArgument(SemanticModel model, BaseObjectCreationExpressionSyntax creation, IMethodSymbol constructor, System.Threading.CancellationToken ct)
+        // The paramName argument when it's a constant, which may be null.
+        private static bool TryGetParamName(SemanticModel model, BaseObjectCreationExpressionSyntax creation, IMethodSymbol constructor, System.Threading.CancellationToken ct, out string name)
         {
+            name = null;
+            if (creation.ArgumentList == null) return false;
             for (int i = 0; i < creation.ArgumentList.Arguments.Count; i++)
             {
                 ArgumentSyntax argument = creation.ArgumentList.Arguments[i];
@@ -54,9 +79,10 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                     : i < constructor.Parameters.Length ? constructor.Parameters[i].Name : null;
                 if (parameterName != "paramName") continue;
                 Optional<object> value = model.GetConstantValue(argument.Expression, ct);
-                return value.HasValue ? value.Value as string : null;
+                name = value.HasValue ? value.Value as string : null;
+                return value.HasValue;
             }
-            return null;
+            return false;
         }
 
         private static HashSet<string> NamesInScope(SemanticModel model, SyntaxNode node, System.Threading.CancellationToken ct)

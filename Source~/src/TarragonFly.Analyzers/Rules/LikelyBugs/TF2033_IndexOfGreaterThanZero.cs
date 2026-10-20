@@ -13,8 +13,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // A match at the very start is index 0, so "name.IndexOf("Boss") > 0" misses "BossGoblin"; compare
     // with >= 0 or != -1, or use Contains.
     //
-    // IndexOf, IndexOfAny, LastIndexOf and LastIndexOfAny count, on strings, arrays and lists, in
-    // either order ("0 < IndexOf(...)"). Reported on the "> 0" part.
+    // IndexOf, IndexOfAny, LastIndexOf and LastIndexOfAny count, on strings, arrays, lists and any
+    // other type, in either order ("0 < IndexOf(...)"), also inside parentheses or checked(...). Any
+    // constant zero counts, such as 0L, 0f, '\0' or a named constant. Reported on the "> 0" part.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class IndexOfGreaterThanZeroAnalyzer : ScopedAnalyzer
     {
@@ -52,6 +53,12 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 
         private static bool IsIndexOf(SemanticModel model, ExpressionSyntax expression)
         {
+            while (true)
+            {
+                if (expression is ParenthesizedExpressionSyntax parenthesized) expression = parenthesized.Expression;
+                else if (expression is CheckedExpressionSyntax checkedExpression) expression = checkedExpression.Expression;
+                else break;
+            }
             return expression is InvocationExpressionSyntax invocation
                 && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method
                 && Methods.Contains(method.Name)
@@ -61,7 +68,23 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         private static bool IsZero(SemanticModel model, ExpressionSyntax expression)
         {
             Optional<object> value = model.GetConstantValue(expression);
-            return value.HasValue && value.Value is int number && number == 0;
+            if (!value.HasValue) return false;
+            switch (value.Value)
+            {
+                case int number: return number == 0;
+                case long number: return number == 0;
+                case uint number: return number == 0;
+                case ulong number: return number == 0;
+                case short number: return number == 0;
+                case ushort number: return number == 0;
+                case byte number: return number == 0;
+                case sbyte number: return number == 0;
+                case char character: return character == 0;
+                case float number: return number == 0;
+                case double number: return number == 0;
+                case decimal number: return number == 0;
+                default: return false;
+            }
         }
     }
 }

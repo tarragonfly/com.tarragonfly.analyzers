@@ -86,6 +86,41 @@ class Box<T>
         }
 
         [Test]
+        public void TypeParameterAnotherConstraintUses_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new UnusedTypeParameterAnalyzer(), @"
+using System;
+using System.Collections.Generic;
+
+public static class Methods
+{
+    public static void OwnOnly<{|TF1503:T|}>() where T : IComparable<T> { }
+    public static void OtherOnly<TList, TItem>(TList list) where TList : IList<TItem> { list.Clear(); }
+
+    public static int Run()
+    {
+        int Local<{|TF1503:T|}>() => 1;
+        int Typed<T>(T value) => 1;
+        return Local<int>() + Typed(2);
+    }
+}
+
+public class Editor<T>
+{
+    public void Open<U>(U tool) where U : List<T> { tool.Clear(); }
+}
+
+public class Sibling<TList, TItem> where TList : IList<TItem>
+{
+    private readonly TList list;
+    public Sibling(TList list) { this.list = list; }
+    public int Count => list.Count;
+}
+
+public interface IIn<{|TF1503:in TIn|}> { }");
+        }
+
+        [Test]
         public void FixedSignaturesAndDelegates_AreSkipped()
         {
             AnalyzerVerifier.Verify(new UnusedTypeParameterAnalyzer(), @"

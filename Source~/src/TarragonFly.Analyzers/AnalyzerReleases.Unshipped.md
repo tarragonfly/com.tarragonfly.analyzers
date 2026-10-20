@@ -55,7 +55,7 @@ TF2014 | LikelyBugs | Warning | ShiftByZeroOrPastWidthAnalyzer
 TF2015 | LikelyBugs | Warning | IntegerDivisionToFloatAnalyzer
 TF2016 | LikelyBugs | Warning | NeverFinishesAnalyzer
 TF2017 | LikelyBugs | Warning | OddCheckWithModulusAnalyzer
-TF2018 | LikelyBugs | Warning | FloatComparedPastItsRangeAnalyzer
+TF2018 | LikelyBugs | Warning | NumberComparedPastItsRangeAnalyzer
 TF2019 | LikelyBugs | Warning | IgnoredResultAnalyzer
 TF2020 | LikelyBugs | Warning | ToStringReturnsNullAnalyzer
 TF2021 | LikelyBugs | Warning | SwappedArgumentsAnalyzer

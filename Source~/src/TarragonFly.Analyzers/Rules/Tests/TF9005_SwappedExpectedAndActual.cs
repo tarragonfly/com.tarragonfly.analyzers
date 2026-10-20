@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -15,8 +16,10 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // 90 But was: 100"), which sends whoever reads it after the wrong number.
     //
     // Checked: Assert.AreEqual, AreNotEqual, AreSame and AreNotSame where actual is a constant (a
-    // literal or a const) and expected isn't, and Assert.That(constant, Is.EqualTo(value)), with
-    // Is.Not.EqualTo and Is.SameAs. Reported from the first argument to the second.
+    // literal or a const) and expected isn't, also when the arguments are named, as in
+    // "Assert.AreEqual(expected: lives, actual: 3)". And Assert.That(constant, Is.EqualTo(value)),
+    // with Is.Not.EqualTo and Is.SameAs, written without argument names. Reported from the first of
+    // the two arguments to the other.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SwappedExpectedAndActualAnalyzer : ScopedAnalyzer
     {
@@ -39,16 +42,37 @@ namespace TarragonFly.Analyzers.Rules.Tests
                 if (name != "AreEqual" && name != "AreNotEqual" && name != "AreSame" && name != "AreNotSame" && name != "That") return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method) || !BoolLiteralInAssertionAnalyzer.IsAssert(method.ContainingType)) return;
 
-                ArgumentSyntax first = invocation.ArgumentList.Arguments[0];
-                ArgumentSyntax second = invocation.ArgumentList.Arguments[1];
-                if (first.NameColon != null || second.NameColon != null) return;
-                bool swapped = name == "That"
-                    ? IsConstant(context, first.Expression) && ExpectedOfConstraint(context, second.Expression) is ExpressionSyntax expected && !IsConstant(context, expected)
-                    : method.Parameters.Length >= 2 && method.Parameters[0].Name == "expected" && method.Parameters[1].Name == "actual"
-                        && IsConstant(context, second.Expression) && !IsConstant(context, first.Expression);
-                if (!swapped) return;
-                context.ReportDiagnostic(Diagnostic.Create(Rule, Location.Create(invocation.SyntaxTree, TextSpan.FromBounds(first.SpanStart, second.Span.End))));
+                SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+                ArgumentSyntax expected;
+                ArgumentSyntax actual;
+                if (name == "That")
+                {
+                    if (arguments[0].NameColon != null || arguments[1].NameColon != null) return;
+                    actual = arguments[0];
+                    expected = arguments[1];
+                    if (!IsConstant(context, actual.Expression) || !(ExpectedOfConstraint(context, expected.Expression) is ExpressionSyntax value) || IsConstant(context, value)) return;
+                }
+                else
+                {
+                    expected = ArgumentFor(method, arguments, "expected");
+                    actual = ArgumentFor(method, arguments, "actual");
+                    if (expected == null || actual == null || !IsConstant(context, actual.Expression) || IsConstant(context, expected.Expression)) return;
+                }
+                TextSpan span = TextSpan.FromBounds(Math.Min(expected.SpanStart, actual.SpanStart), Math.Max(expected.Span.End, actual.Span.End));
+                context.ReportDiagnostic(Diagnostic.Create(Rule, Location.Create(invocation.SyntaxTree, span)));
             }), SyntaxKind.InvocationExpression);
+        }
+
+        // A positional argument always sits at its parameter's position: C# allows a named one
+        // before it only when that one is in its own position too.
+        private static ArgumentSyntax ArgumentFor(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments, string parameterName)
+        {
+            for (int i = 0; i < arguments.Count; i++)
+            {
+                string name = arguments[i].NameColon?.Name.Identifier.ValueText ?? (i < method.Parameters.Length ? method.Parameters[i].Name : null);
+                if (name == parameterName) return arguments[i];
+            }
+            return null;
         }
 
         private static bool IsConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)

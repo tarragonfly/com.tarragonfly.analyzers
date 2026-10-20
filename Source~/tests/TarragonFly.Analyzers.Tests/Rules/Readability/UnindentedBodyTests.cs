@@ -43,6 +43,45 @@ class Player
         }
 
         [Test]
+        public void IfOnTheLineBelowItsElse_IsCheckedAsTheElseBody()
+        {
+            AnalyzerVerifier.Verify(new UnindentedBodyAnalyzer(), @"
+class Player
+{
+    int score;
+
+    void Pause(bool paused, bool muted)
+    {
+        if (paused)
+            score++;
+        {|TF1022:else|}
+        if (muted)
+            score--;
+
+        if (paused)
+            score++;
+        {|TF1022:else|}
+        if (muted)
+        {
+            score--;
+        }
+
+        if (paused)
+            score++;
+        else
+            if (muted)
+                score--;
+
+        if (paused)
+            score++;
+        else
+            {|TF1022:if (muted)|}
+            score--;
+    }
+}");
+        }
+
+        [Test]
         public void IndentedSameLineOrBracedBodies_AreFine()
         {
             AnalyzerVerifier.Verify(new UnindentedBodyAnalyzer(), @"

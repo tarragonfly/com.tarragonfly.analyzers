@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -15,9 +17,13 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // view such as IReadOnlyList<T>.
     //
     // Copies: LINQ's ToList and ToArray, an array's Clone(), and "new" of a collection given another
-    // collection, such as new List<T>(items). List.ToArray, filtering with Where and an empty new
-    // collection aren't counted, and neither are indexers and lambdas inside the getter. Reported on
-    // the copy. Game code only.
+    // collection, such as new List<T>(items). They count in what the getter returns, its expression
+    // body or a return statement, anywhere in it except as an argument to another call, so
+    // "items.ToList().Count" counts. A copy stored in a local first or used in a loop isn't counted,
+    // and neither are List.ToArray, filtering with Where, an empty new collection, a read-only wrapper
+    // such as new ReadOnlyCollection<T>(items), which copies nothing, copies cached in a field
+    // ("cache ??= items.ToArray()"), indexers and lambdas inside the getter. Reported on the copy.
+    // Game code only.
     //
     // Properties marked with Odin's [ShowInInspector] are skipped, since they hand the Inspector a copy
     // on purpose so it can't change the real collection.
@@ -50,12 +56,41 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 if (!(context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is IPropertySymbol symbol)) return;
                 if (SymbolNames.HasAttribute(symbol, "Sirenix.OdinInspector.ShowInInspectorAttribute")) return;
 
-                foreach (SyntaxNode node in getter.DescendantNodes(child => !(child is AnonymousFunctionExpressionSyntax)))
+                foreach (ExpressionSyntax returned in Returned(getter))
                 {
-                    Location copy = CopyLocation(context, node);
-                    if (copy != null) context.ReportDiagnostic(Diagnostic.Create(Rule, copy, symbol.Name));
+                    foreach (SyntaxNode node in returned.DescendantNodesAndSelf(child => !(child is AnonymousFunctionExpressionSyntax)))
+                    {
+                        Location copy = CopyLocation(context, node);
+                        if (copy != null && !IsCachedInField(context, node) && !IsArgument(node)) context.ReportDiagnostic(Diagnostic.Create(Rule, copy, symbol.Name));
+                    }
                 }
             }), SyntaxKind.PropertyDeclaration);
+        }
+
+        // The expression body, or what the return statements give back.
+        private static IEnumerable<ExpressionSyntax> Returned(SyntaxNode getter)
+        {
+            if (getter is ArrowExpressionClauseSyntax arrow) return new[] { arrow.Expression };
+            return getter.DescendantNodes(child => !(child is AnonymousFunctionExpressionSyntax) && !(child is LocalFunctionStatementSyntax))
+                .OfType<ReturnStatementSyntax>()
+                .Where(statement => statement.Expression != null)
+                .Select(statement => statement.Expression);
+        }
+
+        private static bool IsArgument(SyntaxNode copy)
+        {
+            SyntaxNode node = copy;
+            while (node.Parent is ParenthesizedExpressionSyntax) node = node.Parent;
+            return node.Parent is ArgumentSyntax;
+        }
+
+        // The copy is assigned to a field, as in "cache ??= items.ToArray()", so later reads reuse it.
+        private static bool IsCachedInField(SyntaxNodeAnalysisContext context, SyntaxNode copy)
+        {
+            SyntaxNode node = copy;
+            while (node.Parent is ParenthesizedExpressionSyntax || node.Parent is CastExpressionSyntax) node = node.Parent;
+            return node.Parent is AssignmentExpressionSyntax assignment && assignment.Right == node
+                && context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IFieldSymbol;
         }
 
         private static Location CopyLocation(SyntaxNodeAnalysisContext context, SyntaxNode node)
@@ -70,13 +105,21 @@ namespace TarragonFly.Analyzers.Rules.Performance
             }
             if (node is BaseObjectCreationExpressionSyntax creation && creation.ArgumentList != null)
             {
-                if (!IsCollection(context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type)) return null;
+                ITypeSymbol created = context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type;
+                if (!IsCollection(created) || IsReadOnlyWrapper(created)) return null;
                 foreach (ArgumentSyntax argument in creation.ArgumentList.Arguments)
                 {
                     if (IsCollection(context.SemanticModel.GetTypeInfo(argument.Expression, context.CancellationToken).Type)) return creation.GetLocation();
                 }
             }
             return null;
+        }
+
+        // ReadOnlyCollection<T>, ReadOnlyDictionary<TKey, TValue> and ReadOnlyObservableCollection<T>
+        // wrap the collection they're given.
+        private static bool IsReadOnlyWrapper(ITypeSymbol type)
+        {
+            return SymbolNames.IsInNamespace(type, "System.Collections.ObjectModel") && type.Name.StartsWith("ReadOnly", System.StringComparison.Ordinal);
         }
 
         private static bool IsCollection(ITypeSymbol type)

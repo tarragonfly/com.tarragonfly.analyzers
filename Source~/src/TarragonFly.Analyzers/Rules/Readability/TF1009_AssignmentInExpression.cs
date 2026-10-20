@@ -13,11 +13,13 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // "=" next to "==" is an easy typo to miss.
     //
     // Allowed: an assignment as its own statement, chained assignments (a = b = 0), variable and field
-    // initializers, return values and expression bodies (=> x = 1, return x = 1), for loop initializers
-    // and updates, the right side of ?? (cache ?? (cache = Load())), object initializer members, and
-    // the read-and-compare loop idiom: an assignment compared with ==, !=, <, <=, > or >= directly in
-    // an if, while, do or for condition, as in "while ((line = reader.ReadLine()) != null)". Reported
-    // on the assignment operator.
+    // initializers, return and yield return values and expression bodies (=> x = 1, return x = 1), for
+    // loop initializers and updates, the value a switch statement, lock or using statement takes, ??=
+    // anywhere ((list ??= new()).Add(x)), the right side of ?? when it assigns the left side (cache ??
+    // (cache = Load())), object initializer members, and the read-and-compare loop idiom: an assignment
+    // compared with ==, !=, <, <=, > or >=, or tested with an is pattern, directly in an if, while, do
+    // or for condition, as in "while ((line = reader.ReadLine()) != null)". A switch expression on an
+    // assignment is reported. Reported on the assignment operator.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AssignmentInExpressionAnalyzer : ScopedAnalyzer
     {
@@ -49,6 +51,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
         private static bool IsAllowed(AssignmentExpressionSyntax assignment)
         {
+            if (assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression)) return true;
             SyntaxNode node = SkipParenthesesUp(assignment, out SyntaxNode parent);
             switch (parent)
             {
@@ -56,6 +59,10 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 case EqualsValueClauseSyntax _:
                 case ArrowExpressionClauseSyntax _:
                 case ReturnStatementSyntax _:
+                case YieldStatementSyntax _:
+                case SwitchStatementSyntax _:
+                case LockStatementSyntax _:
+                case UsingStatementSyntax _:
                 case ForStatementSyntax f when f.Condition != node:
                 case InitializerExpressionSyntax i when i.IsKind(SyntaxKind.ObjectInitializerExpression) || i.IsKind(SyntaxKind.WithInitializerExpression):
                     return true;
@@ -64,9 +71,11 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 case LambdaExpressionSyntax lambda:
                     return lambda.Body == node;
                 case BinaryExpressionSyntax coalesce when coalesce.IsKind(SyntaxKind.CoalesceExpression):
-                    return coalesce.Right == node;
+                    return coalesce.Right == node && SyntaxFactory.AreEquivalent(coalesce.Left, assignment.Left);
                 case BinaryExpressionSyntax comparison when IsComparison(comparison):
                     return IsLoopOrIfCondition(comparison);
+                case IsPatternExpressionSyntax pattern:
+                    return IsLoopOrIfCondition(pattern);
                 default:
                     return false;
             }
@@ -88,8 +97,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
             }
         }
 
-        // The comparison is an if, while, do or for condition, possibly joined with && or ||.
-        private static bool IsLoopOrIfCondition(BinaryExpressionSyntax comparison)
+        // The comparison or pattern test is an if, while, do or for condition, possibly joined with &&
+        // or ||.
+        private static bool IsLoopOrIfCondition(ExpressionSyntax comparison)
         {
             SyntaxNode node = comparison;
             SyntaxNode parent = comparison.Parent;

@@ -66,6 +66,27 @@ class Mover
         }
 
         [Test]
+        public void RepeatedOrUnrelatedMisplacedArguments_AreNotSwaps()
+        {
+            AnalyzerVerifier.Verify(new SwappedArgumentsAnalyzer(), @"
+class Grid
+{
+    static void Draw(int style, int firstStyle, int midStyle, int lastStyle) { }
+    static void Copy(int source, int sourceStart, int target, int targetStart) { }
+    static void Place(int x, int y, int z) { }
+
+    void Run(int style, int buffer, int other, int source, int target, int x, int y, int z, int w)
+    {
+        Draw(style, style, style, style);
+        Copy(buffer, source, other, target);
+        {|TF2021:Place|}(w, x, y);
+        {|TF2021:Place|}(z, x, y);
+        Place(w, x, w);
+    }
+}");
+        }
+
+        [Test]
         public void CallPackedIntoParamsDespiteAnExactOverload_IsReported()
         {
             AnalyzerVerifier.Verify(new AccidentalParamsCallAnalyzer(), @"
@@ -104,6 +125,46 @@ class Audio
 
     public void Pan(int a, float b = 0) { }
     public void Pan(int a, int b) { }
+}");
+        }
+
+        [Test]
+        public void OnlyTheFirstParameterTheOtherOverloadLacks_IsReported()
+        {
+            AnalyzerVerifier.Verify(new UnreachableDefaultParameterAnalyzer(), @"
+interface IAudio
+{
+    void Play(string clip);
+    void Play(string clip, {|TF2049:float volume = 1f|}, bool loop = true);
+}
+
+class Audio : IAudio
+{
+    public void Play(string clip) { }
+    public void Play(string clip, {|TF2049:float volume = 1f|}, bool loop = true) { }
+
+    public string Load(string path, string extension = "".png"") => path;
+    public string Load(string path, string extension = "".png"", {|TF2049:bool lowRes = false|}) => path;
+
+    public void Fade(int a, int b, {|TF2049:int c = 0|}) { }
+    public void Fade(int a, int b = 5) { }
+
+    public void Loop<T>(T item, {|TF2049:int times = 0|}) { }
+    public void Loop<T>(T item) { }
+
+    public void Seek(int a = 1, int b = 0) { }
+    public void Seek(int a) { }
+}
+
+class Icons
+{
+    public Icons() { }
+    public Icons({|TF2049:bool lowRes = false|}, int size = 1) { }
+}
+
+struct Cell
+{
+    public Cell(int x = 0) { }
 }");
         }
     }

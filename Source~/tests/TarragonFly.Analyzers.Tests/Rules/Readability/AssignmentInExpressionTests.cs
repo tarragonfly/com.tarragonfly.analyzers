@@ -85,5 +85,53 @@ class Inventory
         bool r = (count {|TF1009:=|} x) == 1;
         Use((count {|TF1009:=|} x) == 1);");
         }
+
+        [Test]
+        public void LazyInitPatternConditionsAndStatementValues_AreFine()
+        {
+            Verify(@"
+        (cache ??= new List<int>()).Add(x);
+        Use(cache ??= new List<int>());
+        bool empty = (cache ??= new List<int>()).Count == 0;
+        while ((count = x--) is not -1) { }
+        if ((count = x) is > 3 && b) { }
+        object o;
+        if ((o = reader.ReadLine()) is string text) { }
+        switch (count = x) { case 1: break; }
+        lock (cache = new List<int>()) { }
+        TextReader held;
+        using (held = new StringReader("""")) { }");
+        }
+
+        [Test]
+        public void PatternOutsideAConditionSwitchExpressionAndCoalesceSettingAnotherVariable_AreReported()
+        {
+            Verify(@"
+        bool r = (count {|TF1009:=|} x) is 3;
+        int s = (count {|TF1009:=|} x) switch { 1 => 2, _ => 3 };
+        List<int> spare = null;
+        Use(cache ?? (spare {|TF1009:=|} new List<int>()));
+        Use(cache ?? (this.cache {|TF1009:=|} new List<int>()));");
+        }
+
+        [Test]
+        public void YieldReturnedAssignment_IsFine()
+        {
+            AnalyzerVerifier.Verify(new AssignmentInExpressionAnalyzer(), @"
+using System.Collections;
+
+class Spawner
+{
+    object routine;
+    int count;
+
+    IEnumerator Run()
+    {
+        yield return routine = new object();
+        yield return (routine = new object());
+        yield return count += 1;
+    }
+}");
+        }
     }
 }

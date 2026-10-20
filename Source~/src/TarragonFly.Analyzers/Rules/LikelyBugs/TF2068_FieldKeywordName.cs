@@ -11,9 +11,10 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // meaning when Unity moves to a newer C# version.
     //
     // Reported: "field" naming a member (a field, property or method; nameof included), and locals,
-    // lambda parameters, local function parameters, foreach and out variables declared with that name.
-    // Uses of such a local aren't reported again. "@field" and "this.field" are fine. Indexers and
-    // event accessors aren't affected.
+    // lambda parameters, local function parameters, foreach and out variables, and query range
+    // variables (from, let, join and into) declared with that name. Uses of such a local aren't
+    // reported again. "@field", "this.field" and "holder.field" or "holder?.field" are fine. Indexers
+    // and event accessors aren't affected.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FieldKeywordNameAnalyzer : ScopedAnalyzer
     {
@@ -57,6 +58,11 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 case ForEachStatementSyntax forEach: return forEach.Identifier == token;
                 case SingleVariableDesignationSyntax _: return true;
                 case CatchDeclarationSyntax catchDeclaration: return catchDeclaration.Identifier == token;
+                case FromClauseSyntax from: return from.Identifier == token;
+                case LetClauseSyntax let: return let.Identifier == token;
+                case JoinClauseSyntax join: return join.Identifier == token;
+                case JoinIntoClauseSyntax joinInto: return joinInto.Identifier == token;
+                case QueryContinuationSyntax into: return into.Identifier == token;
                 default: return false;
             }
         }
@@ -64,7 +70,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         private static bool NamesMember(SyntaxNodeAnalysisContext context, SyntaxToken token)
         {
             if (!(token.Parent is IdentifierNameSyntax name)) return false;
-            if (name.Parent is MemberAccessExpressionSyntax access && access.Name == name) return false;
+            if ((name.Parent is MemberAccessExpressionSyntax access && access.Name == name) || name.Parent is MemberBindingExpressionSyntax) return false;
             SymbolInfo info = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken);
             ISymbol symbol = info.Symbol ?? (info.CandidateSymbols.Length > 0 ? info.CandidateSymbols[0] : null);
             return symbol != null && !(symbol is ILocalSymbol) && !(symbol is IParameterSymbol) && !(symbol is IRangeVariableSymbol);

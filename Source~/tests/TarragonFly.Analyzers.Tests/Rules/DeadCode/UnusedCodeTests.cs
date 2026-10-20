@@ -115,6 +115,137 @@ class Spawner
         }
 
         [Test]
+        public void EnumMembersAnimationEventsCallbacksAndHolders_CountAsUsed()
+        {
+            AnalyzerVerifier.Verify(new UnusedPrivateMemberAnalyzer(), @"
+using System;
+using System.Diagnostics;
+using UnityEditor;
+using UnityEngine;
+
+namespace UnityEngine
+{
+    public sealed class AnimationEvent { }
+    public struct Rect { }
+}
+
+namespace UnityEditor
+{
+    public class EditorWindow : UnityEngine.ScriptableObject { }
+    public class SettingsProvider { }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class SettingsProviderAttribute : Attribute { }
+}
+
+class Blitter
+{
+    private enum PassNames { Nearest, Bilinear }
+
+    public string[] Passes() => Enum.GetNames(typeof(PassNames));
+}
+
+class Footsteps : MonoBehaviour
+{
+    private void OnFootstep(AnimationEvent animationEvent) { }
+    private void {|TF1500:OnLand|}(int height) { }
+    private void OnDidApplyAnimationProperties() { }
+}
+
+class LockableWindow : EditorWindow
+{
+    private void ShowButton(Rect position) { }
+}
+
+class TimelineLikeAsset : ScriptableObject
+{
+    private void __internalAwake() { }
+}
+
+class Palettes
+{
+    private class Importer : AssetPostprocessor { }
+
+    private static class Registration
+    {
+        [SettingsProvider]
+        public static SettingsProvider Create() => new SettingsProvider();
+    }
+
+    private class {|TF1500:Unused|} { }
+}
+
+[DebuggerDisplay(""{Label(),nq} {count}"")]
+struct TextElement
+{
+    private int count;
+
+    private string Label() => ""x"";
+}");
+        }
+
+        [Test]
+        public void GenericLocalFunctionsUsedThroughConstructedCopies_AreUsed()
+        {
+            AnalyzerVerifier.Verify(new UnusedPrivateMemberAnalyzer(), @"
+using System;
+
+public class Services
+{
+    public int Refresh()
+    {
+        static T[] FindAll<T>() where T : new() => new[] { new T() };
+        void OnChanged<T>(T value) { }
+        void {|TF1500:Unused|}<T>() { }
+
+        Action<bool> changed = OnChanged;
+        changed(true);
+        return FindAll<object>().Length;
+    }
+}");
+        }
+
+        [Test]
+        public void AccessorsNothingUses_AreReported()
+        {
+            AnalyzerVerifier.Verify(new UnusedPrivateMemberAnalyzer(), @"
+using UnityEngine;
+
+public class Hint
+{
+    public string Message { get; {|TF1500:private set;|} }
+    public string Shown { get; private set; }
+    public int Hidden { {|TF1500:private get;|} set; }
+    [field: SerializeField] public int Level { get; private set; }
+
+    private string texture;
+    private string MainTexture { {|TF1500:get => texture;|} set => texture = value; }
+
+    private int this[int index] { {|TF1500:get => index;|} set { } }
+    private int this[string key] { get => 0; {|TF1500:set { }|} }
+    private float {|TF1500:this|}[float key] => key;
+
+    private class Result
+    {
+        public string Output { get; {|TF1500:set;|} }
+        public int WrittenOnly { get; set; }
+        public int Counter { get; set; }
+        public int ByName { get; set; }
+    }
+
+    public string Read()
+    {
+        Result result = new Result { WrittenOnly = 1 };
+        result.Counter++;
+        Shown = nameof(Result.ByName);
+        MainTexture = ""grass"";
+        this[0] = 5;
+        return result.Output + this[""a""] + texture;
+    }
+}");
+        }
+
+        [Test]
         public void StringBuilderFilledButNeverRead_IsReported()
         {
             const string Code = @"
@@ -190,6 +321,47 @@ class SaveData
     private int score;
 
     public void Set(int x) => score = x;
+}");
+        }
+
+        [Test]
+        public void NestedTypeFieldsVoidArrowWritesAndStructLayout_AreHandled()
+        {
+            AnalyzerVerifier.Verify(new FieldNeverReadAnalyzer(), @"
+using System.Runtime.InteropServices;
+
+class SkyboxPass
+{
+    private float {|TF1506:lastHitTime|};
+
+    private class PassData
+    {
+        internal int {|TF1506:material|};
+        internal int camera;
+    }
+
+    public void Hit(float time) => lastHitTime = time;
+
+    public int Record(int material, int camera)
+    {
+        PassData data = new PassData();
+        data.material = material;
+        data.camera = camera;
+        return data.camera;
+    }
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct ListHeader
+{
+    public int length;
+    private readonly int padding;
+
+    public ListHeader(int value)
+    {
+        length = value;
+        padding = 0;
+    }
 }");
         }
     }

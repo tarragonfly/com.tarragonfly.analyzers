@@ -12,8 +12,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // LINQ allocates an enumerator and goes through interface calls; List.Find and Array.Find loop
     // over the items directly and allocate nothing, which adds up in per-frame code.
     //
-    // FirstOrDefault without a condition, and other collection types, are fine. Reported on the
-    // FirstOrDefault name.
+    // Classes derived from List count too, called directly or through ?.. FirstOrDefault without a
+    // condition, and other collection types, are fine. Reported on the FirstOrDefault name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FirstOrDefaultInsteadOfFindAnalyzer : ScopedAnalyzer
     {

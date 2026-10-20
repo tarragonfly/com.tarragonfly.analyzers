@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -13,8 +15,9 @@ namespace TarragonFly.Analyzers.Rules.StaticState
     // MaxHealth silently ends up 0. Reordering the fields, or making them const, fixes it.
     //
     // Only fields of the same type, declared later in the same file, count. Constants are fine, as
-    // are reads inside lambdas and methods, which run later, and nameof(Field), which doesn't read the
-    // value. Reported on the "= ..." part.
+    // are reads inside lambdas and methods, which run later, query clauses such as where and select,
+    // which become lambdas (the first from's source and a join's source are read at once and count),
+    // and nameof(Field), which doesn't read the value. Reported on the "= ..." part.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StaticFieldReadBeforeSetAnalyzer : ScopedAnalyzer
     {
@@ -45,9 +48,8 @@ namespace TarragonFly.Analyzers.Rules.StaticState
 
         private static IFieldSymbol LaterFieldRead(SyntaxNodeAnalysisContext context, VariableDeclaratorSyntax variable, IFieldSymbol field)
         {
-            foreach (SyntaxNode node in variable.Initializer.Value.DescendantNodesAndSelf(child => !(child is AnonymousFunctionExpressionSyntax) && !IsNameOf(child)))
+            foreach (IdentifierNameSyntax name in NamesReadAtOnce(variable.Initializer.Value))
             {
-                if (!(node is IdentifierNameSyntax name)) continue;
                 if (!(context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol is IFieldSymbol read) || !read.IsStatic || read.IsConst) continue;
                 if (!SymbolEqualityComparer.Default.Equals(read.ContainingType, field.ContainingType)) continue;
                 foreach (SyntaxReference reference in read.DeclaringSyntaxReferences)
@@ -56,6 +58,33 @@ namespace TarragonFly.Analyzers.Rules.StaticState
                 }
             }
             return null;
+        }
+
+        // The names the initializer reads while it runs, leaving out lambdas, nameof and the query
+        // clauses that become lambdas.
+        private static IEnumerable<IdentifierNameSyntax> NamesReadAtOnce(SyntaxNode node)
+        {
+            switch (node)
+            {
+                case AnonymousFunctionExpressionSyntax _:
+                    yield break;
+                case IdentifierNameSyntax name:
+                    yield return name;
+                    yield break;
+                case QueryBodySyntax body:
+                    foreach (JoinClauseSyntax join in body.Clauses.OfType<JoinClauseSyntax>())
+                    {
+                        foreach (IdentifierNameSyntax name in NamesReadAtOnce(join.InExpression)) yield return name;
+                    }
+                    if (body.Continuation == null) yield break;
+                    foreach (IdentifierNameSyntax name in NamesReadAtOnce(body.Continuation.Body)) yield return name;
+                    yield break;
+            }
+            if (IsNameOf(node)) yield break;
+            foreach (SyntaxNode child in node.ChildNodes())
+            {
+                foreach (IdentifierNameSyntax name in NamesReadAtOnce(child)) yield return name;
+            }
         }
 
         private static bool IsNameOf(SyntaxNode node)

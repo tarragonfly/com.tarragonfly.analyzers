@@ -21,10 +21,16 @@ namespace TarragonFly.Analyzers.Rules.Async
     // Checked: locals and private fields set to a "new" disposable object, or to
     // CancellationTokenSource.CreateLinkedTokenSource(...). The object is handled when it is disposed
     // or closed anywhere (Dispose, DisposeAsync or Close, ?. included), used in a using, passed to a
-    // method or constructor, returned, or stored somewhere else; handing a token source to an owner
-    // such as AudioManager.StoreMusicFadeCts(cts) counts. A lambda that only uses it doesn't.
-    // MemoryStream, StringReader, StringWriter and tasks hold nothing that needs disposing and aren't
-    // checked. Reported on each creation.
+    // method or constructor, returned, or stored somewhere else, also through "?:" or "??"; handing a
+    // token source to an owner such as AudioManager.StoreMusicFadeCts(cts) counts. A lambda that only
+    // uses it doesn't. MemoryStream, StringReader, StringWriter, tasks, the render pipelines'
+    // PropertyFetcher and ShaderGraph's ShaderStringBuilder hold nothing that needs disposing (the last
+    // two are IDisposable only for using blocks) and aren't checked. Nor are objects whose Dispose() is
+    // empty in source; an UnsafeList<T> made from a pointer, which only views memory the caller owns,
+    // such as stackalloc memory; native collections made with Allocator.Temp, which Unity frees at the
+    // end of the frame; and [DeallocateOnJobCompletion] fields, which the job system frees. Any other
+    // object made from a pointer is checked, since its Dispose may free that memory. Reported on each
+    // creation.
     //
     // System.Threading.Timer is checked too; an undisposed Timer keeps firing.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -41,10 +47,16 @@ namespace TarragonFly.Analyzers.Rules.Async
         private static readonly string[] NothingToDispose =
         {
             "System.IO.MemoryStream", "System.IO.StringReader", "System.IO.StringWriter",
-            "System.Threading.Tasks.Task", "System.Threading.Tasks.Task`1", "System.Threading.Tasks.ValueTask", "System.Threading.Tasks.ValueTask`1"
+            "System.Threading.Tasks.Task", "System.Threading.Tasks.Task`1", "System.Threading.Tasks.ValueTask", "System.Threading.Tasks.ValueTask`1",
+            "UnityEditor.Rendering.PropertyFetcher`1", "UnityEditor.ShaderGraph.ShaderStringBuilder"
         };
 
         private static readonly HashSet<string> DisposeMethods = new HashSet<string> { "Dispose", "DisposeAsync", "Close" };
+
+        private static readonly string[] PointerViews =
+        {
+            "Unity.Collections.LowLevel.Unsafe.UnsafeList`1"
+        };
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
@@ -58,6 +70,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 IFieldReferenceOperation reference = (IFieldReferenceOperation)context.Operation;
                 IFieldSymbol field = reference.Field.OriginalDefinition;
                 if (field.DeclaredAccessibility != Accessibility.Private || field.IsStatic) return;
+                if (SymbolNames.HasAttribute(field, "Unity.Collections.DeallocateOnJobCompletionAttribute")) return;
                 if (reference.Parent is ISimpleAssignmentOperation assignment && assignment.Target == reference)
                 {
                     if (IsCreation(assignment.Value)) fieldCreations.GetOrAdd(field, _ => new ConcurrentBag<SyntaxNode>()).Add(assignment.Syntax);
@@ -73,6 +86,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 foreach (IFieldSymbol field in initializer.InitializedFields)
                 {
                     if (field.DeclaredAccessibility != Accessibility.Private || field.IsStatic) continue;
+                    if (SymbolNames.HasAttribute(field, "Unity.Collections.DeallocateOnJobCompletionAttribute")) continue;
                     SyntaxNode declarator = field.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken);
                     fieldCreations.GetOrAdd(field, _ => new ConcurrentBag<SyntaxNode>()).Add(declarator);
                 }
@@ -135,6 +149,13 @@ namespace TarragonFly.Analyzers.Rules.Async
             list.Add(creation);
         }
 
+        // A view made from a pointer to memory the caller owns, which it never frees.
+        private static bool IsPointerView(IObjectCreationOperation creation)
+        {
+            return creation.Arguments.Any(argument => argument.Value.Type is IPointerTypeSymbol)
+                && PointerViews.Any(name => SymbolNames.IsNamed(creation.Type?.OriginalDefinition, name));
+        }
+
         // "new X(...)" of a type that needs disposing, or CancellationTokenSource.CreateLinkedTokenSource(...).
         private static bool IsCreation(IOperation value)
         {
@@ -143,6 +164,7 @@ namespace TarragonFly.Analyzers.Rules.Async
             switch (value)
             {
                 case IObjectCreationOperation creation:
+                    if (creation.Arguments.Any(argument => IsTempAllocator(argument.Value)) || IsPointerView(creation)) return false;
                     type = creation.Type;
                     break;
                 case IInvocationOperation call when call.TargetMethod.Name == "CreateLinkedTokenSource":
@@ -152,7 +174,34 @@ namespace TarragonFly.Analyzers.Rules.Async
                     return false;
             }
             if (type == null || NothingToDispose.Any(name => SymbolNames.IsNamed(type.OriginalDefinition, name))) return false;
-            return SymbolNames.Implements(type, candidate => SymbolNames.IsNamed(candidate, "System.IDisposable"));
+            if (!SymbolNames.Implements(type, candidate => SymbolNames.IsNamed(candidate, "System.IDisposable"))) return false;
+            return !HasEmptyDispose(type, value.SemanticModel?.Compilation);
+        }
+
+        // Allocator.Temp, whose allocations Unity frees at the end of the frame.
+        private static bool IsTempAllocator(IOperation argument)
+        {
+            while (argument is IConversionOperation conversion) argument = conversion.Operand;
+            return argument is IFieldReferenceOperation reference && reference.Field.Name == "Temp"
+                && SymbolNames.IsNamed(reference.Field.ContainingType, "Unity.Collections.Allocator");
+        }
+
+        // A Dispose() written in this compilation with nothing in it. One from another assembly can't
+        // be looked into, so it counts as doing something.
+        private static bool HasEmptyDispose(ITypeSymbol type, Compilation compilation)
+        {
+            if (!(compilation?.GetSpecialType(SpecialType.System_IDisposable).GetMembers("Dispose").FirstOrDefault() is IMethodSymbol contract)) return false;
+            if (!(type.FindImplementationForInterfaceMember(contract) is IMethodSymbol dispose)) return false;
+            // The interface maps to the virtual method; an override further down is what runs.
+            for (ITypeSymbol current = type; current != null && (dispose.IsVirtual || dispose.IsOverride); current = current.BaseType)
+            {
+                IMethodSymbol own = current.GetMembers("Dispose").OfType<IMethodSymbol>().FirstOrDefault(method => method.Parameters.IsEmpty && method.IsOverride);
+                if (own == null) continue;
+                dispose = own;
+                break;
+            }
+            return dispose.DeclaringSyntaxReferences.Length > 0 && dispose.DeclaringSyntaxReferences[0].GetSyntax() is BaseMethodDeclarationSyntax declaration
+                && declaration.ExpressionBody == null && declaration.Body != null && declaration.Body.Statements.Count == 0;
         }
 
         // Disposed, closed, used in a using, passed on, returned or stored somewhere else.
@@ -160,7 +209,8 @@ namespace TarragonFly.Analyzers.Rules.Async
         {
             IOperation current = reference;
             IOperation parent = current.Parent;
-            while (parent is IConversionOperation || parent is IParenthesizedOperation)
+            while (parent is IConversionOperation || parent is IParenthesizedOperation || parent is ICoalesceOperation
+                || (parent is IConditionalOperation conditional && conditional.Condition != current))
             {
                 current = parent;
                 parent = parent.Parent;

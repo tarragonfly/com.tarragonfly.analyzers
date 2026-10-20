@@ -17,11 +17,15 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
     // often the later line was meant to use it, or the wrong variable is assigned.
     //
     // Checked: initializers, assignments, ++, --, compound assignments and ??= to locals and to
-    // parameters other than ref and out, along every path through the method. Not reported: a local
-    // nothing ever reads that only has its initializer (an unused local, which the compiler warns
-    // about), initializers set to null, true, false, 0, 1, -1, "", string.Empty or default and then
-    // overwritten, locals used inside lambdas or local functions, variables used in a catch or finally
-    // block, and out variables, deconstructions, foreach, using and ref locals. Reported on the store.
+    // parameters other than ref and out, along every path through the method and through each lambda
+    // and local function in it. A catch can start from any point in its try, so a value the catch or
+    // the code after it may read stays live through the whole try. Not reported: a local nothing
+    // ever reads that nothing but its initializer sets (an unused local, which the compiler warns
+    // about; an out argument counts as setting it), initializers set to null, true, false, 0, 1, -1,
+    // "", string.Empty or default and then overwritten, variables a lambda or local function shares
+    // with the code around it, variables used in a catch or finally block, the values out arguments
+    // and deconstructions store (a later plain assignment to an out variable is checked as usual),
+    // and foreach, using and ref locals. Reported on the store.
     //
     // A compound assignment such as "a += x" reads the old value, so the store just before it isn't
     // dead. And a compound assignment whose result is never read is reported even
@@ -46,7 +50,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                 {
                     if (!(root is IMethodBodyBaseOperation) && !(root is IBlockOperation)) continue;
                     if (!scope.IsAnalyzed(root.Syntax.SyntaxTree)) continue;
-                    foreach ((ISymbol local, SyntaxNode store) in DeadStores(context.GetControlFlowGraph(root)))
+                    foreach ((ISymbol local, SyntaxNode store) in DeadStoresWithNested(context.GetControlFlowGraph(root), null))
                     {
                         context.ReportDiagnostic(Diagnostic.Create(Rule, store.GetLocation(), local.Name));
                     }
@@ -76,12 +80,28 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
             public SyntaxNode Store { get; }
         }
 
-        private static List<(ISymbol, SyntaxNode)> DeadStores(ControlFlowGraph graph)
+        // The dead stores of a method, lambda or local function, then those of the lambdas and local
+        // functions inside it. Null for the member itself.
+        private static IEnumerable<(ISymbol, SyntaxNode)> DeadStoresWithNested(ControlFlowGraph graph, IMethodSymbol function)
         {
-            HashSet<ISymbol> untracked = UntrackedVariables(graph);
+            foreach ((ISymbol, SyntaxNode) store in DeadStores(graph, function)) yield return store;
+            foreach (IMethodSymbol local in graph.LocalFunctions)
+            {
+                foreach ((ISymbol, SyntaxNode) store in DeadStoresWithNested(graph.GetLocalFunctionControlFlowGraph(local), local)) yield return store;
+            }
+            foreach (IFlowAnonymousFunctionOperation lambda in graph.Blocks.SelectMany(Operations).SelectMany(o => o.DescendantsAndSelf()).OfType<IFlowAnonymousFunctionOperation>())
+            {
+                foreach ((ISymbol, SyntaxNode) store in DeadStoresWithNested(graph.GetAnonymousFunctionControlFlowGraph(lambda), lambda.Symbol)) yield return store;
+            }
+        }
+
+        private static List<(ISymbol, SyntaxNode)> DeadStores(ControlFlowGraph graph, IMethodSymbol function)
+        {
+            HashSet<ISymbol> untracked = UntrackedVariables(graph, function);
             Dictionary<CaptureId, ISymbol> targets = AssignedCaptures(graph);
             List<Access>[] accesses = graph.Blocks.Select(block => Accesses(block, targets)).ToArray();
             HashSet<ISymbol>[] liveIn = graph.Blocks.Select(_ => new HashSet<ISymbol>(SymbolEqualityComparer.Default)).ToArray();
+            List<BasicBlock>[] handlers = graph.Blocks.Select(block => HandlerEntries(graph, block)).ToArray();
 
             bool changed = true;
             while (changed)
@@ -90,7 +110,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                 for (int i = graph.Blocks.Length - 1; i >= 0; i--)
                 {
                     HashSet<ISymbol> live = LiveOut(graph.Blocks[i], liveIn);
-                    Backward(accesses[i], live, null);
+                    WalkBackward(accesses[i], live, LiveAtHandlers(handlers[i], liveIn), null);
                     if (!live.SetEquals(liveIn[i]))
                     {
                         liveIn[i] = live;
@@ -100,14 +120,14 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
             }
 
             List<(ISymbol Variable, SyntaxNode Store)> dead = new List<(ISymbol, SyntaxNode)>();
-            for (int i = 0; i < graph.Blocks.Length; i++) Backward(accesses[i], LiveOut(graph.Blocks[i], liveIn), dead);
+            for (int i = 0; i < graph.Blocks.Length; i++) WalkBackward(accesses[i], LiveOut(graph.Blocks[i], liveIn), LiveAtHandlers(handlers[i], liveIn), dead);
 
             HashSet<ISymbol> read = new HashSet<ISymbol>(accesses.SelectMany(list => list).Where(a => a.Kind == AccessKind.Read).Select(a => a.Variable), SymbolEqualityComparer.Default);
-            Dictionary<ISymbol, int> stores = new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default);
-            foreach (Access access in accesses.SelectMany(list => list).Where(a => a.Store != null))
+            Dictionary<ISymbol, int> writes = new Dictionary<ISymbol, int>(SymbolEqualityComparer.Default);
+            foreach (Access access in accesses.SelectMany(list => list).Where(a => a.Kind == AccessKind.Write))
             {
-                stores.TryGetValue(access.Variable, out int count);
-                stores[access.Variable] = count + 1;
+                writes.TryGetValue(access.Variable, out int count);
+                writes[access.Variable] = count + 1;
             }
             List<(ISymbol, SyntaxNode)> reported = new List<(ISymbol, SyntaxNode)>();
             foreach ((ISymbol variable, SyntaxNode store) in dead.OrderBy(d => d.Store.SpanStart))
@@ -115,7 +135,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                 if (untracked.Contains(variable)) continue;
                 if (store is VariableDeclaratorSyntax declarator)
                 {
-                    bool unusedLocal = !read.Contains(variable) && stores[variable] == 1;
+                    bool unusedLocal = !read.Contains(variable) && writes[variable] == 1;
                     if (unusedLocal || IsPlaceholder(declarator.Initializer?.Value)) continue;
                 }
                 reported.Add((variable, store));
@@ -133,9 +153,37 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
             return live;
         }
 
-        // Walks the block's accesses from the end; a write the code after it doesn't read is dead.
-        private static void Backward(List<Access> accesses, HashSet<ISymbol> live, List<(ISymbol, SyntaxNode)> dead)
+        // The first blocks of the catch handlers (and their filters) of every try the block is in;
+        // the graph has no edges into them, since any operation in the try may throw. A lambda's or
+        // local function's graph ends at its root region; the regions past it belong to the code
+        // around it.
+        private static List<BasicBlock> HandlerEntries(ControlFlowGraph graph, BasicBlock block)
         {
+            List<BasicBlock> entries = new List<BasicBlock>();
+            for (ControlFlowRegion region = block.EnclosingRegion; region != null && region.Kind != ControlFlowRegionKind.Root; region = region.EnclosingRegion)
+            {
+                if (region.Kind != ControlFlowRegionKind.Try || region.EnclosingRegion?.Kind != ControlFlowRegionKind.TryAndCatch) continue;
+                foreach (ControlFlowRegion handler in region.EnclosingRegion.NestedRegions)
+                {
+                    if (handler != region) entries.Add(graph.Blocks[handler.FirstBlockOrdinal]);
+                }
+            }
+            return entries;
+        }
+
+        private static HashSet<ISymbol> LiveAtHandlers(List<BasicBlock> handlers, HashSet<ISymbol>[] liveIn)
+        {
+            HashSet<ISymbol> live = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+            foreach (BasicBlock handler in handlers) live.UnionWith(liveIn[handler.Ordinal]);
+            return live;
+        }
+
+        // Walks the block's accesses from the end; a write the code after it doesn't read is dead.
+        // In a try, what the catch handlers read stays live before every write, since the operations
+        // before the write may throw.
+        private static void WalkBackward(List<Access> accesses, HashSet<ISymbol> live, HashSet<ISymbol> liveAtHandlers, List<(ISymbol, SyntaxNode)> dead)
+        {
+            live.UnionWith(liveAtHandlers);
             for (int i = accesses.Count - 1; i >= 0; i--)
             {
                 Access access = accesses[i];
@@ -146,6 +194,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                 }
                 if (dead != null && access.Store != null && !live.Contains(access.Variable)) dead.Add((access.Variable, access.Store));
                 live.Remove(access.Variable);
+                live.UnionWith(liveAtHandlers);
             }
         }
 
@@ -248,14 +297,15 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
         }
 
         // Variables the analysis can't follow: used by lambdas or local functions, in catch or
-        // finally blocks, or declared by foreach, using or as ref.
-        private static HashSet<ISymbol> UntrackedVariables(ControlFlowGraph graph)
+        // finally blocks, declared by foreach, using or as ref, or, inside a lambda or local function,
+        // belonging to the code around it.
+        private static HashSet<ISymbol> UntrackedVariables(ControlFlowGraph graph, IMethodSymbol function)
         {
             HashSet<ISymbol> untracked = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
             foreach (BasicBlock block in graph.Blocks)
             {
                 bool handler = false;
-                for (ControlFlowRegion region = block.EnclosingRegion; region != null; region = region.EnclosingRegion)
+                for (ControlFlowRegion region = block.EnclosingRegion; region != null && region.Kind != ControlFlowRegionKind.Root; region = region.EnclosingRegion)
                 {
                     if (region.Kind == ControlFlowRegionKind.Catch || region.Kind == ControlFlowRegionKind.Finally || region.Kind == ControlFlowRegionKind.Filter
                         || region.Kind == ControlFlowRegionKind.FilterAndHandler) handler = true;
@@ -264,10 +314,10 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                 {
                     foreach (IOperation reference in operation.DescendantsAndSelf())
                     {
-                        if (reference is IParameterReferenceOperation parameter && handler) untracked.Add(parameter.Parameter);
+                        if (reference is IParameterReferenceOperation parameter && (handler || IsOuter(parameter.Parameter, function))) untracked.Add(parameter.Parameter);
                         if (!(reference is ILocalReferenceOperation localReference)) continue;
                         ILocalSymbol local = localReference.Local;
-                        if (handler || local.IsRef || local.IsConst || IsForEachOrUsing(local)) untracked.Add(local);
+                        if (handler || local.IsRef || local.IsConst || IsForEachOrUsing(local) || IsOuter(local, function)) untracked.Add(local);
                     }
                     foreach (IFlowAnonymousFunctionOperation lambda in operation.DescendantsAndSelf().OfType<IFlowAnonymousFunctionOperation>())
                     {
@@ -277,6 +327,11 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
             }
             foreach (IMethodSymbol local in graph.LocalFunctions) SkipAll(graph.GetLocalFunctionControlFlowGraph(local), untracked);
             return untracked;
+        }
+
+        private static bool IsOuter(ISymbol variable, IMethodSymbol function)
+        {
+            return function != null && !SymbolEqualityComparer.Default.Equals(variable.ContainingSymbol, function);
         }
 
         private static void SkipAll(ControlFlowGraph inner, HashSet<ISymbol> untracked)

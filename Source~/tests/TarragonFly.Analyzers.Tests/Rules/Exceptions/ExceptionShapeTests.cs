@@ -26,6 +26,27 @@ class Loader
         }
 
         [Test]
+        public void FilterTestingTheCaughtExceptionForNullReference_IsReportedOnTheType()
+        {
+            AnalyzerVerifier.Verify(new CatchNullReferenceAnalyzer(), @"
+using System;
+
+class Loader
+{
+    void Load(object o)
+    {
+        try { o.ToString(); } catch (Exception e) when (e is {|TF3003:NullReferenceException|}) { }
+        try { o.ToString(); } catch (Exception e) when ((e is {|TF3003:NullReferenceException|} missing)) { }
+        try { o.ToString(); } catch (AggregateException e) when (e.InnerException is {|TF3003:NullReferenceException|}) { }
+        try { o.ToString(); } catch (Exception e) when (e is NullReferenceException && o != null) { }
+        try { o.ToString(); } catch (Exception e) when (o is NullReferenceException) { }
+        try { o.ToString(); } catch (Exception) when (o is NullReferenceException) { }
+        try { o.ToString(); } catch (Exception e) when (e is ArgumentException) { }
+    }
+}");
+        }
+
+        [Test]
         public void ThrowFromAMemberCallersDontExpectToThrow_IsReported()
         {
             AnalyzerVerifier.Verify(new ThrowInSpecialMemberAnalyzer(), @"

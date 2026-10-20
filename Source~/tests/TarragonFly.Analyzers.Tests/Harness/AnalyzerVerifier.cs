@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Text;
 using NUnit.Framework;
 using TarragonFly.Analyzers.Testing;
@@ -64,13 +66,27 @@ namespace TarragonFly.Analyzers.Tests.Harness
             assembly ??= new SnippetAssembly();
             SyntaxTree tree = CSharpSyntaxTree.ParseText(source, assembly.ParseOptions ?? CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp9), assembly.FilePath);
             ImmutableArray<MetadataReference> references = assembly.EditorOnly ? StubAssemblies.EditorReferences : StubAssemblies.GameReferences;
+            references = references.AddRange(assembly.ReferencedAssemblies.Select(other => BuildReference(other.Key, other.Value, references)).ToArray());
             CSharpCompilation compilation = CSharpCompilation.Create(
                 assembly.AssemblyName, new[] { tree }, references,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Disable));
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Disable, allowUnsafe: assembly.AllowUnsafe));
 
             Diagnostic[] errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
             Assert.That(errors, Is.Empty, "The test snippet does not compile.");
             return compilation;
+        }
+
+        // Builds another assembly and references it from that path, as Unity references the others it builds.
+        private static MetadataReference BuildReference(string path, string source, ImmutableArray<MetadataReference> references)
+        {
+            SyntaxTree tree = CSharpSyntaxTree.ParseText(source, CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.CSharp9));
+            CSharpCompilation other = CSharpCompilation.Create(Path.GetFileNameWithoutExtension(path), new[] { tree }, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            using (MemoryStream image = new MemoryStream())
+            {
+                EmitResult result = other.Emit(image);
+                Assert.That(result.Success, Is.True, "A referenced assembly does not compile:\n" + string.Join("\n", result.Diagnostics));
+                return MetadataReference.CreateFromImage(image.ToArray(), filePath: path);
+            }
         }
 
         private static string Describe(string id, string path, TextSpan span)

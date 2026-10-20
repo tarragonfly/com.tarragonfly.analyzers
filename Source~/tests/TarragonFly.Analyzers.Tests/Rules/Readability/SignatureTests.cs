@@ -122,5 +122,27 @@ class ByScore : IComparer<int>
     public int Compare(int left, int right) => left - right;
 }");
         }
+
+        [Test]
+        public void TypeParameterKeptByTheImplementation_KeepsTheName()
+        {
+            AnalyzerVerifier.Verify(new RenamedParameterAnalyzer(), @"
+using System.Collections.Generic;
+
+interface IInit<T> { void Init(T first); }
+interface IFill<T> { void Fill(List<T> items); void Copy(T[] items); }
+interface IUse { void Use<T>(T item); }
+abstract class Wrapper<T> { public abstract T InitTarget(T target); }
+
+class Enemy { }
+
+class ByHealth : IComparer<Enemy> { public int Compare(Enemy left, Enemy right) => 0; }
+class ByAnything<T> : IComparer<T> { public int Compare(T {|TF1005:left|}, T {|TF1005:right|}) => 0; }
+class Holder<T> : IInit<T> { public void Init(T {|TF1005:value|}) { } }
+class ListHolder<U> : IInit<List<U>> { public void Init(List<U> values) { } }
+class Filler : IFill<int> { public void Fill(List<int> values) { } public void Copy(int[] {|TF1005:values|}) { } }
+class WrapperInitializer<TWrapper> : Wrapper<TWrapper> { public override TWrapper InitTarget(TWrapper {|TF1005:wrapper|}) => wrapper; }
+class User : IUse { public void Use<T>(T {|TF1005:thing|}) { } }");
+        }
     }
 }

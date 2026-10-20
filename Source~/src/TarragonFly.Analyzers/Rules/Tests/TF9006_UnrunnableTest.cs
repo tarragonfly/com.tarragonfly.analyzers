@@ -18,7 +18,9 @@ namespace TarragonFly.Analyzers.Rules.Tests
     //   - generic tests with no [TestCase] or [TestCaseSource] to work out the type from;
     //   - [UnityTest] methods that don't return IEnumerator;
     //   - [Test] or [TestCase] methods returning IEnumerator, which only [UnityTest] steps through;
-    //   - other tests returning a value with no ExpectedResult.
+    //   - other tests returning a value with no ExpectedResult; with [TestCaseSource] the source can
+    //     set it, so those are fine;
+    //   - local functions marked as tests, which the runner never finds.
     // Static tests are fine. Reported on the method name. Test code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class UnrunnableTestAnalyzer : ScopedAnalyzer
@@ -41,6 +43,13 @@ namespace TarragonFly.Analyzers.Rules.Tests
                 string problem = Problem(method);
                 if (problem != null) context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), problem));
             }), SyntaxKind.MethodDeclaration);
+
+            start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
+            {
+                LocalFunctionStatementSyntax local = (LocalFunctionStatementSyntax)context.Node;
+                if (local.AttributeLists.Count == 0 || !(context.SemanticModel.GetDeclaredSymbol(local, context.CancellationToken) is IMethodSymbol method) || !Frameworks.NUnit.IsTest(method)) return;
+                context.ReportDiagnostic(Diagnostic.Create(Rule, local.Identifier.GetLocation(), "The runner only finds test methods of a class, never local functions; move this out of the method"));
+            }), SyntaxKind.LocalFunctionStatement);
         }
 
         private static string Problem(IMethodSymbol method)
@@ -56,6 +65,7 @@ namespace TarragonFly.Analyzers.Rules.Tests
             if (Frameworks.NUnit.IsUnityTest(method)) return returnsEnumerator ? null : "A [UnityTest] must return IEnumerator";
             if (returnsEnumerator) return "Only [UnityTest] steps through an IEnumerator; use [UnityTest] instead of [Test]";
             if (method.ReturnsVoid || UniTask.IsAwaitable(method.ReturnType) || HasExpectedResult(method)) return null;
+            if (SymbolNames.HasAttribute(method, "NUnit.Framework.TestCaseSourceAttribute")) return null;
             return "NUnit refuses a test that returns a value without ExpectedResult; return void or set ExpectedResult";
         }
 

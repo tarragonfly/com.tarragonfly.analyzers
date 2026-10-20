@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -11,8 +12,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // a TypeLoadException, often only on device under IL2CPP.
     //
     // Passing the class with its own type parameters ("class Node<T> : Base<Node<T>>") is the normal
-    // self-referencing pattern and fine. Only the base class is checked, not interfaces. Reported on
-    // the class name. Game code only.
+    // self-referencing pattern and fine, and so are those parameters swapped or repeated, as in
+    // "class Pair<T, U> : Base<Pair<U, T>>", and closed types such as Node<int>: none of them grow.
+    // Only the base class is checked, not interfaces. Reported on the class name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ExpandingGenericBaseAnalyzer : ScopedAnalyzer
     {
@@ -38,15 +40,16 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             }, SymbolKind.NamedType);
         }
 
-        // Whether "used" contains the type with arguments other than its own type parameters.
+        // Whether "used" contains the type with an argument built from its own type parameters, as in
+        // Node<Node<T>> or Node<T[]>, which makes each use one level deeper.
         private static bool Expands(INamedTypeSymbol type, ITypeSymbol used)
         {
             if (!(used is INamedTypeSymbol named)) return used is IArrayTypeSymbol array && Expands(type, array.ElementType);
             if (SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, type.OriginalDefinition))
             {
-                for (int i = 0; i < named.TypeArguments.Length; i++)
+                foreach (ITypeSymbol argument in named.TypeArguments)
                 {
-                    if (!SymbolEqualityComparer.Default.Equals(named.TypeArguments[i], type.TypeParameters[i])) return true;
+                    if (!(argument is ITypeParameterSymbol) && Mentions(argument, type)) return true;
                 }
             }
             foreach (ITypeSymbol argument in named.TypeArguments)
@@ -54,6 +57,17 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 if (Expands(type, argument)) return true;
             }
             return false;
+        }
+
+        private static bool Mentions(ITypeSymbol used, INamedTypeSymbol type)
+        {
+            switch (used)
+            {
+                case ITypeParameterSymbol parameter: return type.TypeParameters.Contains(parameter, SymbolEqualityComparer.Default);
+                case IArrayTypeSymbol array: return Mentions(array.ElementType, type);
+                case INamedTypeSymbol named: return named.TypeArguments.Any(argument => Mentions(argument, type));
+                default: return false;
+            }
         }
     }
 }

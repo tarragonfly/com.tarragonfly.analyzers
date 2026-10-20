@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -18,16 +18,18 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // Scoring:
     //   - +1, plus 1 per enclosing nesting level: if, ?:, switch statements and expressions, for,
     //     foreach, while, do and catch.
-    //   - +1 flat: else if, else, goto, a call back into the method itself, and each run of && or ||
-    //     (and of the "and" or "or" pattern combinators): "a && b && c" is +1, "a && b || c" is +2.
-    //     A "!" or "not" starts a new run.
+    //   - +1 flat: else if, else, goto, a call back into the method itself, and each && or || (and
+    //     each "and" or "or" pattern combinator) whose parent, ignoring parentheses, isn't the same
+    //     operator: "a && b && c" is +1, "a && b || c" is +2 and "a || b && c || d" is +2. An operator
+    //     under a "!" or "not" counts again.
     //   - One nesting level is added inside the bodies of if, else, ?:, switch sections, loops, catch
     //     blocks, lambdas and local functions. Conditions sit at the level of their statement, and an
     //     else if body at the level of the if body.
     //   - Nothing for try, finally, break, continue, ??, ?. or "is not".
     // Methods, constructors, destructors, operators and property, indexer and event accessors are
-    // scored separately; local functions and lambdas count toward the member around them. Reported
-    // on the member name, the accessor keyword or the operator token.
+    // scored separately, and so is a field declaration with initializers, such as a lambda kept in a
+    // field; local functions and lambdas count toward the member around them. Reported on the member
+    // name, the accessor keyword, the operator token or the field's first variable.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class CognitiveComplexityAnalyzer : ScopedAnalyzer
     {
@@ -54,7 +56,8 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 if (walker.Score > limit) context.ReportDiagnostic(Diagnostic.Create(Rule, location.GetLocation(), name, walker.Score, limit));
             }), SyntaxKind.MethodDeclaration, SyntaxKind.ConstructorDeclaration, SyntaxKind.DestructorDeclaration, SyntaxKind.OperatorDeclaration,
                 SyntaxKind.ConversionOperatorDeclaration, SyntaxKind.GetAccessorDeclaration, SyntaxKind.SetAccessorDeclaration, SyntaxKind.InitAccessorDeclaration,
-                SyntaxKind.AddAccessorDeclaration, SyntaxKind.RemoveAccessorDeclaration, SyntaxKind.PropertyDeclaration, SyntaxKind.IndexerDeclaration);
+                SyntaxKind.AddAccessorDeclaration, SyntaxKind.RemoveAccessorDeclaration, SyntaxKind.PropertyDeclaration, SyntaxKind.IndexerDeclaration,
+                SyntaxKind.FieldDeclaration);
         }
 
         // The code to score and where to report it; null for members without a body.
@@ -94,6 +97,10 @@ namespace TarragonFly.Analyzers.Rules.Readability
                     location = indexer.ThisKeyword;
                     name = "this[]";
                     return indexer.ExpressionBody;
+                case FieldDeclarationSyntax field:
+                    location = field.Declaration.Variables[0].Identifier;
+                    name = location.ValueText;
+                    return field.Declaration.Variables.Any(variable => variable.Initializer != null) ? field.Declaration : null;
                 default:
                     location = default;
                     name = null;
@@ -219,12 +226,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
             public override void VisitBinaryExpression(BinaryExpressionSyntax node)
             {
-                if (IsLogical(node) && !IsLogical(Unwrap(node.Parent)))
-                {
-                    List<SyntaxKind> operators = new List<SyntaxKind>();
-                    CollectOperators(node, operators);
-                    Score += Runs(operators);
-                }
+                SyntaxNode parent = node.Parent;
+                while (parent is ParenthesizedExpressionSyntax) parent = parent.Parent;
+                if (IsLogical(node) && !parent.IsKind(node.Kind())) Score += 1;
                 base.VisitBinaryExpression(node);
             }
 
@@ -232,12 +236,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
             {
                 SyntaxNode parent = node.Parent;
                 while (parent is ParenthesizedPatternSyntax) parent = parent.Parent;
-                if (!(parent is BinaryPatternSyntax))
-                {
-                    List<SyntaxKind> operators = new List<SyntaxKind>();
-                    CollectPatternOperators(node, operators);
-                    Score += Runs(operators);
-                }
+                if (!parent.IsKind(node.Kind())) Score += 1;
                 base.VisitBinaryPattern(node);
             }
 
@@ -261,42 +260,6 @@ namespace TarragonFly.Analyzers.Rules.Readability
             private static bool IsLogical(SyntaxNode node)
             {
                 return node.IsKind(SyntaxKind.LogicalAndExpression) || node.IsKind(SyntaxKind.LogicalOrExpression);
-            }
-
-            private static SyntaxNode Unwrap(SyntaxNode node)
-            {
-                while (node is ParenthesizedExpressionSyntax) node = node.Parent;
-                return node;
-            }
-
-            // The && and || operators of one expression in source order, through parentheses.
-            private static void CollectOperators(ExpressionSyntax expression, List<SyntaxKind> operators)
-            {
-                while (expression is ParenthesizedExpressionSyntax parenthesized) expression = parenthesized.Expression;
-                if (!(expression is BinaryExpressionSyntax binary) || !IsLogical(binary)) return;
-                CollectOperators(binary.Left, operators);
-                operators.Add(binary.Kind());
-                CollectOperators(binary.Right, operators);
-            }
-
-            private static void CollectPatternOperators(PatternSyntax pattern, List<SyntaxKind> operators)
-            {
-                while (pattern is ParenthesizedPatternSyntax parenthesized) pattern = parenthesized.Pattern;
-                if (!(pattern is BinaryPatternSyntax binary)) return;
-                CollectPatternOperators(binary.Left, operators);
-                operators.Add(binary.Kind());
-                CollectPatternOperators(binary.Right, operators);
-            }
-
-            // A run is a stretch of the same operator; "a && b || c && d" has three.
-            private static int Runs(List<SyntaxKind> operators)
-            {
-                int runs = 0;
-                for (int i = 0; i < operators.Count; i++)
-                {
-                    if (i == 0 || operators[i] != operators[i - 1]) runs++;
-                }
-                return runs;
             }
         }
     }

@@ -19,8 +19,10 @@ namespace TarragonFly.Analyzers.Rules.StaticState
     // and out arguments, element writes and static properties aren't counted. Reported from the field
     // to the operator, or on the field for ++ and --. Game code only.
     //
-    // Only static fields declared in the project's own code count, so subscribing to Unity's static
-    // callbacks, as in "EditorApplication.delayCall += Refresh", is fine.
+    // Only static fields declared in scripts count: this assembly's, or another assembly's built from
+    // the project's or a package's scripts, by Unity or by Analyze.ps1. Subscribing to Unity's own
+    // static callbacks, as in "EditorApplication.delayCall += Refresh", is fine, and so are fields of
+    // precompiled plugins.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class InstanceWritesStaticFieldAnalyzer : ScopedAnalyzer
     {

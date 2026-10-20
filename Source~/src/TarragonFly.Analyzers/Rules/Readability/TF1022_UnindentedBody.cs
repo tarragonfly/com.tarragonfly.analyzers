@@ -13,8 +13,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
     //     if (isPaused)
     //     return;            // reads like the next statement, but only runs when paused
     //
-    // Tabs count as 4 columns. Reported on the statement's header, from its keyword to the closing
-    // parenthesis (from "else" for an else if).
+    // An if on the line after its else is the else's body, so it needs indenting past the else too;
+    // its own body is then checked against the if. Tabs count as 4 columns. Reported on the statement's
+    // header, from its keyword to the closing parenthesis (from "else" for an else if).
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class UnindentedBodyAnalyzer : ScopedAnalyzer
     {
@@ -42,14 +43,14 @@ namespace TarragonFly.Analyzers.Rules.Readability
             switch (context.Node)
             {
                 case IfStatementSyntax ifStatement:
-                    if (!Branches.IsChainStart(ifStatement)) return;
+                    if (!Branches.IsChainStart(ifStatement) && !IsBelowItsElse(ifStatement)) return;
                     keyword = ifStatement.IfKeyword;
                     headerEnd = ifStatement.CloseParenToken;
                     body = ifStatement.Statement;
                     break;
                 case ElseClauseSyntax elseClause:
                     keyword = elseClause.ElseKeyword;
-                    if (elseClause.Statement is IfStatementSyntax elseIf)
+                    if (elseClause.Statement is IfStatementSyntax elseIf && !IsBelowItsElse(elseIf))
                     {
                         headerEnd = elseIf.CloseParenToken;
                         body = elseIf.Statement;
@@ -90,6 +91,13 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
             TextSpan header = TextSpan.FromBounds(keyword.SpanStart, headerEnd.Span.End);
             context.ReportDiagnostic(Diagnostic.Create(Rule, Location.Create(context.Node.SyntaxTree, header)));
+        }
+
+        // "else" with "if (ready)" starting on a line below it, rather than "else if (ready)".
+        private static bool IsBelowItsElse(IfStatementSyntax ifStatement)
+        {
+            if (!(ifStatement.Parent is ElseClauseSyntax elseClause)) return false;
+            return ifStatement.IfKeyword.GetLocation().GetLineSpan().StartLinePosition.Line > elseClause.ElseKeyword.GetLocation().GetLineSpan().StartLinePosition.Line;
         }
     }
 }

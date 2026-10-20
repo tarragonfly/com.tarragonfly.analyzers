@@ -156,6 +156,71 @@ class Target
         }
 
         [Test]
+        public void ReturningAVariableItsUsingAssignsAndDisposes_IsReported()
+        {
+            AnalyzerVerifier.Verify(new ReturnsDisposedObjectAnalyzer(), @"
+using System.IO;
+
+class Target
+{
+    MemoryStream field;
+
+    Stream Local(bool ready)
+    {
+        MemoryStream stream;
+        {|TF2039:using|} (stream = new MemoryStream())
+        {
+            if (ready) return stream;
+        }
+        return null;
+    }
+
+    Stream Parameter(Stream stream, string path)
+    {
+        {|TF2039:using|} (stream = File.OpenRead(path))
+        using (MemoryStream other = new MemoryStream())
+        {
+            return (stream);
+        }
+    }
+
+    Stream Field()
+    {
+        {|TF2039:using|} (field = new MemoryStream())
+        {
+            return field;
+        }
+    }
+
+    Stream ThisField()
+    {
+        using (this.field = new MemoryStream())
+        {
+            return this.field;
+        }
+    }
+
+    Stream Bare(Stream stream)
+    {
+        using (stream)
+        {
+            return stream;
+        }
+    }
+
+    Stream After()
+    {
+        MemoryStream stream;
+        using (stream = new MemoryStream())
+        {
+            stream.WriteByte(1);
+        }
+        return stream;
+    }
+}");
+        }
+
+        [Test]
         public void FieldNothingSets_IsReported()
         {
             AnalyzerVerifier.Verify(new FieldNeverAssignedAnalyzer(), @"
@@ -205,6 +270,46 @@ class SaveData
         }
 
         [Test]
+        public void NestedTypeFieldsRefReturnsAndStructLayout_AreHandled()
+        {
+            AnalyzerVerifier.Verify(new FieldNeverAssignedAnalyzer(), @"
+using System.Runtime.InteropServices;
+
+class Handle
+{
+    public void Release() { }
+}
+
+class DebugHandler
+{
+    private Handle colorHandle;
+
+    internal ref Handle ColorHandle => ref colorHandle;
+
+    public void Dispose() => colorHandle?.Release();
+}
+
+class DeferredPass
+{
+    private class PassData
+    {
+        internal int[] {|TF2054:gbuffer|};
+    }
+
+    public int Count() => new PassData().gbuffer.Length;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+struct GuidParts
+{
+    private int a;
+    private short b;
+
+    public int Sum() => a + b;
+}");
+        }
+
+        [Test]
         public void ElementSetTwiceWithoutARead_IsReported()
         {
             AnalyzerVerifier.Verify(new ElementOverwrittenUnreadAnalyzer(), @"
@@ -232,6 +337,38 @@ class Target
         stats[""xp""] = stats[""xp""] + 1;
         set.Add(1);
         set.Add(1);
+    }
+}");
+        }
+
+        [Test]
+        public void KeysThatChangeSomething_NeverMatch()
+        {
+            AnalyzerVerifier.Verify(new ElementOverwrittenUnreadAnalyzer(), @"
+using System.Collections.Generic;
+
+class Target
+{
+    int next;
+
+    int Key() => next++;
+
+    void Cases(int[] buffer, Dictionary<int, int> map, int a, int b)
+    {
+        int i = 0;
+        buffer[i++] = a;
+        buffer[i++] = b;
+        buffer[i] = a;
+        buffer[--i] = b;
+        buffer[i] = b;
+        map[Key()] = 1;
+        map[Key()] = 2;
+        map.Add(Key(), 3);
+        buffer[i = 2] = a;
+        buffer[i = 2] = b;
+        buffer[i] = a;
+        buffer[i + 1] = b;
+        {|TF2064:buffer[i] = b;|}
     }
 }");
         }

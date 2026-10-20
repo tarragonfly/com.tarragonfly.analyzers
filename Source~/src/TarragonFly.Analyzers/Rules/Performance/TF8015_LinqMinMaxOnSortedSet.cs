@@ -12,7 +12,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // LINQ walks every item to find the extreme, while the set already keeps them sorted: its Min and
     // Max properties read the end of the tree.
     //
-    // Only the overloads without a selector count. Reported on the method name.
+    // Only the overloads without a selector count. Classes derived from SortedSet count too, and so
+    // does ImmutableSortedSet, called directly or through ?.. Reported on the method name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class LinqMinMaxOnSortedSetAnalyzer : ScopedAnalyzer
     {
@@ -34,7 +35,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 IMethodSymbol method = LinqCalls.Method(context.SemanticModel, invocation, context.CancellationToken);
                 if (method == null || (method.Name != "Min" && method.Name != "Max")) return;
                 ITypeSymbol receiver = LinqCalls.ReceiverType(context.SemanticModel, invocation, context.CancellationToken);
-                if (!SymbolNames.IsNamed(receiver?.OriginalDefinition, "System.Collections.Generic.SortedSet`1")) return;
+                if (!SymbolNames.IsOrDerivesFrom(receiver, "System.Collections.Generic.SortedSet`1") && !SymbolNames.IsOrDerivesFrom(receiver, "System.Collections.Immutable.ImmutableSortedSet`1")) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, LinqCalls.NameLocation(invocation), method.Name));
             }), SyntaxKind.InvocationExpression);
         }

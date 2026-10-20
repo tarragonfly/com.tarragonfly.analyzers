@@ -29,6 +29,29 @@ class Target
         bool r6 = list.Count > 0;
         bool r7 = enemies.Count() > 1;
         bool r8 = enemies.Count() >= 0;
+        bool r9 = enemies?.{|TF8000:Count|}() > 0;
+        bool r10 = 0 == enemies?.{|TF8000:Count|}();
+    }
+}");
+        }
+
+        [Test]
+        public void LinqChainThroughConditionalAccess_IsReportedFromTheDot()
+        {
+            AnalyzerVerifier.Verify(new ShorterLinqChainAnalyzer(), @"
+using System.Collections.Generic;
+using System.Linq;
+
+class Squad : List<int> { }
+
+class Target
+{
+    void Check(List<int> maybe, Squad squad)
+    {
+        bool? r1 = maybe?{|TF8004:.Where|}(x => x > 1).Any();
+        int? r2 = maybe?{|TF8004:.ToList|}().First();
+        int? r3 = maybe?.Count();
+        int r4 = squad.{|TF8004:Count|}();
     }
 }");
         }
@@ -58,6 +81,53 @@ class Target
         list.ToList().ForEach(x => System.Console.WriteLine(x));
     }
 }");
+        }
+
+        [Test]
+        public void CopiesOfNonCollectionsAndIndexedWhere_AreFine_AndAsCastsCount()
+        {
+            AnalyzerVerifier.Verify(new ShorterLinqChainAnalyzer(), @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+struct QueryBuilder
+{
+    public List<string> ToList() => new List<string>();
+}
+
+class Target
+{
+    void Check(List<string> list, List<object> objects, QueryBuilder builder, Type[] types)
+    {
+        Span<Type> span = types;
+        string r1 = builder.ToList().Concat(list).First();
+        IEnumerable<string> r2 = span.ToArray().Select(t => t.Name);
+        string r3 = list.Where((name, index) => index > 1).FirstOrDefault();
+        IEnumerable<string> r4 = objects.{|TF8004:Where|}(o => o is string).Select(o => o as string);
+    }
+}");
+        }
+
+        [Test]
+        public void ListMethodsOnDerivedListsAndThroughConditionalAccess_AreReported()
+        {
+            const string Code = @"
+using System.Collections.Generic;
+using System.Linq;
+
+class Squad : List<int> { }
+
+class Target
+{
+    bool? Check(List<int> maybe, Squad squad)
+    {
+        return maybe?.{|ID:CALL|}(x => x > 1) != null && squad.{|ID:CALL|}(x => x > 1) != null;
+    }
+}";
+            AnalyzerVerifier.Verify(new FirstOrDefaultInsteadOfFindAnalyzer(), Code.Replace("ID", "TF8010").Replace("CALL", "FirstOrDefault").Replace(" != null", " > 0"));
+            AnalyzerVerifier.Verify(new AllInsteadOfTrueForAllAnalyzer(), Code.Replace("ID", "TF8011").Replace("CALL", "All").Replace(" != null", " == true"));
+            AnalyzerVerifier.Verify(new AnyInsteadOfExistsAnalyzer(), Code.Replace("ID", "TF8012").Replace("CALL", "Any").Replace(" != null", " == true"));
         }
 
         [Test]
@@ -133,6 +203,28 @@ class Target
         }
 
         [Test]
+        public void WhereAfterOrderByThroughParenthesesOrConditionalAccess_IsReported_ExceptIndexedWhere()
+        {
+            AnalyzerVerifier.Verify(new OrderByBeforeWhereAnalyzer(), @"
+#nullable enable
+using System.Collections.Generic;
+using System.Linq;
+
+class Target
+{
+    void Check(List<int> list, List<int>? maybe)
+    {
+        IEnumerable<int> r1 = (list.OrderBy(x => x)).{|TF8013:Where|}(x => x > 1);
+        IEnumerable<int>? r2 = maybe?.OrderBy(x => x).{|TF8013:Where|}(x => x > 1);
+        IEnumerable<int> r3 = list.OrderBy(x => x)!.{|TF8013:Where|}(x => x > 1);
+        IEnumerable<int>? r4 = maybe?.OrderBy(x => x)?.{|TF8013:Where|}(x => x > 1);
+        IEnumerable<int> r5 = list.OrderBy(x => x).Where((x, i) => i > 1);
+        IEnumerable<int> r6 = ((IEnumerable<int>)list.OrderBy(x => x)).Where(x => x > 1);
+    }
+}");
+        }
+
+        [Test]
         public void FirstOrLastOnIndexableList_IsReported()
         {
             AnalyzerVerifier.Verify(new FirstInsteadOfIndexAnalyzer(), @"
@@ -185,6 +277,44 @@ class Target
         LinkedListNode<int> r3 = path.Last;
         int r4 = path.First(x => x > 1);
         int r5 = path.LastOrDefault();
+    }
+}");
+        }
+
+        [Test]
+        public void DerivedSortedSetsAndLinkedListsAndConditionalAccess_AreReported()
+        {
+            AnalyzerVerifier.Verify(new LinqMinMaxOnSortedSetAnalyzer(), @"
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+
+class Scores : SortedSet<int>
+{
+    public int Best() => this.{|TF8015:Max|}();
+}
+
+class Target
+{
+    int? Check(Scores scores, SortedSet<int> maybe, ImmutableSortedSet<int> frozen)
+    {
+        return scores.{|TF8015:Min|}() + maybe?.{|TF8015:Max|}() + frozen.{|TF8015:Max|}();
+    }
+}");
+            AnalyzerVerifier.Verify(new LinqFirstOnLinkedListAnalyzer(), @"
+using System.Collections.Generic;
+using System.Linq;
+
+class Route : LinkedList<int>
+{
+    public int End() => this.{|TF8017:Last|}();
+}
+
+class Target
+{
+    int? Check(Route route, LinkedList<int> maybe)
+    {
+        return route.{|TF8017:First|}() + maybe?.{|TF8017:Last|}();
     }
 }");
         }

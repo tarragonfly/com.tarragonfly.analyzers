@@ -5,7 +5,7 @@ using TarragonFly.Analyzers.Tests.Harness;
 namespace TarragonFly.Analyzers.Tests.Rules.LikelyBugs
 {
     // TF2003 float equality, TF2014 shift by zero or past the width, TF2015 integer division to float,
-    // TF2017 odd check with %, TF2018 float compared past its range, TF2025 unchecked Sum, TF2029
+    // TF2017 odd check with %, TF2018 number compared past its range, TF2025 unchecked Sum, TF2029
     // no-effect bit operation, TF2032 NaN comparison, TF2047 bitwise non-[Flags] enum, TF2051 dynamic
     // shift count, TF2061 count comparison that is always the same.
     public class NumberTests
@@ -28,6 +28,16 @@ class Target
         bool r8 = a <= b && a >= 1f;
         bool r9 = i == 2;
     }
+}");
+        }
+
+        [Test]
+        public void NullableComparedWithNullOrAChar_IsFine()
+        {
+            AnalyzerVerifier.Verify(new FloatEqualityAnalyzer(), @"
+class Target
+{
+    bool Check(double? time, float f) => time == null || null != time || f {|TF2003:==|} 'a';
 }");
         }
 
@@ -106,6 +116,19 @@ class Target
         }
 
         [Test]
+        public void ZeroShiftByANamedConstant_IsFine()
+        {
+            AnalyzerVerifier.Verify(new ShiftByZeroOrPastWidthAnalyzer(), @"
+class Packed
+{
+    const int CurrentOffset = 0;
+    long bits;
+
+    long Current => (bits >> CurrentOffset) & 0xFF;
+}");
+        }
+
+        [Test]
         public void IntegerDivisionStoredAsFloat_IsReported()
         {
             AnalyzerVerifier.Verify(new IntegerDivisionToFloatAnalyzer(), @"
@@ -145,20 +168,30 @@ class Target
         }
 
         [Test]
-        public void FloatComparedWithDoubleOutsideItsRange_IsReported()
+        public void NumberComparedWithConstantOutsideItsRange_IsReported()
         {
             const string Code = @"
 class Target
 {
-    void Check(float distance, double d)
+    void Check(float distance, double d, long ticks, ulong id, char letter, int count, long? maybe)
     {
         bool r1 = {|TF2018:distance > double.MaxValue|};
         bool r2 = distance > float.MaxValue;
         bool r3 = d > double.MaxValue;
+        bool r4 = {|TF2018:ticks > 1e19|};
+        bool r5 = {|TF2018:double.MinValue < ticks|};
+        bool r6 = {|TF2018:ticks > float.MaxValue|};
+        bool r7 = {|TF2018:id < -1.0|};
+        bool r8 = id >= 0.0;
+        bool r9 = {|TF2018:letter > 70000.0|};
+        bool r10 = {|TF2018:count > 1e10|};
+        bool r11 = ticks > 9.2e18;
+        bool r12 = maybe < double.MinValue;
+        bool r13 = distance > double.PositiveInfinity;
     }
 }";
-            AnalyzerVerifier.Verify(new FloatComparedPastItsRangeAnalyzer(), Code);
-            AnalyzerVerifier.Verify(new FloatComparedPastItsRangeAnalyzer(), Code.Replace("{|TF2018:", string.Empty).Replace("|}", string.Empty), SnippetAssembly.Tests());
+            AnalyzerVerifier.Verify(new NumberComparedPastItsRangeAnalyzer(), Code);
+            AnalyzerVerifier.Verify(new NumberComparedPastItsRangeAnalyzer(), Code.Replace("{|TF2018:", string.Empty).Replace("|}", string.Empty), SnippetAssembly.Tests());
         }
 
         [Test]
@@ -170,7 +203,7 @@ using System.Linq;
 
 class Target
 {
-    void Check(List<int> scores, List<long> totals, List<float> weights)
+    void Check(List<int> scores, List<long> totals, List<float> weights, IQueryable<int> query)
     {
         unchecked
         {
@@ -178,6 +211,8 @@ class Target
             long b = totals.{|TF2025:Sum|}();
             float c = weights.Sum();
             int d = checked(scores.Sum());
+            int g = query.{|TF2025:Sum|}(x => x);
+            int h = Queryable.{|TF2025:Sum|}(scores.AsQueryable());
         }
         int e = unchecked(scores.{|TF2025:Sum|}());
         int f = scores.Sum();

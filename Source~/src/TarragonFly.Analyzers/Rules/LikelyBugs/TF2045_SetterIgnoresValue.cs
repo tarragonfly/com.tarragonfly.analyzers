@@ -14,7 +14,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // A use inside a lambda or nameof(value) counts. Accessors whose whole body throws are fine, and
     // explicit interface implementations aren't checked. An empty "set { }" is reported, overrides
-    // included. Reported on the accessor keyword.
+    // included, unless it implements an interface accessor, as in a test fake's "set { }" or "add { }
+    // remove { }": the interface asks for it and there's nothing to store. A non-empty one that
+    // ignores "value" is still reported there. Reported on the accessor keyword.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SetterIgnoresValueAnalyzer : ScopedAnalyzer
     {
@@ -34,6 +36,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 AccessorDeclarationSyntax accessor = (AccessorDeclarationSyntax)context.Node;
                 SyntaxNode body = (SyntaxNode)accessor.Body ?? accessor.ExpressionBody;
                 if (body == null || OnlyThrows(accessor) || IsExplicitInterfaceImplementation(accessor)) return;
+                if (accessor.Body != null && accessor.Body.Statements.Count == 0 && ImplementsInterfaceAccessor(context, accessor)) return;
 
                 foreach (IdentifierNameSyntax name in body.DescendantNodes().OfType<IdentifierNameSyntax>())
                 {
@@ -48,6 +51,25 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         {
             if (accessor.ExpressionBody != null) return accessor.ExpressionBody.Expression is ThrowExpressionSyntax;
             return accessor.Body.Statements.Count == 1 && accessor.Body.Statements[0] is ThrowStatementSyntax;
+        }
+
+        // The accessor implements an interface accessor, itself or through the one it overrides, as in
+        // a subclass overriding an implementing class's virtual setter.
+        private static bool ImplementsInterfaceAccessor(SyntaxNodeAnalysisContext context, AccessorDeclarationSyntax accessor)
+        {
+            if (!(context.SemanticModel.GetDeclaredSymbol(accessor, context.CancellationToken) is IMethodSymbol method)) return false;
+            for (IMethodSymbol current = method; current != null; current = current.OverriddenMethod)
+            {
+                INamedTypeSymbol type = current.ContainingType;
+                foreach (INamedTypeSymbol contract in type.AllInterfaces)
+                {
+                    foreach (IMethodSymbol member in contract.GetMembers().OfType<IMethodSymbol>())
+                    {
+                        if (member.AssociatedSymbol != null && SymbolEqualityComparer.Default.Equals(type.FindImplementationForInterfaceMember(member), current)) return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static bool IsExplicitInterfaceImplementation(AccessorDeclarationSyntax accessor)

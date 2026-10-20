@@ -10,8 +10,9 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // List.Exists and Array.Exists do the same check without allocating a LINQ enumerator.
     //
-    // Any() without a condition, and other collection types, are fine, and equality checks such as
-    // Any(id => id == wanted) are left to TF8018, which suggests Contains. Reported on the Any name.
+    // Classes derived from List count too, called directly or through ?.. Any() without a condition,
+    // and other collection types, are fine, and equality checks such as Any(id => id == wanted) are
+    // left to TF8018, which suggests Contains. Reported on the Any name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AnyInsteadOfExistsAnalyzer : ScopedAnalyzer
     {

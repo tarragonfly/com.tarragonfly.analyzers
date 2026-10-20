@@ -13,8 +13,9 @@ namespace TarragonFly.Analyzers.Rules.Async
     // Awaiting null throws NullReferenceException. Return Task.CompletedTask or Task.FromResult(...)
     // instead, or make the method async.
     //
-    // Only non-async members returning Task or Task<T> count, with a literal null as the whole return
-    // value; a null in "?:", default, and lambdas aren't checked. Reported on the null.
+    // Only non-async members and local functions returning Task or Task<T> count, indexers and
+    // operators included, when the whole return value is a literal null, in parentheses or not. A null
+    // in "?:", default, lambdas and Task subclasses aren't checked. Reported on the null.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class NullTaskReturnedAnalyzer : ScopedAnalyzer
     {
@@ -32,9 +33,10 @@ namespace TarragonFly.Analyzers.Rules.Async
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 ExpressionSyntax returned = context.Node is ReturnStatementSyntax statement ? statement.Expression : ((ArrowExpressionClauseSyntax)context.Node).Expression;
+                while (returned is ParenthesizedExpressionSyntax parenthesized) returned = parenthesized.Expression;
                 if (returned == null || !returned.IsKind(SyntaxKind.NullLiteralExpression)) return;
                 if (!(context.SemanticModel.GetEnclosingSymbol(returned.SpanStart, context.CancellationToken) is IMethodSymbol member) || member.IsAsync) return;
-                if (member.MethodKind == MethodKind.AnonymousFunction || member.MethodKind == MethodKind.LocalFunction) return;
+                if (member.MethodKind == MethodKind.AnonymousFunction) return;
                 ITypeSymbol type = member.ReturnType.OriginalDefinition;
                 if (SymbolNames.IsNamed(type, "System.Threading.Tasks.Task") || SymbolNames.IsNamed(type, "System.Threading.Tasks.Task`1"))
                 {

@@ -17,12 +17,14 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // without being changed, which is a common source of "this button does the same as that one" bugs.
     //
     // Comments and formatting are ignored when comparing. If branches only take part when they have
-    // braces, and switch sections only when their labels declare no pattern variable. A branch with a
-    // single statement on one line is skipped, since short identical branches are often deliberate; in
-    // a switch section a final break doesn't count toward that. When every branch is the same and
-    // there's no final else or default (the case TF2059 leaves out), short branches are reported too,
-    // unless all they do is jump (return, break, continue, goto or throw). The later copy is reported:
-    // the whole block, or the whole switch section. Game code only.
+    // braces, and switch sections only when their labels declare no pattern variable. An else block
+    // holding nothing but an if continues the chain, like "else if". A branch with a single statement
+    // on one line is skipped, since short identical branches are often deliberate; a final break,
+    // return or throw doesn't count toward that. When there's no final else or default and every
+    // branch up to the copy is the same, short branches are reported too, unless all they do is jump
+    // (return, break, continue, goto or throw); with every branch the same, that's the case TF2059
+    // leaves out. The later copy is reported: the whole block, or the whole switch section. Game code
+    // only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class DuplicateBranchAnalyzer : ScopedAnalyzer
     {
@@ -44,9 +46,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
         private static void AnalyzeIf(SyntaxNodeAnalysisContext context)
         {
             IfStatementSyntax first = (IfStatementSyntax)context.Node;
-            if (!Branches.IsChainStart(first)) return;
+            if (!Branches.IsChainStart(first) || Branches.IsOnlyStatementOfElse(first)) return;
 
-            List<StatementSyntax> bodies = Branches.OfIfChain(first, out bool endsWithElse);
+            List<StatementSyntax> bodies = Branches.OfIfChain(first, out bool endsWithElse, throughElseBlocks: true);
             List<IReadOnlyList<StatementSyntax>> code = new List<IReadOnlyList<StatementSyntax>>();
             foreach (StatementSyntax body in bodies) code.Add(body is BlockSyntax block ? (IReadOnlyList<StatementSyntax>)block.Statements : null);
             ReportCopies(context, code, i => bodies[i].Span, coversEveryCase: endsWithElse);
@@ -67,10 +69,11 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
         private static void ReportCopies(SyntaxNodeAnalysisContext context, List<IReadOnlyList<StatementSyntax>> code, Func<int, TextSpan> spanOf, bool coversEveryCase)
         {
-            bool checkShort = !coversEveryCase && AllSame(code);
             for (int later = 1; later < code.Count; later++)
             {
-                if (code[later] == null || (checkShort ? OnlyJumps(code[later]) : IsShort(code[later]))) continue;
+                if (code[later] == null) continue;
+                bool reportShort = !coversEveryCase && SameAsEveryEarlier(code, later);
+                if (reportShort ? OnlyJumps(code[later]) : IsShort(code[later])) continue;
                 for (int earlier = 0; earlier < later; earlier++)
                 {
                     if (code[earlier] == null || !Branches.HaveSameCode(code[earlier], code[later])) continue;
@@ -93,19 +96,19 @@ namespace TarragonFly.Analyzers.Rules.Readability
             return false;
         }
 
-        private static bool AllSame(List<IReadOnlyList<StatementSyntax>> code)
+        private static bool SameAsEveryEarlier(List<IReadOnlyList<StatementSyntax>> code, int later)
         {
-            foreach (IReadOnlyList<StatementSyntax> branch in code)
+            for (int earlier = 0; earlier < later; earlier++)
             {
-                if (branch == null || code[0] == null || !Branches.HaveSameCode(code[0], branch)) return false;
+                if (code[earlier] == null || !Branches.HaveSameCode(code[earlier], code[later])) return false;
             }
             return true;
         }
 
-        // One statement on one line, not counting a final break.
+        // One statement on one line, not counting a final break, return or throw.
         private static bool IsShort(IReadOnlyList<StatementSyntax> statements)
         {
-            int count = CountWithoutFinalBreak(statements);
+            int count = CountWithoutFinalExit(statements);
             if (count != 1) return count == 0;
             FileLinePositionSpan lines = statements[0].GetLocation().GetLineSpan();
             return lines.StartLinePosition.Line == lines.EndLinePosition.Line;
@@ -113,16 +116,18 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
         private static bool OnlyJumps(IReadOnlyList<StatementSyntax> statements)
         {
-            int count = CountWithoutFinalBreak(statements);
+            int count = CountWithoutFinalExit(statements);
             if (count != 1) return count == 0;
             StatementSyntax only = statements[0];
             return only is ReturnStatementSyntax || only is ContinueStatementSyntax || only is GotoStatementSyntax || only is ThrowStatementSyntax;
         }
 
-        private static int CountWithoutFinalBreak(IReadOnlyList<StatementSyntax> statements)
+        private static int CountWithoutFinalExit(IReadOnlyList<StatementSyntax> statements)
         {
             int count = statements.Count;
-            return count > 0 && statements[count - 1] is BreakStatementSyntax ? count - 1 : count;
+            if (count == 0) return 0;
+            StatementSyntax last = statements[count - 1];
+            return last is BreakStatementSyntax || last is ReturnStatementSyntax || last is ThrowStatementSyntax ? count - 1 : count;
         }
     }
 }

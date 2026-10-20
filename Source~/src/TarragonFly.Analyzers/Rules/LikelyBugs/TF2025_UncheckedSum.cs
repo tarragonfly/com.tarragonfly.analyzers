@@ -7,7 +7,8 @@ using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
-    // TF2025: Enumerable.Sum over int or long values inside an unchecked block or expression.
+    // TF2025: Enumerable.Sum or Queryable.Sum over int or long values inside an unchecked block or
+    // expression.
     //
     // Sum always checks for overflow and throws OverflowException, whatever the surrounding context
     // says, so the unchecked doesn't do what it looks like it does here.
@@ -33,7 +34,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
                 if (!(invocation.Expression is MemberAccessExpressionSyntax access) || access.Name.Identifier.ValueText != "Sum") return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
-                if (!SymbolNames.IsNamed((method.ReducedFrom ?? method).ContainingType, "System.Linq.Enumerable") || !IsIntegral(method.ReturnType)) return;
+                INamedTypeSymbol type = (method.ReducedFrom ?? method).ContainingType;
+                if (!SymbolNames.IsNamed(type, "System.Linq.Enumerable") && !SymbolNames.IsNamed(type, "System.Linq.Queryable")) return;
+                if (!IsIntegral(method.ReturnType)) return;
                 if (IsInUncheckedContext(invocation)) context.ReportDiagnostic(Diagnostic.Create(Rule, access.Name.GetLocation()));
             }), SyntaxKind.InvocationExpression);
         }

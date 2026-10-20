@@ -8,18 +8,20 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace TarragonFly.Analyzers.Rules.DeadCode
 {
-    // TF1506: a private field the code sets but never reads, as in a "lastHitTime" field updated on
-    // every hit that nothing looks at, or a private event that is subscribed to but never raised.
+    // TF1506: a private field, or a field of a private nested type, the code sets but never reads, as
+    // in a "lastHitTime" field updated on every hit that nothing looks at, or a private event that is
+    // subscribed to but never raised.
     //
     // The writes are wasted work, and the field suggests a feature that no longer exists. Remove it,
     // or read it where it was meant to be used.
     //
     // A field counts when something assigns it, increments it or adds to it, and nothing reads its
-    // value; ++ and += don't count as reads, unless their result is used, as in "a = b = 0". An event
-    // counts when it is subscribed, unsubscribed or cleared but never invoked or passed on. Fields set
-    // only by their initializer, and fields with attributes, such as [SerializeField], which Unity
-    // reads, are skipped, as are fields in [Serializable] types. Static and readonly fields count.
-    // Reported on the field name.
+    // value; ++ and += don't count as reads, unless their result is used, as in "a = b = 0" (a void
+    // method or lambda written as "=> hits = 0" uses nothing). An event counts when it is subscribed,
+    // unsubscribed or cleared but never invoked or passed on. Fields set only by their initializer,
+    // and fields with attributes, such as [SerializeField], which Unity reads, are skipped, as are
+    // fields in [Serializable] types and in [StructLayout] types, where a field can be padding that
+    // keeps the others in place. Static and readonly fields count. Reported on the field name.
     //
     // Fields of Unity objects, such as MonoBehaviours, are checked too. Their serialized fields stay
     // skipped through their attributes.

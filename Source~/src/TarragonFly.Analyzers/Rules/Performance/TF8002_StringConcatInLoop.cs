@@ -15,8 +15,10 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // Checked: "s += x" and "s = s + x" (s anywhere in the +) on a string field, parameter or local
     // declared outside the innermost loop, in the body of a for, foreach, while or do loop, lambdas in
-    // the body included. Interpolated strings and string.Concat aren't checked. Reported on the
-    // assignment. Game code only.
+    // the body included. A field reached through a variable declared in the loop, as in "group.Key =
+    // prefix + group.Key" for each group, is a different string on every pass and isn't counted.
+    // Interpolated strings and string.Concat aren't checked. Reported on the assignment. Game code
+    // only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StringConcatInLoopAnalyzer : ScopedAnalyzer
     {
@@ -41,6 +43,10 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 if (!(target is ILocalSymbol || target is IParameterSymbol || target is IFieldSymbol)) return;
                 if (context.SemanticModel.GetTypeInfo(assignment.Left, context.CancellationToken).Type?.SpecialType != SpecialType.System_String) return;
                 if (target is ILocalSymbol local && local.DeclaringSyntaxReferences.Any(reference => loop.Span.Contains(reference.Span))) return;
+                ExpressionSyntax owner = assignment.Left;
+                while (owner is MemberAccessExpressionSyntax access && !(access.Expression is ThisExpressionSyntax)) owner = access.Expression;
+                if (owner != assignment.Left && context.SemanticModel.GetSymbolInfo(owner, context.CancellationToken).Symbol is ILocalSymbol item
+                    && item.DeclaringSyntaxReferences.Any(reference => loop.Span.Contains(reference.Span))) return;
 
                 if (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && !AddsTo(context, assignment.Right, target)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, assignment.GetLocation(), target.Name));

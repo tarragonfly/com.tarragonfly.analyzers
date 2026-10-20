@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using TarragonFly.Analyzers.Frameworks;
 using TarragonFly.Analyzers.Rules.Unity;
 
 namespace TarragonFly.Analyzers.Rules.Performance
@@ -14,8 +15,9 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // should say which. (TF4001 also reports empty Unity messages, on their own.)
     //
     // Fine: a comment or #if-disabled code between the braces, constructors, destructors and
-    // operators, virtual and abstract methods, interface implementations and overrides of abstract
-    // methods. Overrides of virtual methods are reported in game code; in test code they're skipped,
+    // operators, virtual and abstract methods, interface implementations, overrides of abstract
+    // methods, and the GetResult() of an awaiter (an INotifyCompletion), which await calls even when
+    // there's nothing to return. Overrides of virtual methods are reported in game code; in test code they're skipped,
     // since test base classes often have empty hooks. Accessors follow the same rules, except that
     // overrides of virtual properties are reported in test code too. Reported on the name, or on the
     // accessor keyword.
@@ -43,6 +45,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 if (method.IsVirtual || method.IsAbstract) return;
                 if (method.IsOverride && (testCode || method.OverriddenMethod?.IsAbstract == true)) return;
                 if (!method.IsOverride && BaseMembers.IsOverrideOrImplementation(method)) return;
+                if (method.Name == "GetResult" && method.Parameters.IsEmpty
+                    && SymbolNames.Implements(method.ContainingType, contract => SymbolNames.IsNamed(contract, "System.Runtime.CompilerServices.INotifyCompletion"))) return;
 
                 string message = method.ContainingType != null && new ScriptInfo(method.ContainingType).IsMessage(method)
                     ? $"Unity still calls the empty {method.Name} message on every instance; remove it"

@@ -3,17 +3,22 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Text;
 
 namespace TarragonFly.Analyzers.Rules.DeadCode
 {
-    // TF1503: a type parameter that nothing in its class, struct, interface or method uses.
+    // TF1503: a type parameter that nothing in its class, struct, interface, method or local function
+    // uses.
     //
     // Callers still have to supply it, as in Spawn<Enemy>(), so it looks like it changes something.
     //
-    // A use in a "where" constraint doesn't count. Methods whose signature is fixed elsewhere aren't
-    // checked: overrides, interface implementations, virtual, abstract and extern methods, and
-    // methods declared in interfaces. Delegates aren't checked. A partial type split over several files
-    // isn't checked either, since each file is analyzed on its own. Reported on the type parameter.
+    // A use in another type parameter's "where" constraint counts, as TItem in "where TList :
+    // IList<TItem>", since the parameter can't go without it; a use in its own constraint, as in
+    // "where T : IComparable<T>", doesn't. Methods whose signature is fixed elsewhere aren't checked:
+    // overrides, interface implementations, virtual, abstract and extern methods, and methods declared
+    // in interfaces. Delegates aren't checked. A partial type split over several files isn't checked
+    // either, since each file is analyzed on its own. Reported on the type parameter, from its in or
+    // out keyword when it has one.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class UnusedTypeParameterAnalyzer : ScopedAnalyzer
     {
@@ -48,10 +53,15 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                         if (!(context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is IMethodSymbol methodSymbol) || HasFixedSignature(methodSymbol)) return;
                         if (IsUsedIn(context, method, symbol)) return;
                         break;
+                    case LocalFunctionStatementSyntax local:
+                        if (IsUsedIn(context, local, symbol)) return;
+                        break;
                     default:
                         return;
                 }
-                context.ReportDiagnostic(Diagnostic.Create(Rule, parameter.Identifier.GetLocation(), parameter.Identifier.ValueText));
+                Location location = parameter.VarianceKeyword.IsKind(SyntaxKind.None) ? parameter.Identifier.GetLocation()
+                    : Location.Create(parameter.SyntaxTree, TextSpan.FromBounds(parameter.VarianceKeyword.SpanStart, parameter.Identifier.Span.End));
+                context.ReportDiagnostic(Diagnostic.Create(Rule, location, parameter.Identifier.ValueText));
             }), SyntaxKind.TypeParameter);
         }
 
@@ -63,12 +73,18 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
 
         private static bool IsUsedIn(SyntaxNodeAnalysisContext context, SyntaxNode declaration, ITypeParameterSymbol parameter)
         {
-            foreach (SyntaxNode node in declaration.DescendantNodes(n => !(n is TypeParameterConstraintClauseSyntax) && !(n is TypeParameterListSyntax)))
+            foreach (SyntaxNode node in declaration.DescendantNodes(n => !(n is TypeParameterListSyntax) && !IsOwnConstraint(context, n, parameter)))
             {
                 if (!(node is IdentifierNameSyntax name) || name.Identifier.ValueText != parameter.Name) continue;
                 if (SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol, parameter)) return true;
             }
             return false;
+        }
+
+        private static bool IsOwnConstraint(SyntaxNodeAnalysisContext context, SyntaxNode node, ITypeParameterSymbol parameter)
+        {
+            return node is TypeParameterConstraintClauseSyntax clause && clause.Name.Identifier.ValueText == parameter.Name
+                && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(clause.Name, context.CancellationToken).Symbol, parameter);
         }
     }
 }

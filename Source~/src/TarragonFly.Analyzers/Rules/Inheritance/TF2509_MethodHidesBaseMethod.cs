@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -14,7 +15,8 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     // compiler.
     //
     // Only class relationships count between parameter types; a numeric widening like int to long
-    // doesn't. Private base methods aren't checked. Reported on the method name.
+    // doesn't. Generic methods count when both have the same number of type parameters, matched by
+    // position. Private base methods aren't checked. Reported on the method name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class MethodHidesBaseMethodAnalyzer : ScopedAnalyzer
     {
@@ -49,6 +51,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
         private static bool TakesItsCalls(IMethodSymbol method, IMethodSymbol baseMethod)
         {
             if (method.Parameters.Length != baseMethod.Parameters.Length || method.Arity != baseMethod.Arity) return false;
+            if (method.Arity > 0) baseMethod = baseMethod.Construct(method.TypeParameters.Cast<ITypeSymbol>().ToArray());
             bool wider = false;
             for (int i = 0; i < method.Parameters.Length; i++)
             {

@@ -16,9 +16,11 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     //
     // Only events declared as fields count, at any visibility, static ones included. An event counts as
     // raised when it is invoked, directly or with ?.Invoke, or handed on as a delegate value, such as
-    // an argument. Assigning null and comparing with null don't count. Events with add and remove
-    // accessors, abstract and override events, and events that implement an interface aren't checked.
-    // UnityEvent fields aren't C# events and aren't checked either. Reported on the event name.
+    // an argument or the handler in "other.Picked += Picked"; raising an override counts for the
+    // virtual event it overrides. Assigning null and comparing with null don't count. Events with add
+    // and remove accessors, abstract and override events, and events that implement an interface
+    // aren't checked. UnityEvent fields aren't C# events and aren't checked either. Reported on the
+    // event name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class EventNeverRaisedAnalyzer : ScopedAnalyzer
     {
@@ -48,7 +50,11 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             start.RegisterOperationAction(context =>
             {
                 IEventReferenceOperation reference = (IEventReferenceOperation)context.Operation;
-                if (IsRaise(reference)) raised[reference.Event.OriginalDefinition] = true;
+                if (!IsRaise(reference)) return;
+                for (IEventSymbol raisedEvent = reference.Event.OriginalDefinition; raisedEvent != null; raisedEvent = raisedEvent.OverriddenEvent?.OriginalDefinition)
+                {
+                    raised[raisedEvent] = true;
+                }
             }, OperationKind.EventReference);
 
             start.RegisterCompilationEndAction(context =>
@@ -65,12 +71,17 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
         // Any use of the event's delegate other than subscribing, assigning null or a null check.
         private static bool IsRaise(IEventReferenceOperation reference)
         {
+            IOperation current = reference;
             IOperation parent = reference.Parent;
-            while (parent is IConversionOperation || parent is IParenthesizedOperation) parent = parent.Parent;
+            while (parent is IConversionOperation || parent is IParenthesizedOperation)
+            {
+                current = parent;
+                parent = parent.Parent;
+            }
             switch (parent)
             {
-                case IEventAssignmentOperation _:
-                    return false;
+                case IEventAssignmentOperation subscription:
+                    return subscription.HandlerValue == current;
                 case ISimpleAssignmentOperation assignment:
                     return assignment.Target != reference;
                 case IBinaryOperation comparison:

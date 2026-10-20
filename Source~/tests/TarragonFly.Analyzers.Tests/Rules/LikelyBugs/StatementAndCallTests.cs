@@ -84,6 +84,30 @@ class Target
         }
 
         [Test]
+        public void SetOperationWithItself_IsFoundInStaticCallsComparerOverloadsAndParentheses()
+        {
+            AnalyzerVerifier.Verify(new CollectionPassedToItselfAnalyzer(), @"
+using System.Collections.Generic;
+using System.Linq;
+
+class Target
+{
+    void Check(HashSet<int> visited, List<int> enemies, IEqualityComparer<int> comparer)
+    {
+        IEnumerable<int> r1 = Enumerable.Union({|TF2011:enemies|}, enemies);
+        IEnumerable<int> r2 = Enumerable.Except(first: {|TF2011:enemies|}, second: enemies);
+        IEnumerable<int> r3 = {|TF2011:enemies|}.Intersect(enemies, comparer);
+        bool r4 = Enumerable.SequenceEqual({|TF2011:enemies|}, enemies, comparer);
+        {|TF2011:visited|}.UnionWith((visited));
+        ({|TF2011:visited|}).UnionWith(visited);
+        {|TF2011:visited|}?.UnionWith(visited);
+        IEnumerable<int> r5 = Enumerable.Union(enemies, enemies.Where(e => e > 0));
+        IEnumerable<int> r6 = Enumerable.Concat(enemies, enemies);
+    }
+}");
+        }
+
+        [Test]
         public void PostfixIncrementWhoseValueIsLost_IsReported()
         {
             AnalyzerVerifier.Verify(new LostIncrementAnalyzer(), @"
@@ -157,6 +181,32 @@ class Target
         }
 
         [Test]
+        public void IgnoredResultOfImmutableCollectionCall_IsReported()
+        {
+            AnalyzerVerifier.Verify(new IgnoredResultAnalyzer(), @"
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+
+class Target
+{
+    void Check(ImmutableHashSet<int> tags, ImmutableArray<int> slots, ImmutableHashSet<int>.Builder builder, IImmutableSet<int> shared, List<int> plain)
+    {
+        {|TF2019:tags.Union(new[] { 1 })|};
+        {|TF2019:tags.Add(1)|};
+        {|TF2019:slots.Add(1)|};
+        {|TF2019:slots.Where(slot => slot > 0)|};
+        {|TF2019:ImmutableList.Create(1)|};
+        {|TF2019:plain.ToImmutableList()|};
+        builder.Add(1);
+        builder.ToImmutable();
+        shared.Add(1);
+        tags = tags.Add(1);
+    }
+}");
+        }
+
+        [Test]
         public void IgnoredResult_InTestCode_IsNotChecked()
         {
             AnalyzerVerifier.Verify(new IgnoredResultAnalyzer(), "class Target { void Check(string name) { name.Trim(); } }", SnippetAssembly.Tests());
@@ -214,6 +264,32 @@ class Target
         }
 
         [Test]
+        public void ForLoopStartingFalse_IsFoundWithCharsSeveralCountersAndConstantConditions()
+        {
+            AnalyzerVerifier.Verify(new ForLoopNeverRunsAnalyzer(), @"
+class Target
+{
+    void Check()
+    {
+        int k, m;
+        for (char c = 'a'; c <= 'z'; c++) { }
+        for (char c = 'z'; {|TF2023:c < 'a'|}; c++) { }
+        for (int i = 0, j = 5; {|TF2023:i > 10|}; i++) { }
+        for (k = 10, m = 0; {|TF2023:k < 5|}; k++) { }
+        for (int i = 0; {|TF2023:i == 1|}; i++) { }
+        for (int i = 5; {|TF2023:i != 5|}; i++) { }
+        for (int i = 0; i != 5; i++) { }
+        for (int i = 0; {|TF2023:!true|}; i++) { }
+        for (int i = 0; {|TF2023:1 > 2|}; i++) { }
+        for (int i = 0; {|TF2023:i < i|}; i++) { }
+        for (int i = 0; i <= i; i++) { }
+        for (int i = 0, j = 5; i < j; i++) { }
+        for (long i = 9007199254740993; i > 9007199254740992; i--) { }
+    }
+}");
+        }
+
+        [Test]
         public void StreamReadCountIgnored_IsReported()
         {
             AnalyzerVerifier.Verify(new IgnoredStreamReadAnalyzer(), @"
@@ -252,6 +328,27 @@ class Target
         }
 
         [Test]
+        public void IndexOfInParenthesesOrComparedWithAnyZero_IsReported()
+        {
+            AnalyzerVerifier.Verify(new IndexOfGreaterThanZeroAnalyzer(), @"
+class Target
+{
+    void Check(string name)
+    {
+        bool r1 = (name.IndexOf(""Boss"")) {|TF2033:> 0|};
+        bool r2 = checked(name.IndexOf(""Boss"")) {|TF2033:> 0|};
+        bool r3 = {|TF2033:0L <|} ((name.IndexOf(""Boss"")));
+        bool r4 = name.IndexOf(""Boss"") {|TF2033:> 0u|};
+        bool r5 = name.IndexOf(""Boss"") {|TF2033:> 0.0|};
+        bool r6 = name.IndexOf(""Boss"") {|TF2033:> '\0'|};
+        bool r7 = name.IndexOf(""Boss"") {|TF2033:> 0m|};
+        bool r8 = (int)name.IndexOf(""Boss"") > 0;
+        bool r9 = name.IndexOf(""Boss"") > 0.5;
+    }
+}");
+        }
+
+        [Test]
         public void SecondOrderBy_IsReported()
         {
             AnalyzerVerifier.Verify(new SecondOrderByAnalyzer(), @"
@@ -268,6 +365,35 @@ class Target
         IEnumerable<int> r4 = enemies.OrderBy(e => e).Where(e => e > 0).OrderBy(e => -e);
         IEnumerable<int> r5 = from e in enemies orderby e {|TF2041:orderby|} -e select e;
         IEnumerable<int> r6 = from e in enemies orderby e, -e select e;
+    }
+}");
+        }
+
+        [Test]
+        public void OrderByOnAnythingAlreadySorted_IsReported()
+        {
+            AnalyzerVerifier.Verify(new SecondOrderByAnalyzer(), @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+class Query
+{
+    public Query OrderBy(Func<int, int> key) => this;
+}
+
+class Target
+{
+    void Check(List<int> items, Query query)
+    {
+        IOrderedEnumerable<int> sorted = items.OrderBy(x => x);
+        IEnumerable<int> r1 = sorted.{|TF2041:OrderBy|}(x => -x);
+        IEnumerable<int> r2 = (items.OrderBy(x => x)).{|TF2041:OrderBy|}(x => -x);
+        IEnumerable<int> r3 = items?.OrderBy(x => x).{|TF2041:OrderByDescending|}(x => x);
+        IEnumerable<int> r4 = Enumerable.{|TF2041:OrderBy|}(sorted, x => -x);
+        IEnumerable<int> r5 = items.OrderBy(x => x).{|TF2041:Order|}();
+        Query r6 = query.OrderBy(x => x).OrderBy(x => -x);
+        IEnumerable<int> r7 = items.OrderBy(x => x).Select(x => x).OrderBy(x => -x);
     }
 }");
         }

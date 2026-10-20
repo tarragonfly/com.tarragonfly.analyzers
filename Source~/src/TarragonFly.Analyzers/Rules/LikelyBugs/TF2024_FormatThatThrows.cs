@@ -8,16 +8,18 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
     // TF2024: a composite format string that throws FormatException at runtime: a placeholder past the
-    // last argument ("{1}" with one argument), or a malformed one such as "{0", "{0}}", "{-1}" or
-    // "{name}".
+    // last argument ("{1}" with one argument), or a malformed one such as "{0", "{0}}", "{-1}",
+    // "{name}", "{ 0}", "{0,}" or "{0,+5}".
     //
     // The exception only happens when that line runs, often in a rarely seen error or debug message.
     //
     // Checked calls: string.Format, Console.Write and WriteLine, TextWriter, StringBuilder.AppendFormat
     // and any method with a "format" string parameter followed by object arguments. The format must
-    // be a constant or a local only ever set to one. Arguments passed as an explicit array aren't
-    // checked. Unity's Debug.LogFormat family counts too. Reported on the called method, as in
-    // "string.Format".
+    // be a constant or a local only ever set to one, not reassigned or passed by ref or out.
+    // Arguments passed as an explicit object array aren't checked; named arguments in any order are,
+    // and so is an int[] passed alone, which is a single argument. Items are read the way the runtime
+    // reads them, so "{0:}" and "{0 }" are fine. Unity's Debug.LogFormat family counts too. Reported
+    // on the called method, as in "string.Format".
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FormatThatThrowsAnalyzer : ScopedAnalyzer
     {

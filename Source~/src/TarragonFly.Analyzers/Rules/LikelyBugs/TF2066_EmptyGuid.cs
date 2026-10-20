@@ -14,7 +14,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // gets "new Guid()" shares its ID with every other one. Use Guid.NewGuid() for a new ID, or
     // Guid.Empty when empty is meant.
     //
-    // A plain "default" literal counts when it becomes a Guid. Reported on the expression.
+    // A plain "default" literal counts when it becomes a Guid. A parameter's default value of "default"
+    // or "default(Guid)" doesn't, since Guid.Empty isn't a constant and can't take its place there.
+    // Reported on the expression.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class EmptyGuidAnalyzer : ScopedAnalyzer
     {
@@ -37,6 +39,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 if (!SymbolNames.IsNamed(checkedType, "System.Guid")) return;
 
                 if (expression is BaseObjectCreationExpressionSyntax creation && !IsEmpty(context, creation)) return;
+                if (!(expression is BaseObjectCreationExpressionSyntax) && expression.Parent is EqualsValueClauseSyntax clause && clause.Parent is ParameterSyntax) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, expression.GetLocation()));
             }), SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression, SyntaxKind.DefaultExpression, SyntaxKind.DefaultLiteralExpression);
         }

@@ -12,7 +12,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // Last() walks the whole list to reach the end, while the list's First and Last properties hold
     // both end nodes already.
     //
-    // Only the overloads without a condition count. Reported on the method name.
+    // Only the overloads without a condition count. Classes derived from LinkedList count too,
+    // called directly or through ?.. Reported on the method name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class LinqFirstOnLinkedListAnalyzer : ScopedAnalyzer
     {
@@ -34,7 +35,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 IMethodSymbol method = LinqCalls.Method(context.SemanticModel, invocation, context.CancellationToken);
                 if (method == null || (method.Name != "First" && method.Name != "Last")) return;
                 ITypeSymbol receiver = LinqCalls.ReceiverType(context.SemanticModel, invocation, context.CancellationToken);
-                if (!SymbolNames.IsNamed(receiver?.OriginalDefinition, "System.Collections.Generic.LinkedList`1")) return;
+                if (!SymbolNames.IsOrDerivesFrom(receiver, "System.Collections.Generic.LinkedList`1")) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, LinqCalls.NameLocation(invocation), method.Name));
             }), SyntaxKind.InvocationExpression);
         }

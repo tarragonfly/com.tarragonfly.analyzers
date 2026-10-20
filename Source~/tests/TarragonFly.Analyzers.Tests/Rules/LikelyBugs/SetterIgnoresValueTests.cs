@@ -54,5 +54,59 @@ class Player : IHealth
     int IHealth.Value { get => 0; set { } }
 }");
         }
+
+        [Test]
+        public void EmptyAccessorsAnInterfaceAsksFor_AreFine()
+        {
+            AnalyzerVerifier.Verify(new SetterIgnoresValueAnalyzer(), @"
+using System;
+
+interface IHealth
+{
+    int Value { get; set; }
+    int Max { get; }
+}
+
+interface INotify
+{
+    event Action Changed;
+}
+
+interface IStore<T>
+{
+    T Item { get; set; }
+}
+
+class Fake : IHealth, INotify, IStore<int>
+{
+    int count;
+
+    public int Value { get => 0; set { } }
+    public int Max { get => 0; {|TF2045:set|} { } }
+    public event Action Changed { add { } remove { } }
+    public int Item { get => count; {|TF2045:set|} { count = 5; } }
+}
+
+class Base
+{
+    public int Value { get => 0; {|TF2045:set|} { } }
+}
+
+class Derived : Base, IHealth
+{
+    public int Max => 0;
+}
+
+class Shared : IHealth
+{
+    public virtual int Value { get => 0; set { } }
+    public int Max => 0;
+}
+
+class SharedChild : Shared
+{
+    public override int Value { get => 1; set { } }
+}");
+        }
     }
 }

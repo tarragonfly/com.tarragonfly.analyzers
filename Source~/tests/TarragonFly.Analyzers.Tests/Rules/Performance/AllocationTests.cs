@@ -49,6 +49,35 @@ class Target
         }
 
         [Test]
+        public void FieldOfTheItemEachPassWorksOn_IsNotCounted()
+        {
+            AnalyzerVerifier.Verify(new StringConcatInLoopAnalyzer(), @"
+using System.Collections.Generic;
+
+class Group
+{
+    public string Key;
+}
+
+class Sections
+{
+    Group shared = new Group();
+
+    void Prefix(List<Group> groups, string section)
+    {
+        foreach (Group group in groups)
+        {
+            group.Key = section + ""/"" + group.Key;
+            Group copy = group;
+            copy.Key += ""!"";
+            {|TF8002:shared.Key += section|};
+            {|TF8002:this.shared.Key = shared.Key + section|};
+        }
+    }
+}");
+        }
+
+        [Test]
         public void PropertyThatCopiesACollection_IsReported()
         {
             AnalyzerVerifier.Verify(new PropertyCopiesCollectionAnalyzer(), @"
@@ -75,6 +104,65 @@ class Inventory
 
     [ShowInInspector]
     public List<int> Shown => new List<int>(items);
+}");
+        }
+
+        [Test]
+        public void CachedCopiesViewsAndNonCollectionProperties_AreFine()
+        {
+            AnalyzerVerifier.Verify(new PropertyCopiesCollectionAnalyzer(), @"
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+
+class Shaders
+{
+    List<string> names = new List<string>();
+    string[] scopes;
+    string[] sorted;
+
+    public string[] Scopes => scopes ??= names.ToArray();
+    public string[] Sorted
+    {
+        get
+        {
+            if (sorted == null) sorted = names.OrderBy(n => n).ToArray();
+            return sorted;
+        }
+    }
+    public ReadOnlyCollection<string> View => new ReadOnlyCollection<string>(names);
+    public bool AllSame
+    {
+        get
+        {
+            List<string> copy = names.ToList();
+            return copy.Distinct().Count() == 1;
+        }
+    }
+    public List<string> Fresh => {|TF8003:names.ToList|}();
+}");
+        }
+
+        [Test]
+        public void OnlyCopiesTheGetterReturns_AreReported()
+        {
+            AnalyzerVerifier.Verify(new PropertyCopiesCollectionAnalyzer(), @"
+using System.Collections.Generic;
+using System.Linq;
+
+class Inventory
+{
+    List<int> items = new List<int>();
+
+    static int Count(List<int> values) => values.Count;
+
+    public object Boxed => {|TF8003:items.ToList|}();
+    public bool Any => {|TF8003:items.ToList|}().Count > 0;
+    public List<int> Wrapped => {|TF8003:new List<int>(items.ToList())|};
+    public int Counted => Count(items.ToList());
+    public string Joined => string.Join("","", items.ToArray());
+    public List<int> ViaLocal { get { List<int> copy = items.ToList(); return copy; } }
+    public IEnumerable<int> Looped { get { foreach (int item in items.ToList()) { } return null; } }
 }");
         }
 
@@ -122,6 +210,50 @@ class Target
         }
 
         [Test]
+        public void ArraysWhoseItemsWouldCallTheMemberItselfOrNotCompile_AreFine_AndAttributesAreChecked()
+        {
+            AnalyzerVerifier.Verify(new ArrayForParamsAnalyzer(), @"
+using System;
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+sealed class FilterAttribute : Attribute
+{
+    public FilterAttribute(params Type[] types) { }
+}
+
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+sealed class LabelAttribute : Attribute
+{
+    public LabelAttribute(string name, string group = """", params Type[] types) { }
+}
+
+[Filter({|TF8006:new[] { typeof(Target), typeof(string) }|})]
+[Label(""x"", types: new[] { typeof(Target), typeof(string) })]
+[Label(""x"", {|TF8006:types: new[] { typeof(Target) }|})]
+class Target
+{
+    static void Foo(int a) { }
+    static void Foo(params int[] all) { }
+    static void Bar(int a, params int[] rest) { }
+    static void Baz(int a, int b = 0, params int[] rest) { }
+
+    Target(int a) : this(new[] { a }) { }
+    Target(params int[] all) { }
+
+    int this[params int[] keys] => 0;
+
+    void Run()
+    {
+        Foo({|TF8006:new[] { 1 }|});
+        Foo({|TF8006:new[] { 1, 2 }|});
+        Bar(1, {|TF8006:rest: new[] { 2, 3 }|});
+        Baz(1, rest: new[] { 2, 3 });
+        int value = this[{|TF8006:new[] { 1, 2 }|}];
+    }
+}");
+        }
+
+        [Test]
         public void IndexOfOnSubstring_IsReported()
         {
             AnalyzerVerifier.Verify(new SubstringThenIndexOfAnalyzer(), @"
@@ -134,6 +266,8 @@ class Target
         int r3 = {|TF8008:line.Substring(start).IndexOfAny(new[] { 'x' })|};
         bool r4 = line.Substring(start).StartsWith(""x"");
         int r5 = line.IndexOf(':', start);
+        int r6 = line?{|TF8008:.Substring(start).IndexOf(':')|} ?? -1;
+        int? r7 = line.Substring(start)?.IndexOf(':');
     }
 }");
         }

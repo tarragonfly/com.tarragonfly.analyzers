@@ -11,8 +11,9 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // The Test Runner shows it as passing while it checks nothing, often because the test attributes
     // were forgotten or the tests moved elsewhere.
     //
-    // Tests are methods with [Test], [TestCase], [TestCaseSource], [Theory] or [UnityTest]. Abstract
-    // fixtures are base classes and aren't checked. Reported on the class name. Test code only.
+    // Tests are methods with [Test], [TestCase], [TestCaseSource], [Theory] or [UnityTest]. Record
+    // fixtures count too. Abstract fixtures are base classes and aren't checked. Reported on the class
+    // name. Test code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FixtureWithoutTestsAnalyzer : ScopedAnalyzer
     {
@@ -29,11 +30,11 @@ namespace TarragonFly.Analyzers.Rules.Tests
         {
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
-                ClassDeclarationSyntax declaration = (ClassDeclarationSyntax)context.Node;
+                TypeDeclarationSyntax declaration = (TypeDeclarationSyntax)context.Node;
                 if (!(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is INamedTypeSymbol type) || type.IsAbstract) return;
                 if (!Frameworks.NUnit.IsFixture(type) || Frameworks.NUnit.HasTests(type)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), type.Name));
-            }), SyntaxKind.ClassDeclaration);
+            }), SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration);
         }
     }
 }

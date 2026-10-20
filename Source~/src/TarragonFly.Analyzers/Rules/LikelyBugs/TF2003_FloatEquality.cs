@@ -13,9 +13,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // Checked: == and != with a float or double (nullable included) on either side, the disguised forms
     // "a <= b && a >= b" and "a < b || a > b" on the same two values, and float.Equals or double.Equals
-    // calls. Comparing with a constant 0 is fine, since 0 is exact, and so is Equals with NaN, which
-    // unlike == does find NaN. Equals(object) isn't checked. Reported on the operator, the whole
-    // disguised expression, or the Equals name.
+    // calls. Comparing with a constant 0 is fine, since 0 is exact, and so is comparing a nullable
+    // with null, or Equals with NaN, which unlike == does find NaN. Equals(object) isn't checked.
+    // Reported on the operator, the whole disguised expression, or the Equals name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class FloatEqualityAnalyzer : ScopedAnalyzer
     {
@@ -34,7 +34,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             {
                 BinaryExpressionSyntax comparison = (BinaryExpressionSyntax)context.Node;
                 if (!IsFloatComparison(context.SemanticModel, comparison)) return;
-                if (IsZero(context.SemanticModel, comparison.Left) || IsZero(context.SemanticModel, comparison.Right)) return;
+                if (IsZeroOrNull(context.SemanticModel, comparison.Left) || IsZeroOrNull(context.SemanticModel, comparison.Right)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, comparison.OperatorToken.GetLocation()));
             }), SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
 
@@ -78,18 +78,24 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             return type != null && (type.SpecialType == SpecialType.System_Single || type.SpecialType == SpecialType.System_Double);
         }
 
-        private static bool IsZero(SemanticModel model, ExpressionSyntax expression)
+        private static bool IsZeroOrNull(SemanticModel model, ExpressionSyntax expression)
         {
             Optional<object> value = model.GetConstantValue(expression);
-            return value.HasValue && value.Value != null && System.Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) == 0d;
+            return value.HasValue && (value.Value == null || ToDouble(value.Value) == 0d);
         }
 
         private static bool IsZeroOrNaN(SemanticModel model, ExpressionSyntax expression)
         {
             Optional<object> value = model.GetConstantValue(expression);
             if (!value.HasValue || value.Value == null) return false;
-            double number = System.Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture);
+            double number = ToDouble(value.Value);
             return number == 0d || double.IsNaN(number);
+        }
+
+        // Convert.ToDouble throws on a char, which can stand on the other side of a float comparison.
+        private static double ToDouble(object constant)
+        {
+            return constant is char character ? character : System.Convert.ToDouble(constant, System.Globalization.CultureInfo.InvariantCulture);
         }
 
         private static ExpressionSyntax Unwrap(ExpressionSyntax expression)

@@ -101,6 +101,9 @@ class Base<T> { }
 class {|TF2055:Node|}<T> : Base<Node<Node<T>>> { }
 class {|TF2055:Grid|}<T> : Base<Grid<T[]>> { }
 class SelfReferencing<T> : Base<SelfReferencing<T>> { }
+class Pair<T, U> : Base<Pair<U, T>> { }
+class Twin<T, U> : Base<Twin<T, T>> { }
+class Closed<T> : Base<Closed<int>> { }
 class Plain : Base<int> { }");
         }
 
@@ -167,6 +170,55 @@ class Inventory
 
     public int[] Array => {|TF2065:items|}.ToArray();
     public int Count => array.Length;
+}");
+        }
+
+        [Test]
+        public void FieldOfAnotherTypeOrStaticness_IsNotTheExpectedOne()
+        {
+            AnalyzerVerifier.Verify(new AccessorUsesWrongFieldAnalyzer(), @"
+using System.Collections.Generic;
+
+class Hand
+{
+    private readonly List<int> cards = new List<int>();
+    private readonly IReadOnlyList<int> readOnlyCards;
+    private static bool shown;
+    private bool visible;
+    private uint layers;
+    private long layersMask;
+
+    public Hand() { readOnlyCards = cards.AsReadOnly(); }
+
+    public IReadOnlyList<int> Cards => readOnlyCards;
+    public bool Shown => visible;
+    public long Layers { get => layersMask; set => layersMask = value; }
+}");
+        }
+
+        [Test]
+        public void AccessorsGoingThroughAnotherField_AreReported()
+        {
+            AnalyzerVerifier.Verify(new AccessorUsesWrongFieldAnalyzer(), @"
+class SlotData
+{
+    public bool flag;
+}
+
+class Slot
+{
+    internal SlotData data = new SlotData();
+    internal bool flag;
+
+    public bool Flag { {|TF2065:get|} { return data.flag; } set { {|TF2065:data|}.flag = value; } }
+}
+
+class Cell
+{
+    internal SlotData data = new SlotData();
+    internal bool flag;
+
+    public bool Flag { get => flag; set => this.{|TF2065:data|}.flag = value; }
 }");
         }
     }

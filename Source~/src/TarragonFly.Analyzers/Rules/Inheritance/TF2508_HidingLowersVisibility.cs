@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -6,14 +7,16 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace TarragonFly.Analyzers.Rules.Inheritance
 {
-    // TF2508: a method or property that hides a public base member with the same signature, without
-    // "new", and is itself less visible.
+    // TF2508: a method, property or indexer that hides a public base member with the same signature,
+    // without "new", and is itself less visible.
     //
     // It doesn't make the member any less public: callers holding the base type, or code outside the
     // class, still reach the base version, so the "hidden" behaviour runs only sometimes.
     //
     // Members marked "new" were hidden on purpose and are fine, as are overloads with other parameters.
-    // Reported on the member name.
+    // Generic methods match by the position of their type parameters, and tuple element names are
+    // ignored, as the compiler does. Sealed classes count too. Reported on the member name, or on
+    // "this" for an indexer.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class HidingLowersVisibilityAnalyzer : ScopedAnalyzer
     {
@@ -43,24 +46,47 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                     foreach (ISymbol candidate in type.GetMembers(member.Name))
                     {
                         if (candidate.DeclaredAccessibility != Accessibility.Public || !SameSignature(member, candidate)) continue;
-                        SyntaxToken name = declaration is MethodDeclarationSyntax method ? method.Identifier : ((PropertyDeclarationSyntax)declaration).Identifier;
-                        context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), member.Name, type.Name));
+                        context.ReportDiagnostic(Diagnostic.Create(Rule, Name(declaration).GetLocation(), member.Name, type.Name));
                         return;
                     }
                 }
-            }), SyntaxKind.MethodDeclaration, SyntaxKind.PropertyDeclaration);
+            }), SyntaxKind.MethodDeclaration, SyntaxKind.PropertyDeclaration, SyntaxKind.IndexerDeclaration);
+        }
+
+        private static SyntaxToken Name(MemberDeclarationSyntax declaration)
+        {
+            switch (declaration)
+            {
+                case MethodDeclarationSyntax method: return method.Identifier;
+                case PropertyDeclarationSyntax property: return property.Identifier;
+                default: return ((IndexerDeclarationSyntax)declaration).ThisKeyword;
+            }
         }
 
         private static bool SameSignature(ISymbol member, ISymbol candidate)
         {
-            if (member is IPropertySymbol) return candidate is IPropertySymbol;
-            if (!(member is IMethodSymbol method) || !(candidate is IMethodSymbol other)) return false;
-            if (method.Parameters.Length != other.Parameters.Length || method.Arity != other.Arity) return false;
-            for (int i = 0; i < method.Parameters.Length; i++)
+            if (member is IPropertySymbol property)
             {
-                if (method.Parameters[i].RefKind != other.Parameters[i].RefKind || !SymbolEqualityComparer.Default.Equals(method.Parameters[i].Type, other.Parameters[i].Type)) return false;
+                return candidate is IPropertySymbol other && SameParameters(property.Parameters, other.Parameters);
+            }
+            if (!(member is IMethodSymbol method) || !(candidate is IMethodSymbol baseMethod) || method.Arity != baseMethod.Arity) return false;
+            if (method.Arity > 0) baseMethod = baseMethod.Construct(method.TypeParameters.Cast<ITypeSymbol>().ToArray());
+            return SameParameters(method.Parameters, baseMethod.Parameters);
+        }
+
+        private static bool SameParameters(ImmutableArray<IParameterSymbol> mine, ImmutableArray<IParameterSymbol> theirs)
+        {
+            if (mine.Length != theirs.Length) return false;
+            for (int i = 0; i < mine.Length; i++)
+            {
+                if (mine[i].RefKind != theirs[i].RefKind || !SymbolEqualityComparer.Default.Equals(WithoutTupleNames(mine[i].Type), WithoutTupleNames(theirs[i].Type))) return false;
             }
             return true;
+        }
+
+        private static ITypeSymbol WithoutTupleNames(ITypeSymbol type)
+        {
+            return type is INamedTypeSymbol tuple && tuple.IsTupleType ? tuple.TupleUnderlyingType ?? tuple : type;
         }
     }
 }

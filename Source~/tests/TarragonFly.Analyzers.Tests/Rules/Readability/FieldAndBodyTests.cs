@@ -68,6 +68,97 @@ class Panel
         }
 
         [Test]
+        public void FieldSetThroughConditionalsCoalescingOrInitializers_IsReported()
+        {
+            AnalyzerVerifier.Verify(new FieldUsedOnlyAsLocalAnalyzer(), @"
+class Holder { public string Name { get; set; } }
+
+class Panel
+{
+    Holder {|TF1012:title|};
+    Holder {|TF1012:footer|};
+    int {|TF1012:count|};
+    string {|TF1012:text|};
+    int {|TF1012:parsed|};
+    Holder lazy;
+    int bumped;
+
+    int Build(Holder given, bool flag, string s)
+    {
+        title = new Holder { Name = ""Title"" };
+        footer = given ?? new Holder();
+        count = flag ? 1 : 2;
+        text = given?.Name;
+        Parse(out parsed, s ?? """");
+        lazy ??= new Holder();
+        bumped += flag ? 1 : 2;
+        return title.Name.Length + footer.Name.Length + count + text.Length + parsed + lazy.Name.Length + bumped;
+    }
+
+    static void Parse(out int value, string s) { value = s.Length; }
+}");
+        }
+
+        [Test]
+        public void FieldAnotherMemberMaySetBeforeTheRead_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new FieldUsedOnlyAsLocalAnalyzer(), @"
+using System;
+
+class Button { public event Action Clicked; }
+
+class Counter
+{
+    int called;
+    int throughDelegate;
+    int throughProperty;
+    int chained;
+    int recursive;
+    int {|TF1012:subscribed|};
+    int {|TF1012:unrelated|};
+
+    int Run()
+    {
+        called = 1;
+        Reset();
+        throughDelegate = 1;
+        Action reset = ResetLater;
+        reset();
+        throughProperty = 1;
+        int extra = Property;
+        chained = 1;
+        Outer();
+        unrelated = 1;
+        Other();
+        return called + throughDelegate + throughProperty + chained + unrelated + extra;
+    }
+
+    void Reset() { called = 2; }
+    void ResetLater() { throughDelegate = 2; }
+    int Property { get { throughProperty = 2; return 0; } }
+    void Outer() => Inner();
+    void Inner() { chained = 2; }
+    void Other() { }
+
+    int Walk(int depth)
+    {
+        recursive = depth;
+        if (depth > 0) Walk(depth - 1);
+        return recursive;
+    }
+
+    Counter(Button button, int start)
+    {
+        subscribed = start;
+        button.Clicked += OnClicked;
+        Console.WriteLine(subscribed);
+    }
+
+    void OnClicked() { subscribed = 0; }
+}");
+        }
+
+        [Test]
         public void PartialType_IsCheckedAcrossItsParts()
         {
             AnalyzerVerifier.Verify(new FieldUsedOnlyAsLocalAnalyzer(), @"
@@ -151,6 +242,27 @@ class Other
         }
 
         [Test]
+        public void PointerFieldSetOnlyDuringConstruction_IsReported()
+        {
+            AnalyzerVerifier.Verify(new FieldCouldBeReadonlyAnalyzer(), @"
+unsafe class Buffer
+{
+    private int* {|TF1016:start|};
+    private delegate*<int, void> {|TF1016:onWrite|};
+    private int* cursor;
+
+    public Buffer(int* memory, delegate*<int, void> callback)
+    {
+        start = memory;
+        onWrite = callback;
+        cursor = memory;
+    }
+
+    public void Advance() => cursor++;
+}", new SnippetAssembly { AllowUnsafe = true });
+        }
+
+        [Test]
         public void MethodRepeatingAnEarlierBody_IsReported()
         {
             AnalyzerVerifier.Verify(new DuplicateMethodBodyAnalyzer(), @"
@@ -221,6 +333,63 @@ class OtherType
         System.Console.WriteLine(total);
     }
 }".Replace("{|TF1024:Reset|}();", "Reset();"));
+        }
+
+        [Test]
+        public void ReturnTypesConstraintsAndExplicitImplementations_AreCompared()
+        {
+            AnalyzerVerifier.Verify(new DuplicateMethodBodyAnalyzer(), @"
+using System;
+
+interface IInitializable<T>
+{
+    void Init(T argument);
+}
+
+class Client<TArgument> : IInitializable<TArgument>
+{
+    int state;
+
+    void Run(TArgument argument) { }
+
+    void IInitializable<TArgument>.Init(TArgument argument)
+    {
+        state = 1;
+        Run(argument);
+    }
+
+    internal void {|TF1024:InitInternal|}(TArgument argument)
+    {
+        state = 1;
+        Run(argument);
+    }
+
+    protected int Step(int token)
+    {
+        state++;
+        return token;
+    }
+
+    protected long StepLong(int token)
+    {
+        state++;
+        return token;
+    }
+
+    static bool SetEquatable<T>(ref T current, T next) where T : IEquatable<T>
+    {
+        if (current.Equals(next)) return false;
+        current = next;
+        return true;
+    }
+
+    static bool SetStruct<T>(ref T current, T next) where T : struct
+    {
+        if (current.Equals(next)) return false;
+        current = next;
+        return true;
+    }
+}");
         }
     }
 }

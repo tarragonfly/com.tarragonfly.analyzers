@@ -88,6 +88,28 @@ class Fixture : FixtureBase
         }
 
         [Test]
+        public void EmptyGetResultOfAnAwaiter_IsFine()
+        {
+            AnalyzerVerifier.Verify(new EmptyMethodAnalyzer(), @"
+using System;
+using System.Runtime.CompilerServices;
+
+struct Awaiter : ICriticalNotifyCompletion
+{
+    public bool IsCompleted => true;
+    public void GetResult() { }
+    public void OnCompleted(Action continuation) => continuation();
+    public void UnsafeOnCompleted(Action continuation) => continuation();
+    public void {|TF8001:Reset|}() { }
+}
+
+class NotAnAwaiter
+{
+    public void {|TF8001:GetResult|}() { }
+}");
+        }
+
+        [Test]
         public void EqualsWithoutIEquatable_IsReportedOnTheType()
         {
             AnalyzerVerifier.Verify(new EquatableMissingAnalyzer(), @"

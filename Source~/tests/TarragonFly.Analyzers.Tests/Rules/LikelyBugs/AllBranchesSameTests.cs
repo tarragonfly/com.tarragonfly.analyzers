@@ -35,7 +35,10 @@ class Weapon
 
         int a = {|TF2059:critical ?|} baseDamage : baseDamage;
         int b = kind {|TF2059:switch|} { 1 => 5, _ => 5 };
-        return a + b;
+        int c = {|TF2059:critical ?|} (baseDamage) : baseDamage;
+        int d = {|TF2059:critical ?|} ((baseDamage + 1)) : baseDamage + 1;
+        int e = critical ? (baseDamage + 1) * 2 : baseDamage + 1 * 2;
+        return a + b + c + d + e;
     }
 }");
         }

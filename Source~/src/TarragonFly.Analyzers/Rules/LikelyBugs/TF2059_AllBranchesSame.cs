@@ -15,7 +15,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // An if chain needs a final else and a switch statement a default section, or some inputs would run
     // no branch at all; a switch expression needs a final discard arm (_). Comments and formatting are
-    // ignored. Reported on the if or switch keyword, or for ?: from the condition to the "?".
+    // ignored, as are parentheses around a whole ?: branch. Reported on the if or switch keyword, or for
+    // ?: from the condition to the "?".
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AllBranchesSameAnalyzer : ScopedAnalyzer
     {
@@ -69,7 +70,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         private static void AnalyzeConditional(SyntaxNodeAnalysisContext context)
         {
             ConditionalExpressionSyntax conditional = (ConditionalExpressionSyntax)context.Node;
-            if (!SyntaxFactory.AreEquivalent(conditional.WhenTrue, conditional.WhenFalse)) return;
+            if (!SyntaxFactory.AreEquivalent(WithoutParentheses(conditional.WhenTrue), WithoutParentheses(conditional.WhenFalse))) return;
             TextSpan span = TextSpan.FromBounds(conditional.Condition.SpanStart, conditional.QuestionToken.Span.End);
             context.ReportDiagnostic(Diagnostic.Create(Rule, Location.Create(conditional.SyntaxTree, span)));
         }
@@ -84,6 +85,12 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 if (!SyntaxFactory.AreEquivalent(arms[0].Expression, arm.Expression)) return;
             }
             context.ReportDiagnostic(Diagnostic.Create(Rule, switchExpression.SwitchKeyword.GetLocation()));
+        }
+
+        private static ExpressionSyntax WithoutParentheses(ExpressionSyntax expression)
+        {
+            while (expression is ParenthesizedExpressionSyntax parenthesized) expression = parenthesized.Expression;
+            return expression;
         }
     }
 }

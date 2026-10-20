@@ -12,7 +12,8 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // An ignored test stops protecting anything, and without a date nothing brings it back. Fix it,
     // delete it, or give it Until = "yyyy-MM-dd" so NUnit starts running it again then.
     //
-    // Checked on test methods and fixtures. Reported on the attribute. Test code only.
+    // Checked on test methods, and on classes that are fixtures or hold tests; an [Ignore] anywhere
+    // else changes nothing. Reported on the attribute. Test code only.
     //
     // It only reports an [Ignore] without a reason, which NUnit 3 requires anyway, so it never fires on
     // NUnit code. The missing Until date is the follow-up checked here.
@@ -34,6 +35,7 @@ namespace TarragonFly.Analyzers.Rules.Tests
             {
                 AttributeSyntax attribute = (AttributeSyntax)context.Node;
                 if (!SymbolNames.IsNamed(context.SemanticModel.GetTypeInfo(attribute, context.CancellationToken).Type, "NUnit.Framework.IgnoreAttribute")) return;
+                if (!IgnoresTests(context, attribute)) return;
                 if (attribute.ArgumentList != null)
                 {
                     foreach (AttributeArgumentSyntax argument in attribute.ArgumentList.Arguments)
@@ -43,6 +45,20 @@ namespace TarragonFly.Analyzers.Rules.Tests
                 }
                 context.ReportDiagnostic(Diagnostic.Create(Rule, attribute.GetLocation()));
             }), SyntaxKind.Attribute);
+        }
+
+        private static bool IgnoresTests(SyntaxNodeAnalysisContext context, AttributeSyntax attribute)
+        {
+            switch (attribute.Parent?.Parent)
+            {
+                case MethodDeclarationSyntax method:
+                    return context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is IMethodSymbol test && Frameworks.NUnit.IsTest(test);
+                case TypeDeclarationSyntax type:
+                    return context.SemanticModel.GetDeclaredSymbol(type, context.CancellationToken) is INamedTypeSymbol fixture
+                        && (Frameworks.NUnit.IsFixture(fixture) || Frameworks.NUnit.HasTests(fixture));
+                default:
+                    return false;
+            }
         }
     }
 }

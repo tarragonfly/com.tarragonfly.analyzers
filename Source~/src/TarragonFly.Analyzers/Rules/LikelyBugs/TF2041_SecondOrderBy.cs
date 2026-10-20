@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
@@ -12,9 +14,12 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // The second OrderBy re-sorts everything and throws the first order away; ThenBy keeps it as the
     // tie-breaker.
     //
-    // OrderBy and OrderByDescending count after OrderBy, OrderByDescending, ThenBy or ThenByDescending,
-    // with nothing in between; a Where or Select in between starts over. In query syntax, an orderby
-    // clause right after another counts. Reported on the second OrderBy, or orderby keyword.
+    // LINQ's OrderBy, OrderByDescending, Order and OrderDescending count when called on something
+    // already sorted, an IOrderedEnumerable or IOrderedQueryable, however it got there: straight
+    // after another sort, in parentheses, through ?., from a variable, or passed to the static
+    // Enumerable.OrderBy form. A Where or Select in between starts over, and an OrderBy method of
+    // another type isn't checked. In query syntax, an orderby clause right after another counts.
+    // Reported on the second OrderBy, or orderby keyword.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SecondOrderByAnalyzer : ScopedAnalyzer
     {
@@ -32,13 +37,15 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access) || !IsOrderBy(access.Name.Identifier.ValueText)) return;
-                if (!(access.Expression is InvocationExpressionSyntax previous) || !(previous.Expression is MemberAccessExpressionSyntax previousAccess)) return;
-                string previousName = previousAccess.Name.Identifier.ValueText;
-                if (!IsOrderBy(previousName) && previousName != "ThenBy" && previousName != "ThenByDescending") return;
-                if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol)
+                SimpleNameSyntax name = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name
+                    : invocation.Expression is MemberBindingExpressionSyntax binding ? binding.Name : null;
+                if (name == null || !IsOrderBy(name.Identifier.ValueText)) return;
+                if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method) || !method.IsExtensionMethod) return;
+                if (!SymbolNames.IsInNamespace((method.ReducedFrom ?? method).ContainingType, "System.Linq")) return;
+                ExpressionSyntax sorted = method.ReducedFrom == null ? invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression : Receiver(invocation);
+                if (sorted != null && IsSorted(context.SemanticModel.GetTypeInfo(sorted, context.CancellationToken).Type))
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(Rule, access.Name.GetLocation()));
+                    context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation()));
                 }
             }), SyntaxKind.InvocationExpression);
 
@@ -57,7 +64,28 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 
         private static bool IsOrderBy(string name)
         {
-            return name == "OrderBy" || name == "OrderByDescending";
+            return name == "OrderBy" || name == "OrderByDescending" || name == "Order" || name == "OrderDescending";
+        }
+
+        // "items" in items.OrderBy(...) and items?.OrderBy(...).
+        private static ExpressionSyntax Receiver(InvocationExpressionSyntax invocation)
+        {
+            if (invocation.Expression is MemberAccessExpressionSyntax access) return access.Expression;
+            for (SyntaxNode node = invocation; node.Parent != null; node = node.Parent)
+            {
+                if (node.Parent is ConditionalAccessExpressionSyntax conditional && conditional.WhenNotNull == node) return conditional.Expression;
+            }
+            return null;
+        }
+
+        private static bool IsSorted(ITypeSymbol type)
+        {
+            if (type == null) return false;
+            foreach (ITypeSymbol candidate in new[] { type }.Concat(type.AllInterfaces))
+            {
+                if (SymbolNames.IsNamed(candidate.OriginalDefinition, "System.Linq.IOrderedEnumerable`1") || SymbolNames.IsNamed(candidate.OriginalDefinition, "System.Linq.IOrderedQueryable`1")) return true;
+            }
+            return false;
         }
     }
 }

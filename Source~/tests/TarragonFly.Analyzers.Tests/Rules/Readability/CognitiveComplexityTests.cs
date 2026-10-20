@@ -30,6 +30,9 @@ class Target
         [TestCase("if (a && b || c) y++;", 3)]
         [TestCase("if (a && (b || c)) y++;", 3)]
         [TestCase("if (a && !(b && c)) y++;", 3)]
+        [TestCase("if ((a && b) && c) y++;", 2)]
+        [TestCase("if (a || b && c || a) y++;", 3)]
+        [TestCase("if (a && b && !c && (a || (a && b) || (b && c))) y++;", 5)]
         [TestCase("bool r = a || b; if (c) y++;", 2)]
         [TestCase("y = a ? 1 : b ? 2 : 3;", 3)]
         [TestCase("switch (y) { case 1: if (a) y++; break; }", 3)]
@@ -85,6 +88,21 @@ class Target
     void Flat() { if (a) y++; }
 }".Replace("Target() {", "{|TF1019:Target|}() {").Replace("Target(int start)", "{|TF1019:Target|}(int start)").Replace("int Arrow", "int {|TF1019:Arrow|}"),
                 SnippetAssembly.WithSettings("max_cognitive_complexity = 1"));
+        }
+
+        [Test]
+        public void FieldInitializers_AreScoredTogetherOnTheFirstVariable()
+        {
+            AnalyzerVerifier.Verify(new CognitiveComplexityAnalyzer(), @"
+using System;
+
+class Target
+{
+    static bool a;
+    static Action {|TF1019:check|} = () => { if (a) { } }, other = () => { if (a) { } };
+    static Action flat = null;
+    static Action Property { get; } = () => { if (a) { } if (a) { } };
+}", SnippetAssembly.WithSettings("max_cognitive_complexity = 3"));
         }
 
         [Test]

@@ -126,7 +126,7 @@ stay quiet.
 | TF2057 | [Pure] method returning void | all | |
 | TF2058 | GetType() compared with a nullable type | all | |
 | TF2059 | Every branch has the same code | all | |
-| TF2060 | Argument exception names a parameter that doesn't exist | all | |
+| TF2060 | Argument exception without the right parameter name | all | |
 | TF2061 | Count comparison that is always the same | all | |
 | TF2062 | Exception created but never thrown | all | |
 | TF2063 | [Flags] on an enum that isn't flags | all | |
@@ -338,7 +338,7 @@ Editor folder) or Unity Hub's install folders, and get skipped when there's no e
 | Folder | Contents |
 |---|---|
 | `Analyzers/` | The built `TarragonFly.Analyzers.dll` that Unity loads |
-| `Source~/` | The solution: analyzer (`src/`), NUnit tests (`tests/`), stubs, parity tool and corpus |
+| `Source~/` | The solution: analyzer (`src/`), NUnit tests (`tests/`) and stubs |
 | `Tools~/` | `Analyze.ps1`, `Build.ps1`, `Check.ps1` |
 
 Unity skips folders ending in `~`, so none of the sources or tools get compiled or imported.

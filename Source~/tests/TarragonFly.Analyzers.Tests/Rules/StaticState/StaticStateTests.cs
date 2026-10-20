@@ -73,6 +73,91 @@ internal class Internal
         }
 
         [Test]
+        public void ReadonlyCollectionFilledByCode_IsReported()
+        {
+            AnalyzerVerifier.Verify(new MutablePublicStaticCollectionAnalyzer(), @"
+using System.Collections.Generic;
+using System.Linq;
+
+public static class Source
+{
+    public static List<int> Values => new List<int>();
+}
+
+public class Registry
+{
+    public static readonly {|TF7001:List<int>|} Created = new List<int>();
+    public static readonly {|TF7001:List<int>|} TargetTyped = new();
+    public static readonly {|TF7001:List<int>|} Called = Enumerable.Range(0, 3).ToList();
+    public static readonly {|TF7001:IList<int>|} AsInterface = new List<int>();
+    public static readonly {|TF7001:SortedSet<int>|} Sorted = new SortedSet<int>();
+    public static readonly {|TF7001:List<int>|} Filled;
+    public static readonly {|TF7001:string[]|} Names;
+    public static readonly IList<int> Literal = new[] { 1 };
+    public static readonly List<int> Nothing;
+    public static readonly List<int> Empty = null;
+    public static readonly List<int> FromProperty = Source.Values;
+    public static readonly List<int> Cleared;
+    public static readonly string[] Unset;
+    public static readonly {|TF7001:Queue<int>|} Waiting = new Queue<int>();
+    public static readonly {|TF7001:Stack<int>|} Undo = new Stack<int>();
+    public static readonly {|TF7001:System.Collections.ArrayList|} Loose = new System.Collections.ArrayList();
+    public static readonly Queue<int> Unfilled;
+    public static {|TF7001:Queue<int>|} Writable = new Queue<int>();
+
+    static Registry()
+    {
+        Filled = new List<int>();
+        Names = Source.Values.Select(value => value.ToString()).ToArray();
+        Cleared = null;
+        Unset = null;
+    }
+}");
+        }
+
+        [Test]
+        public void ReadonlyArrayFilledByCode_IsReported_AndNestedProtectedTypesCount()
+        {
+            AnalyzerVerifier.Verify(new MutablePublicStaticCollectionAnalyzer(), @"
+using System;
+using System.Linq;
+
+public enum Mode { One, Two }
+
+public static class Options
+{
+    public static readonly {|TF7001:string[]|} Names = Enum.GetNames(typeof(Mode));
+    public static readonly {|TF7001:int[]|} Counts = Enumerable.Range(0, 3).ToArray();
+    public static readonly {|TF7001:string[]|} Filled;
+    public static readonly {|TF7001:string[]|} First = { ""a"" }, Second = Enum.GetNames(typeof(Mode));
+    public static readonly float[] Scales = { 0.75f, 1f, 1.25f };
+    public static readonly string[] Labels = new[] { ""75%"", ""100%"" };
+    public static readonly string[] Sized = new string[3];
+    public static readonly string[] Cast = (string[])Make();
+
+    static Options() { Filled = new[] { ""a"" }; }
+
+    static object Make() => new[] { ""a"" };
+}
+
+public class ShaderGui
+{
+    protected class Styles
+    {
+        public static readonly {|TF7001:string[]|} Names = Enum.GetNames(typeof(Mode));
+        public static {|TF7001:int[]|} Counts = { 1 };
+        public static readonly int[] Table = { 1 };
+        protected static int[] Hidden = { 1 };
+    }
+
+    private class Private
+    {
+        public static readonly string[] Names = Enum.GetNames(typeof(Mode));
+    }
+}");
+        }
+
+        [Test]
         public void StaticFieldNotUsingTheTypeParameters_IsReported()
         {
             AnalyzerVerifier.Verify(new StaticFieldInGenericTypeAnalyzer(), @"
@@ -97,6 +182,35 @@ class Pool<T>
 class Plain
 {
     static int count;
+}");
+        }
+
+        [Test]
+        public void TypeDependentInitializersAndAutoProperties_AreChecked()
+        {
+            AnalyzerVerifier.Verify(new StaticFieldInGenericTypeAnalyzer(), @"
+using System;
+
+static class Ids
+{
+    public static int For<T>() => 0;
+}
+
+class Pool<T>
+{
+    static readonly int safetyId = Ids.For<Pool<T>>();
+    static readonly string name = typeof(T).Name;
+    static readonly int {|TF7003:plain|} = Ids.For<int>();
+    public static int {|TF7003:Count|} { get; set; }
+    public static int {|TF7003:Fixed|} { get; } = 4;
+    public static Type Element { get; } = typeof(T);
+    public static int Computed => 0;
+
+    public struct ReadOnly
+    {
+        static readonly int safetyId = Ids.For<ReadOnly>();
+        static readonly int {|TF7003:shared|} = Ids.For<string>();
+    }
 }");
         }
     }

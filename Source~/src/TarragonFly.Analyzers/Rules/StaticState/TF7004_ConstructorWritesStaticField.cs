@@ -18,7 +18,8 @@ namespace TarragonFly.Analyzers.Rules.StaticState
     // constructors are fine. Reported from the field to the operator, or on the field for ++ and --.
     // Game code only.
     //
-    // As in TF7002, only static fields declared in the project's own code count.
+    // As in TF7002, only static fields declared in scripts count: this assembly's, or another
+    // assembly's built from the project's or a package's scripts.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ConstructorWritesStaticFieldAnalyzer : ScopedAnalyzer
     {

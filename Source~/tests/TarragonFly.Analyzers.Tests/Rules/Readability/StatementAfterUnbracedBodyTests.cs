@@ -70,6 +70,33 @@ class Player
             score--;");
         }
 
+        [Test]
+        public void BodyNotIndentedPastItsKeyword_IsComparedThroughToItsInnermostStatement()
+        {
+            Verify(@"
+        if (dead)
+        for (int i = 0; i < 3; i++)
+            score++;
+
+        score--;
+
+        for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+        {
+            score++;
+        }
+        score--;
+
+        if (dead)
+        score++;
+        {|TF1015:score--;|}
+
+        if (dead)
+            if (score > 0)
+                score++;
+            {|TF1015:score--;|}");
+        }
+
         // Counted as characters, the 8 spaces would sit past the 3 tabs of the body.
         [Test]
         public void TabIndentation_IsCountedAsFourColumns()

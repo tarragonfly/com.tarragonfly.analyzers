@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.CodeAnalysis.CSharp;
 using TarragonFly.Analyzers.Settings;
 
@@ -14,6 +15,13 @@ namespace TarragonFly.Analyzers.Tests.Harness
 
         // Null means C# 9 with no extra defines, as Unity compiles game code.
         public CSharpParseOptions ParseOptions { get; set; }
+
+        // An asmdef's "Allow 'unsafe' Code", for snippets with pointers or stackalloc.
+        public bool AllowUnsafe { get; set; }
+
+        // Other assemblies the snippet references, by the path Unity references each from, such as
+        // "Library/Bee/artifacts/1900b0aE.dag/Game.Core.ref.dll", and the source each is built from.
+        public Dictionary<string, string> ReferencedAssemblies { get; } = new Dictionary<string, string>();
 
         // Contents of the settings file, with optional {|TF0000:...|} markup; null means no file.
         public string Settings { get; set; }

@@ -10,7 +10,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
     //
     // List.TrueForAll and Array.TrueForAll do the same check without allocating a LINQ enumerator.
     //
-    // Other collection types are fine. Reported on the All name.
+    // Classes derived from List count too, called directly or through ?.. Other collection types
+    // are fine. Reported on the All name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AllInsteadOfTrueForAllAnalyzer : ScopedAnalyzer
     {

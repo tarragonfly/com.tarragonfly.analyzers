@@ -13,9 +13,12 @@ namespace TarragonFly.Analyzers.Rules.SilentFailures
     // Callers write "foreach (Item item in GetLoot())" and get a NullReferenceException the first
     // time nothing dropped. Return an empty collection (Array.Empty<T>(), new List<T>()) instead.
     //
-    // Arrays and every type that is IEnumerable count, except string. Returned null and default
-    // literals count, also as a branch of "?:", in methods, property getters and expression bodies of
-    // any visibility. Lambdas and local functions aren't checked. Reported on the null. Game code only.
+    // Arrays and every type that is IEnumerable count, except string and Unity's Transform, which
+    // enumerates its children but is no collection. Returned null and default literals count, also as
+    // a branch of "?:", in methods, property getters and expression bodies of any visibility. Struct
+    // collections, such as a NativeArray, whose default isn't null, and return types marked nullable
+    // with "?" under #nullable enable aren't checked; nor are lambdas and local functions. Reported on
+    // the null. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class NullCollectionReturnedAnalyzer : ScopedAnalyzer
     {
@@ -36,7 +39,7 @@ namespace TarragonFly.Analyzers.Rules.SilentFailures
                 if (returned == null || context.Node.Parent is LocalFunctionStatementSyntax) return;
                 if (!(context.SemanticModel.GetEnclosingSymbol(returned.SpanStart, context.CancellationToken) is IMethodSymbol member)) return;
                 if (member.MethodKind == MethodKind.AnonymousFunction || member.MethodKind == MethodKind.LocalFunction) return;
-                if (!IsCollection(member.ReturnType)) return;
+                if (!IsCollection(member.ReturnType) || member.ReturnType.IsValueType || member.ReturnNullableAnnotation == NullableAnnotation.Annotated) return;
                 ReportNulls(context, returned, member);
             }), SyntaxKind.ReturnStatement, SyntaxKind.ArrowExpressionClause);
         }
@@ -62,7 +65,7 @@ namespace TarragonFly.Analyzers.Rules.SilentFailures
 
         private static bool IsCollection(ITypeSymbol type)
         {
-            if (type == null || type.SpecialType == SpecialType.System_String) return false;
+            if (type == null || type.SpecialType == SpecialType.System_String || SymbolNames.IsOrDerivesFrom(type, "UnityEngine.Transform")) return false;
             return type is IArrayTypeSymbol || SymbolNames.Implements(type, candidate => candidate.SpecialType == SpecialType.System_Collections_IEnumerable);
         }
     }

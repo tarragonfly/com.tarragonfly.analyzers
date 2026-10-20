@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -15,7 +16,11 @@ namespace TarragonFly.Analyzers.Rules.StaticState
     // off, each copy also survives into the next Play Mode session.
     //
     // A field whose type uses a type parameter, such as List<T> or Func<T, int>, needs a copy per type
-    // and is fine, as are constants. Reported on the field name.
+    // and is fine, and so is one whose initializer uses a type parameter, such as typeof(T).Name or an
+    // ID made for Pool<T>, since its value differs per type. A type nested in the generic one counts as
+    // using its type parameters, as ReadOnly does in SharedStatic<int>.GetOrCreate<ReadOnly>(). Constants
+    // are fine too. Static auto-properties count like fields, since each has a field behind it.
+    // Reported on the field or property name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StaticFieldInGenericTypeAnalyzer : ScopedAnalyzer
     {
@@ -37,10 +42,30 @@ namespace TarragonFly.Analyzers.Rules.StaticState
                 {
                     if (!(context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is IFieldSymbol field) || !field.IsStatic || field.IsConst) continue;
                     INamedTypeSymbol generic = OuterGenericType(field.ContainingType, out HashSet<ITypeSymbol> parameters);
-                    if (generic == null || UsesAny(field.Type, parameters)) continue;
+                    if (generic == null || UsesAny(field.Type, parameters) || InitializerUsesAny(context, variable.Initializer, parameters)) continue;
                     context.ReportDiagnostic(Diagnostic.Create(Rule, variable.Identifier.GetLocation(), field.Name, generic.Name));
                 }
             }), SyntaxKind.FieldDeclaration);
+
+            start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
+            {
+                PropertyDeclarationSyntax declaration = (PropertyDeclarationSyntax)context.Node;
+                if (declaration.AccessorList == null || declaration.AccessorList.Accessors.Any(accessor => accessor.Body != null || accessor.ExpressionBody != null)) return;
+                if (!(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is IPropertySymbol property) || !property.IsStatic || property.IsAbstract || property.IsExtern) return;
+                INamedTypeSymbol generic = OuterGenericType(property.ContainingType, out HashSet<ITypeSymbol> parameters);
+                if (generic == null || UsesAny(property.Type, parameters) || InitializerUsesAny(context, declaration.Initializer, parameters)) return;
+                context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), property.Name, generic.Name));
+            }), SyntaxKind.PropertyDeclaration);
+        }
+
+        private static bool InitializerUsesAny(SyntaxNodeAnalysisContext context, EqualsValueClauseSyntax initializer, HashSet<ITypeSymbol> parameters)
+        {
+            if (initializer == null) return false;
+            foreach (SimpleNameSyntax name in initializer.DescendantNodes().OfType<SimpleNameSyntax>())
+            {
+                if (context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol is ITypeSymbol type && UsesAny(type, parameters)) return true;
+            }
+            return false;
         }
 
         // The innermost generic type around the field, and every type parameter in scope.

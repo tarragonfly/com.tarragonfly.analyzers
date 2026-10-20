@@ -9,16 +9,19 @@ using TarragonFly.Analyzers.Rules.DeadCode;
 
 namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
-    // TF2054: a private field or auto-property the code reads but nothing ever sets, as in "private
-    // AudioSource source;" in a MonoBehaviour that never assigns it.
+    // TF2054: a private field or auto-property, or a field of a private nested type, the code reads
+    // but nothing ever sets, as in "private AudioSource source;" in a MonoBehaviour that never assigns
+    // it.
     //
     // It always holds its default: 0, false, or null, which throws on first use. In Unity this is
     // usually a field meant for the Inspector that is missing [SerializeField], so Unity never
     // fills it.
     //
-    // Any assignment, ++, +=, ref or out argument, or initializer counts as setting it. Fields with
-    // attributes, such as [SerializeField], [SerializeReference] or Odin's, are skipped, as are fields
-    // in [Serializable] types, fields of struct types other than the built-in ones (a Vector3 is usable
+    // Any assignment, ++, +=, ref or out argument, or initializer counts as setting it, and so does
+    // handing the field out by ref, as in "ref Handle Color => ref color", which lets callers set it.
+    // Fields with attributes, such as [SerializeField], [SerializeReference] or Odin's, are skipped, as
+    // are fields in [Serializable] types, fields in [StructLayout] types, which can be filled by
+    // reinterpreting memory, fields of struct types other than the built-in ones (a Vector3 is usable
     // as it is), and fields nothing reads. Static and readonly fields count. Reported on the field
     // name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -72,7 +75,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             {
                 IFieldReferenceOperation reference = (IFieldReferenceOperation)context.Operation;
                 IFieldSymbol field = reference.Field.OriginalDefinition;
-                if (FieldUses.IsPlainWrite(reference) || FieldUses.IsReadModifyWrite(reference) || reference.Parent is IAddressOfOperation) assigned[field] = true;
+                bool handedOutByRef = reference.Syntax.Parent is RefExpressionSyntax;
+                if (FieldUses.IsPlainWrite(reference) || FieldUses.IsReadModifyWrite(reference) || reference.Parent is IAddressOfOperation || handedOutByRef) assigned[field] = true;
                 else read[field] = true;
             }, OperationKind.FieldReference);
 

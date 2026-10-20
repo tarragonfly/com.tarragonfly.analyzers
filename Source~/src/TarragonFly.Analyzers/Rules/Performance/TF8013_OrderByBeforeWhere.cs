@@ -12,8 +12,10 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // The sort runs over every item, including the ones Where then throws away; filtering first sorts
     // fewer items.
     //
-    // OrderBy and OrderByDescending count when Where follows directly; a ThenBy or Select in between,
-    // and query syntax, aren't checked. Reported on the Where name.
+    // OrderBy and OrderByDescending count when Where follows directly, also through parentheses, "!"
+    // or ?.; a ThenBy, Select or cast in between, query syntax, and the Where overload whose
+    // condition takes the index, which depends on the sorted order, aren't checked. Reported on the
+    // Where name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class OrderByBeforeWhereAnalyzer : ScopedAnalyzer
     {
@@ -31,8 +33,14 @@ namespace TarragonFly.Analyzers.Rules.Performance
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (LinqCalls.Method(context.SemanticModel, invocation, "Where", context.CancellationToken) == null) return;
-                if (!(LinqCalls.Receiver(invocation) is InvocationExpressionSyntax sort)) return;
+                IMethodSymbol where = LinqCalls.Method(context.SemanticModel, invocation, "Where", context.CancellationToken);
+                if (where == null || !(where.Parameters[0].Type is INamedTypeSymbol condition) || condition.TypeArguments.Length != 2) return;
+                ExpressionSyntax receiver = LinqCalls.Receiver(invocation);
+                while (receiver is ParenthesizedExpressionSyntax || receiver.IsKind(SyntaxKind.SuppressNullableWarningExpression))
+                {
+                    receiver = receiver is ParenthesizedExpressionSyntax parenthesized ? parenthesized.Expression : ((PostfixUnaryExpressionSyntax)receiver).Operand;
+                }
+                if (!(receiver is InvocationExpressionSyntax sort)) return;
                 IMethodSymbol order = LinqCalls.Method(context.SemanticModel, sort, context.CancellationToken);
                 if (order == null || (order.Name != "OrderBy" && order.Name != "OrderByDescending")) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, LinqCalls.NameLocation(invocation), order.Name));

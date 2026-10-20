@@ -14,9 +14,11 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // shift by 0 does nothing, which usually means the wrong count was typed.
     //
     // The width is 32 bits for int and uint (and smaller types, which are widened to int) and 64 for
-    // long and ulong. Compound <<= and >>= count. A shift by 0 is fine in a list of masks: when the
-    // statement or member next to it, or its own statement, also shifts ("A = 1 << 0; B = 1 << 1;"),
-    // and in enum member values. Negative counts aren't reported. Reported on the whole shift.
+    // long and ulong. Compound <<= and >>= count. A shift by 0 counts only when the 0 is written as a
+    // number: a named constant such as "bits >> HealthOffset" with HealthOffset = 0 spells out a
+    // layout. It's fine in a list of masks too: when the statement or member next to it, or its own
+    // statement, also shifts ("A = 1 << 0; B = 1 << 1;"), and in enum member values. Negative counts
+    // aren't reported. Reported on the whole shift.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ShiftByZeroOrPastWidthAnalyzer : ScopedAnalyzer
     {
@@ -46,7 +48,10 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 
                 if (shift == 0)
                 {
-                    if (!IsInMaskList(context.Node)) context.ReportDiagnostic(Diagnostic.Create(Rule, context.Node.GetLocation(), "Shifting by 0 does nothing; check the count"));
+                    if (count.IsKind(SyntaxKind.NumericLiteralExpression) && !IsInMaskList(context.Node))
+                    {
+                        context.ReportDiagnostic(Diagnostic.Create(Rule, context.Node.GetLocation(), "Shifting by 0 does nothing; check the count"));
+                    }
                     return;
                 }
 

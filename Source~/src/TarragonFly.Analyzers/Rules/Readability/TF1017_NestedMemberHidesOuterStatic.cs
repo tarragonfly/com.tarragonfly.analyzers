@@ -7,13 +7,16 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace TarragonFly.Analyzers.Rules.Readability
 {
     // TF1017: a field, property, method or event of a nested type with the same name as a static member
-    // of a type it sits in.
+    // of a type it sits in, or a type nested two or more levels down with the same name as a type
+    // nested in an outer one, as in a second "Styles" class.
     //
-    // Inside the nested type, "Reset()" or "Count" then means its own member, while readers of the
-    // outer code expect the outer static one.
+    // Inside the nested type, "Reset()", "Count" or "Styles" then means its own member, while readers of
+    // the outer code expect the outer one.
     //
-    // Any outer level counts, overloads with other parameters included. Interfaces nested in a type are
-    // checked; enum members, constructors and operators aren't. Reported on the nested member's name.
+    // Any outer level counts, overloads with other parameters and types with other type parameters
+    // included, but not members inherited from base classes. Interfaces nested in a type are checked;
+    // enum members, constructors and operators aren't, and a type and a member with the same name don't
+    // count. Reported on the nested member's or type's name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class NestedMemberHidesOuterStaticAnalyzer : ScopedAnalyzer
     {
@@ -45,6 +48,19 @@ namespace TarragonFly.Analyzers.Rules.Readability
                     }
                 }
             }), SyntaxKind.VariableDeclarator, SyntaxKind.PropertyDeclaration, SyntaxKind.MethodDeclaration, SyntaxKind.EventDeclaration);
+
+            start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
+            {
+                if (!(context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken) is INamedTypeSymbol type)) return;
+                SyntaxToken name = context.Node is DelegateDeclarationSyntax delegateDeclaration ? delegateDeclaration.Identifier : ((BaseTypeDeclarationSyntax)context.Node).Identifier;
+                for (INamedTypeSymbol outer = type.ContainingType?.ContainingType; outer != null; outer = outer.ContainingType)
+                {
+                    if (outer.GetTypeMembers(type.Name).IsEmpty) continue;
+                    context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), type.Name, outer.Name));
+                    return;
+                }
+            }), SyntaxKind.ClassDeclaration, SyntaxKind.StructDeclaration, SyntaxKind.InterfaceDeclaration, SyntaxKind.EnumDeclaration,
+                SyntaxKind.DelegateDeclaration, SyntaxKind.RecordDeclaration, SyntaxKind.RecordStructDeclaration);
         }
 
         private static SyntaxToken Name(SyntaxNode node)

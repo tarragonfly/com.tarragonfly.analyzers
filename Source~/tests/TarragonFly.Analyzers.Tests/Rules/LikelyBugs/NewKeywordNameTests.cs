@@ -59,6 +59,42 @@ class Player
         }
 
         [Test]
+        public void Field_AsAQueryRangeVariable_IsReported_ButNotThroughConditionalAccess()
+        {
+            AnalyzerVerifier.Verify(new FieldKeywordNameAnalyzer(), @"
+using System.Linq;
+
+class Holder { public int field; }
+
+class Queries
+{
+    private int[] items = { 1, 2, 3 };
+    private Holder holder = new Holder();
+
+    public int From => (from {|TF2068:field|} in items select field).Sum();
+    public int Let => (from x in items let {|TF2068:field|} = x select field).Sum();
+    public int Into => (from x in items group x by x into {|TF2068:field|} select field.Key).Sum();
+    public int Conditional => holder?.field ?? 0;
+}");
+        }
+
+        [Test]
+        public void Extension_AsAConstructorOrAliasName_IsReported()
+        {
+            AnalyzerVerifier.Verify(new ExtensionKeywordNameAnalyzer(), @"
+using {|TF2069:extension|} = System.String;
+
+namespace Game
+{
+    class @extension
+    {
+        public {|TF2069:extension|}() { }
+        {|TF2069:extension|}(int value) { }
+    }
+}");
+        }
+
+        [Test]
         public void Extension_AsATypeOrMemberTypeName_IsReported()
         {
             AnalyzerVerifier.Verify(new ExtensionKeywordNameAnalyzer(), @"
@@ -113,7 +149,51 @@ class Uses
 }");
         }
 
-        // "(scoped) => scoped + 1" is reported too (see the parity corpus), but Roslyn 4.3, which these
+        [Test]
+        public void Partial_QualifiedAfterRefOrInADelegate_IsReported_ButGenericMethodsAreFine()
+        {
+            AnalyzerVerifier.Verify(new PartialReturnTypeAnalyzer(), @"
+namespace Game
+{
+    public class partial { }
+
+    public delegate {|TF2070:partial|} Factory();
+
+    public class Uses
+    {
+        private partial stored;
+
+        public Game.{|TF2070:partial|} Qualified() => null;
+        public ref {|TF2070:partial|} Get() => ref stored;
+        public partial Make<T>() => null;
+
+        void Run()
+        {
+            partial Local<T>() => null;
+            Local<int>();
+        }
+    }
+}");
+        }
+
+        [Test]
+        public void Scoped_AsAnArrayOrGenericLambdaParameterType_IsReported()
+        {
+            AnalyzerVerifier.Verify(new ScopedLambdaParameterAnalyzer(), @"
+class scoped { }
+class scoped<T> { }
+
+delegate int Many(scoped[] values);
+delegate int Generic(scoped<int> value);
+
+class Uses
+{
+    public Many ByArray = ({|TF2071:scoped|}[] values) => 1;
+    public Generic ByGeneric = ({|TF2071:scoped|}<int> value) => 2;
+}");
+        }
+
+        // "(scoped) => scoped + 1" is reported too (checked with Roslyn 4.8), but Roslyn 4.3, which these
         // tests compile with, already reads that "scoped" as a modifier.
         [Test]
         public void Scoped_InLambdaParameters_IsReported()

@@ -100,6 +100,12 @@ class Pool
 {
     public void {|TF2504:Dispose|}() { }
     public void {|TF2504:Dispose|}(int count) { }
+    public static void {|TF2504:Dispose|}(Pool pool) { }
+}
+
+static class ServiceUtility
+{
+    public static bool Dispose(Type definingType) => definingType != null;
 }
 
 struct Handle
@@ -180,6 +186,37 @@ class Sibling : Parent
         }
 
         [Test]
+        public void LessVisibleGenericMethodIndexerOrTupleOverload_IsReported()
+        {
+            AnalyzerVerifier.Verify(new HidingLowersVisibilityAnalyzer(), @"
+using System.Collections.Generic;
+
+class Parent
+{
+    public void Spawn<T>(T prefab) { }
+    public void SpawnAll<T>(List<T> prefabs) { }
+    public void Pair<T, U>(T first, U second) { }
+    public int this[int slot] => 0;
+    public void Move((int x, int y) step) { }
+}
+
+class Child : Parent
+{
+    private void {|TF2508:Spawn|}<T>(T prefab) { }
+    private void {|TF2508:SpawnAll|}<U>(List<U> prefabs) { }
+    private void Pair<T, U>(U first, T second) { }
+    private int {|TF2508:this|}[int slot] => 1;
+    private void {|TF2508:Move|}((int dx, int dy) step) { }
+}
+
+class Other : Parent
+{
+    private int this[string name] => 1;
+    private void Spawn(int prefab) { }
+}");
+        }
+
+        [Test]
         public void MethodTakingCallsMeantForTheBase_IsReported()
         {
             AnalyzerVerifier.Verify(new MethodHidesBaseMethodAnalyzer(), @"
@@ -201,6 +238,32 @@ class Derived : Base
     public void Walk(object animal, long minutes) { }
     public void Hidden(Animal animal) { }
     public void Feed(Animal animal, int amount) { }
+}");
+        }
+
+        [Test]
+        public void GenericMethodTakingCallsMeantForTheBase_IsReported()
+        {
+            AnalyzerVerifier.Verify(new MethodHidesBaseMethodAnalyzer(), @"
+using System.Collections.Generic;
+
+class Animal { }
+class Dog : Animal { }
+
+class Base
+{
+    public void Feed<T>(Dog dog, T food) { }
+    public void Groom<T>(List<T> brushes, Dog dog) { }
+    public void Pet<T>(Dog dog) { }
+    public void Walk(Dog dog) { }
+}
+
+class Derived : Base
+{
+    public void {|TF2509:Feed|}<U>(Animal animal, U food) { }
+    public void {|TF2509:Groom|}<T>(List<T> brushes, Animal animal) { }
+    public void Pet(Animal animal) { }
+    public void Walk<T>(Animal animal) { }
 }");
         }
 

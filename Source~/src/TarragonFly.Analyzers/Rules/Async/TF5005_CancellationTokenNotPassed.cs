@@ -17,11 +17,15 @@ namespace TarragonFly.Analyzers.Rules.Async
     // runs a fade twice.
     //
     // A call counts when it leaves out an optional CancellationToken parameter or passes default for
-    // it, or when an overload takes the same parameters plus a CancellationToken. A token is at hand
-    // when an enclosing method, lambda or local function has a CancellationToken parameter, or the
-    // type itself declares a CancellationToken or CancellationTokenSource field or property; locals and
-    // inherited members don't count. CancellationToken.None is a deliberate choice and fine. Reported
-    // on the called method.
+    // it, or when an overload returns the same type and takes the same parameters plus a
+    // CancellationToken, and maybe optional ones after it, as UniTask.NextFrame(CancellationToken
+    // cancellationToken, bool cancelImmediately = false) does for NextFrame(). UniTask.Yield() doesn't
+    // count, since it returns a YieldAwaitable and Yield(ct) a UniTask. Neither does an overload that
+    // is the method making the call, as when it forwards to the overload without a token. A token is
+    // at hand when an enclosing method, lambda or local function has a CancellationToken parameter,
+    // or the type itself declares a CancellationToken or CancellationTokenSource field or property;
+    // locals and inherited members don't count. CancellationToken.None is a deliberate choice and
+    // fine. Reported on the called method.
     //
     // In instance members of a MonoBehaviour with no other token, Unity's destroyCancellationToken
     // counts as the token at hand for awaited calls, so the wait ends with the object. Calls that
@@ -60,7 +64,15 @@ namespace TarragonFly.Analyzers.Rules.Async
                 takesToken = true;
                 if (argument.ArgumentKind == ArgumentKind.DefaultValue || IsDefault(argument.Value.Syntax)) return true;
             }
-            return !takesToken && HasTokenOverload(model, invocation.SpanStart, operation.TargetMethod);
+            return !takesToken && HasTokenOverload(model, invocation.SpanStart, operation.TargetMethod, CallingMember(model, invocation.SpanStart));
+        }
+
+        // The method, constructor or accessor the call is in, outside any lambda or local function.
+        private static ISymbol CallingMember(SemanticModel model, int position)
+        {
+            ISymbol member = model.GetEnclosingSymbol(position);
+            while (member is IMethodSymbol method && (method.MethodKind == MethodKind.AnonymousFunction || method.MethodKind == MethodKind.LocalFunction)) member = member.ContainingSymbol;
+            return member;
         }
 
         private static bool IsDefault(SyntaxNode value)
@@ -68,19 +80,26 @@ namespace TarragonFly.Analyzers.Rules.Async
             return value.IsKind(SyntaxKind.DefaultLiteralExpression) || value.IsKind(SyntaxKind.DefaultExpression);
         }
 
-        // An accessible overload with the same parameters plus one CancellationToken.
-        private static bool HasTokenOverload(SemanticModel model, int position, IMethodSymbol method)
+        // An accessible overload with the same return type and parameters plus one CancellationToken,
+        // other than the method making the call. Anything it takes on top has to be optional and come
+        // after the token.
+        private static bool HasTokenOverload(SemanticModel model, int position, IMethodSymbol method, ISymbol caller)
         {
             IMethodSymbol original = (method.ReducedFrom ?? method).OriginalDefinition;
             foreach (IMethodSymbol overload in original.ContainingType.GetMembers(original.Name).OfType<IMethodSymbol>())
             {
-                if (overload.IsStatic != original.IsStatic || overload.Arity != original.Arity || overload.Parameters.Length != original.Parameters.Length + 1) continue;
-                if (overload.Parameters.Count(p => UniTask.IsCancellationToken(p.Type)) != 1 || !model.IsAccessible(position, overload)) continue;
+                if (SymbolEqualityComparer.Default.Equals(overload, caller?.OriginalDefinition)) continue;
+                if (overload.IsStatic != original.IsStatic || overload.Arity != original.Arity || overload.Parameters.Length <= original.Parameters.Length) continue;
+                if (overload.ReturnType.ToDisplayString() != original.ReturnType.ToDisplayString()) continue;
+                IParameterSymbol[] tokens = overload.Parameters.Where(p => UniTask.IsCancellationToken(p.Type)).ToArray();
+                if (tokens.Length != 1 || !model.IsAccessible(position, overload)) continue;
                 IParameterSymbol[] others = overload.Parameters.Where(p => !UniTask.IsCancellationToken(p.Type)).ToArray();
                 bool same = true;
                 for (int i = 0; i < others.Length && same; i++)
                 {
-                    same = others[i].RefKind == original.Parameters[i].RefKind && others[i].Type.ToDisplayString() == original.Parameters[i].Type.ToDisplayString();
+                    same = i < original.Parameters.Length
+                        ? others[i].RefKind == original.Parameters[i].RefKind && others[i].Type.ToDisplayString() == original.Parameters[i].Type.ToDisplayString()
+                        : others[i].IsOptional && others[i].Ordinal > tokens[0].Ordinal;
                 }
                 if (same) return true;
             }

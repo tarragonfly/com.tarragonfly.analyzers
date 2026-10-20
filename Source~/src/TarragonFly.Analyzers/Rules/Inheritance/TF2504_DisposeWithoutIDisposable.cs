@@ -13,9 +13,9 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     // by using, and its resources leak.
     //
     // Fine: overrides, implementations of any interface method, Dispose on ref structs (which "using"
-    // calls by pattern), and the standard "Dispose(bool disposing)" on a type that implements
-    // IDisposable. Interfaces declaring their own Dispose are reported. Reported on the method name.
-    // Game code only.
+    // calls by pattern), Dispose in static classes, which can't be IDisposable, and the standard
+    // "Dispose(bool disposing)" on a type that implements IDisposable. Interfaces declaring their own
+    // Dispose are reported. Reported on the method name. Game code only.
     //
     // It also reports the standard Dispose(bool disposing) helper; that's left alone here.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -37,7 +37,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 MethodDeclarationSyntax declaration = (MethodDeclarationSyntax)context.Node;
                 if (declaration.Identifier.ValueText != "Dispose") return;
                 if (!(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is IMethodSymbol method)) return;
-                if (BaseMembers.IsOverrideOrImplementation(method) || method.ContainingType.IsRefLikeType) return;
+                if (BaseMembers.IsOverrideOrImplementation(method) || method.ContainingType.IsRefLikeType || method.ContainingType.IsStatic) return;
                 if (IsStandardDisposeHelper(method)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation()));
             }), SyntaxKind.MethodDeclaration);

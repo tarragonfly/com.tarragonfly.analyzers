@@ -12,8 +12,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // Count() goes through every item, while Any() stops at the first one it finds.
     //
     // Checked: > 0, != 0 and >= 1 (meaning Any), == 0, <= 0 and < 1 (meaning !Any), either way round,
-    // with or without a condition. The Count property and other comparisons are fine. Reported on the
-    // Count name.
+    // with or without a condition, also through ?. as in "enemies?.Count() > 0". The Count property
+    // and other comparisons are fine. Reported on the Count name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class CountInsteadOfAnyAnalyzer : ScopedAnalyzer
     {
@@ -32,13 +32,13 @@ namespace TarragonFly.Analyzers.Rules.Performance
             {
                 BinaryExpressionSyntax comparison = (BinaryExpressionSyntax)context.Node;
                 SyntaxKind kind = comparison.Kind();
-                InvocationExpressionSyntax count = comparison.Left as InvocationExpressionSyntax;
+                InvocationExpressionSyntax count = CountCall(context, comparison.Left);
                 ExpressionSyntax other = comparison.Right;
-                if (!IsCountCall(context, count))
+                if (count == null)
                 {
-                    count = comparison.Right as InvocationExpressionSyntax;
+                    count = CountCall(context, comparison.Right);
                     other = comparison.Left;
-                    if (!IsCountCall(context, count)) return;
+                    if (count == null) return;
                     kind = Mirrored(kind);
                 }
 
@@ -50,9 +50,13 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 SyntaxKind.LessThanOrEqualExpression, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
         }
 
-        private static bool IsCountCall(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+        // The LINQ Count() call the operand is, as in "items.Count()" or "items?.Count()", or null.
+        private static InvocationExpressionSyntax CountCall(SyntaxNodeAnalysisContext context, ExpressionSyntax operand)
         {
-            return invocation != null && LinqCalls.Method(context.SemanticModel, invocation, "Count", context.CancellationToken) != null;
+            InvocationExpressionSyntax invocation = operand is ConditionalAccessExpressionSyntax conditional
+                ? conditional.WhenNotNull as InvocationExpressionSyntax
+                : operand as InvocationExpressionSyntax;
+            return invocation != null && LinqCalls.Method(context.SemanticModel, invocation, "Count", context.CancellationToken) != null ? invocation : null;
         }
 
         // True for "Count() <kind> constant" meaning Any(), false for !Any(), null for anything else.

@@ -11,9 +11,14 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // Swapped coordinates, width and height, or source and target compile fine and fail quietly.
     //
-    // Reported when at least two positional arguments are simple names that match the name of a
-    // different parameter. Named arguments are fine. Delegate calls aren't checked. Reported on the
-    // method name (or the type for "new").
+    // An argument is out of place when it's a simple name matching a different parameter's name.
+    // Reported when an out-of-place argument belongs where another out-of-place argument sits, as when
+    // two arguments trade places or several move along together, as in Place(w, x, y) for Place(x, y,
+    // z). The same variable passed to several parameters, as in
+    // Draw(style, style, style), or out-of-place arguments landing on unrelated ones, as in
+    // Copy(buffer, source, other, target) for Copy(source, sourceStart, target, targetStart), aren't
+    // reported. Named arguments are fine. Delegate calls aren't checked. Reported on the method name
+    // (or the type for "new").
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class SwappedArgumentsAnalyzer : ScopedAnalyzer
     {
@@ -48,19 +53,32 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 if (arguments == null || arguments.Arguments.Count < 2) return;
                 if (!(context.SemanticModel.GetSymbolInfo(context.Node, context.CancellationToken).Symbol is IMethodSymbol method) || method.MethodKind == MethodKind.DelegateInvoke) return;
 
-                int misplaced = 0;
-                for (int i = 0; i < arguments.Arguments.Count && i < method.Parameters.Length; i++)
+                int count = System.Math.Min(arguments.Arguments.Count, method.Parameters.Length);
+                int[] belongsAt = new int[count];
+                for (int i = 0; i < count; i++) belongsAt[i] = BelongsAt(arguments.Arguments[i], method, i);
+                for (int i = 0; i < count; i++)
                 {
-                    ArgumentSyntax argument = arguments.Arguments[i];
-                    if (argument.NameColon != null || !(argument.Expression is IdentifierNameSyntax identifier)) continue;
-                    string text = identifier.Identifier.ValueText;
-                    for (int j = 0; j < method.Parameters.Length; j++)
+                    int other = belongsAt[i];
+                    if (other >= 0 && other < count && belongsAt[other] >= 0)
                     {
-                        if (j != i && method.Parameters[j].Name == text && method.Parameters[i].Name != text) misplaced++;
+                        context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), method.MethodKind == MethodKind.Constructor ? method.ContainingType.Name : method.Name));
+                        return;
                     }
                 }
-                if (misplaced >= 2) context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), method.MethodKind == MethodKind.Constructor ? method.ContainingType.Name : method.Name));
             }), SyntaxKind.InvocationExpression, SyntaxKind.ObjectCreationExpression);
+        }
+
+        // The position of the other parameter this positional argument is named like, or -1.
+        private static int BelongsAt(ArgumentSyntax argument, IMethodSymbol method, int position)
+        {
+            if (argument.NameColon != null || !(argument.Expression is IdentifierNameSyntax identifier)) return -1;
+            string text = identifier.Identifier.ValueText;
+            if (method.Parameters[position].Name == text) return -1;
+            for (int j = 0; j < method.Parameters.Length; j++)
+            {
+                if (method.Parameters[j].Name == text) return j;
+            }
+            return -1;
         }
     }
 }

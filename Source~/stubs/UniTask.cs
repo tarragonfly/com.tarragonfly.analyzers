@@ -10,7 +10,10 @@ namespace Cysharp.Threading.Tasks
     {
         public static UniTask CompletedTask => default;
         public static UniTask Delay(int milliseconds, CancellationToken cancellationToken = default) => default;
-        public static UniTask Yield(CancellationToken cancellationToken = default) => default;
+        public static YieldAwaitable Yield() => default;
+        public static UniTask Yield(CancellationToken cancellationToken, bool cancelImmediately = false) => default;
+        public static UniTask NextFrame() => default;
+        public static UniTask NextFrame(CancellationToken cancellationToken, bool cancelImmediately = false) => default;
         public static UniTask WhenAll(params UniTask[] tasks) => default;
         public static Action Action(Func<UniTaskVoid> asyncAction) => null;
         public static void Void(Func<UniTaskVoid> asyncAction) { }
@@ -19,6 +22,20 @@ namespace Cysharp.Threading.Tasks
         public readonly struct Awaiter : ICriticalNotifyCompletion
         {
             public bool IsCompleted => true;
+            public void GetResult() { }
+            public void OnCompleted(Action continuation) { }
+            public void UnsafeOnCompleted(Action continuation) { }
+        }
+    }
+
+    public readonly struct YieldAwaitable
+    {
+        public Awaiter GetAwaiter() => default;
+        public UniTask ToUniTask() => default;
+
+        public readonly struct Awaiter : ICriticalNotifyCompletion
+        {
+            public bool IsCompleted => false;
             public void GetResult() { }
             public void OnCompleted(Action continuation) { }
             public void UnsafeOnCompleted(Action continuation) { }

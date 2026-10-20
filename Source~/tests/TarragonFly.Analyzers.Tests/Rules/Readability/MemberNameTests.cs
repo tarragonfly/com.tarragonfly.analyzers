@@ -102,6 +102,56 @@ class Outer
         }
 
         [Test]
+        public void NestedTypeWithTheNameOfAnOuterNestedType_IsReported()
+        {
+            AnalyzerVerifier.Verify(new NestedMemberHidesOuterStaticAnalyzer(), @"
+class Window
+{
+    static class Styles { }
+    enum Mode { A }
+    delegate void Done();
+    struct Cell { }
+    class Slot<T> { }
+    public static int Count;
+
+    class Panel
+    {
+        static class {|TF1017:Styles|} { }
+        enum {|TF1017:Mode|} { B }
+        delegate void {|TF1017:Done|}();
+        class {|TF1017:Cell|} { }
+        class {|TF1017:Slot|} { }
+        class Count { }
+        int Mode2;
+
+        class Deeper
+        {
+            interface {|TF1017:Styles|} { }
+        }
+    }
+
+    class Other
+    {
+        int Mode;
+        void Cell() { }
+    }
+}
+
+class Base
+{
+    protected class Styles { }
+}
+
+class Derived : Base
+{
+    class Panel
+    {
+        class Styles { }
+    }
+}");
+        }
+
+        [Test]
         public void TypeOutsideANamespace_IsReported()
         {
             AnalyzerVerifier.Verify(new TypeInGlobalNamespaceAnalyzer(), @"

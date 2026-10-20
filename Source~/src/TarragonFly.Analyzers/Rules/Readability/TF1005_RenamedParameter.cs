@@ -13,10 +13,15 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // Named arguments then depend on the static type: TakeDamage(amount: 5) compiles against the
     // interface and fails against the class, and swapped names silently swap values.
     //
-    // Explicit interface implementations are checked too. A parameter whose type in the base
-    // declaration is a type parameter may be renamed, since the base could only give it a generic name:
-    // "Init(IUIViewManager viewManager)" for Init(args)' Init(TFirstArgument firstArgument), or
-    // Compare(left, right) for IComparer<T>.Compare(x, y). Reported on each renamed parameter.
+    // Explicit interface implementations are checked too. A parameter may be renamed when the
+    // implementation puts a specific type where the base declaration has a type parameter, since the
+    // base could only give it a generic name: "Init(IUIViewManager viewManager)" for Init(args)'
+    // Init(TFirstArgument firstArgument), Compare(Enemy left, Enemy right) for
+    // IComparer<T>.Compare(x, y), or List<Enemy> for List<T>. Keeping a type parameter, as in
+    // "InitTarget(TWrapper wrapper)" for InitTarget(T target), means keeping the name too, and arrays
+    // such as int[] for T[] don't count. A method that implements members of several interfaces is
+    // checked against each of them, so a name that matches one but not another is still reported.
+    // Reported on each renamed parameter.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class RenamedParameterAnalyzer : ScopedAnalyzer
     {
@@ -46,12 +51,26 @@ namespace TarragonFly.Analyzers.Rules.Readability
                     foreach (IMethodSymbol baseMethod in bases)
                     {
                         if (i >= baseMethod.Parameters.Length || baseMethod.Parameters[i].Name == name) continue;
-                        if (baseMethod.OriginalDefinition.Parameters[i].Type is ITypeParameterSymbol) continue;
+                        if (Specializes(baseMethod.OriginalDefinition.Parameters[i].Type, method.Parameters[i].Type)) continue;
                         context.ReportDiagnostic(Diagnostic.Create(Rule, parameters[i].Identifier.GetLocation(), name, baseMethod.Parameters[i].Name));
                         break;
                     }
                 }
             }), SyntaxKind.MethodDeclaration);
+        }
+
+        // The implementation puts a specific type where the base declaration has a type parameter,
+        // directly (int for T) or as a type argument (List<Enemy> for List<T>).
+        private static bool Specializes(ITypeSymbol declared, ITypeSymbol implemented)
+        {
+            if (declared is ITypeParameterSymbol) return !(implemented is ITypeParameterSymbol);
+            if (!(declared is INamedTypeSymbol declaredType) || !(implemented is INamedTypeSymbol implementedType)) return false;
+            if (declaredType.TypeArguments.Length != implementedType.TypeArguments.Length) return false;
+            for (int i = 0; i < declaredType.TypeArguments.Length; i++)
+            {
+                if (Specializes(declaredType.TypeArguments[i], implementedType.TypeArguments[i])) return true;
+            }
+            return false;
         }
     }
 }

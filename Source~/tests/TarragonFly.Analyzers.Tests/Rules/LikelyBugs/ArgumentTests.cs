@@ -35,6 +35,34 @@ class Target
         }
 
         [Test]
+        public void FormatItems_AreReadLikeTheRuntimeReadsThem()
+        {
+            AnalyzerVerifier.Verify(new FormatThatThrowsAnalyzer(), @"
+class Target
+{
+    static void Rewrite(ref string format) => format = ""{0}"";
+
+    void Check(int a, int b)
+    {
+        string r1 = {|TF2024:string.Format|}(""{0,}"", a);
+        string r2 = {|TF2024:string.Format|}(""{0,+5}"", a);
+        string r3 = {|TF2024:string.Format|}(""{ 0}"", a);
+        string r4 = {|TF2024:string.Format|}(""{0,5,6}"", a);
+        string r5 = {|TF2024:string.Format|}(""{0:x{}"", a);
+        string r6 = {|TF2024:string.Format|}(arg0: a, format: ""{1}"");
+        string fine1 = string.Format(""{0:}"", a);
+        string fine2 = string.Format(""{0 }"", a);
+        string fine3 = string.Format(""{0, -5}"", a);
+        string fine4 = string.Format(""{0:}}}"", a);
+        string fine5 = string.Format(""({0})"", (a > b ? a : b));
+        string format = ""{1}"";
+        Rewrite(ref format);
+        string fine6 = string.Format(format, a);
+    }
+}");
+        }
+
+        [Test]
         public void FormatArgumentNoPlaceholderUses_IsReported()
         {
             AnalyzerVerifier.Verify(new UnusedFormatArgumentAnalyzer(), @"
@@ -137,6 +165,43 @@ class Target
         }
 
         [Test]
+        public void ArgumentExceptionNamingNoParameter_IsReported()
+        {
+            AnalyzerVerifier.Verify(new WrongParameterNameAnalyzer(), @"
+using System;
+
+class CustomArgumentException : ArgumentException { }
+
+class Target
+{
+    enum Mode { Walk, Run }
+
+    int Speed(Mode mode)
+    {
+        switch (mode)
+        {
+            case Mode.Walk: return 1;
+            case Mode.Run: return 2;
+            default: throw {|TF2060:new ArgumentOutOfRangeException()|};
+        }
+    }
+
+    void Check(object target, Exception inner)
+    {
+        if (target == null) throw {|TF2060:new ArgumentNullException()|};
+        if (target == null) throw {|TF2060:new ArgumentException()|};
+        if (target == null) throw {|TF2060:new ArgumentNullException(null)|};
+        if (target == null) throw {|TF2060:new DuplicateWaitObjectException()|};
+        if (target == null) throw {|TF2060:new ArgumentOutOfRangeException { }|};
+        ArgumentOutOfRangeException later = {|TF2060:new()|};
+        if (target == null) throw new ArgumentException(""bad"");
+        if (target == null) throw new ArgumentNullException(""bad"", inner);
+        if (target == null) throw new CustomArgumentException();
+    }
+}");
+        }
+
+        [Test]
         public void EmptyGuidThatLooksNew_IsReported()
         {
             AnalyzerVerifier.Verify(new EmptyGuidAnalyzer(), @"
@@ -160,6 +225,23 @@ class Target
         }
 
         [Test]
+        public void DefaultAsAParameterDefault_IsFine()
+        {
+            AnalyzerVerifier.Verify(new EmptyGuidAnalyzer(), @"
+using System;
+
+class Target
+{
+    void A(Guid id = default) { }
+    void B(Guid id = default(Guid)) { }
+    void C(Guid id = {|TF2066:new Guid()|}) { }
+    Guid D(Guid fallback = default) => fallback == {|TF2066:default|} ? Guid.NewGuid() : fallback;
+}
+
+record Save(Guid Id = default);");
+        }
+
+        [Test]
         public void RegexThatDoesNotParse_IsReported()
         {
             AnalyzerVerifier.Verify(new InvalidRegexAnalyzer(), @"
@@ -176,6 +258,55 @@ class Target
         Regex r5 = new Regex(""[0-9]+"", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         bool r6 = Regex.IsMatch(name, pattern);
         bool r7 = new Regex(""x"").IsMatch(""(enemy"");
+    }
+}");
+        }
+
+        [Test]
+        public void RegexPatternFromReadonlyFieldOrLocal_IsChecked()
+        {
+            AnalyzerVerifier.Verify(new InvalidRegexAnalyzer(), @"
+using System.Text.RegularExpressions;
+
+class Target
+{
+    static readonly string Broken = ""["";
+    static readonly string Changed = ""["";
+    readonly string valid = ""[a-z]"";
+    static string notReadonly = ""["";
+
+    static Target()
+    {
+        Changed = ""[a]"";
+    }
+
+    void Check()
+    {
+        string local = ""(abc"";
+        string reassigned = ""(abc"";
+        reassigned = ""abc"";
+        Regex r1 = new Regex({|TF2067:Broken|});
+        Regex r2 = new Regex({|TF2067:local|});
+        Regex r3 = new Regex(Changed);
+        Regex r4 = new Regex(valid);
+        Regex r5 = new Regex(notReadonly);
+        Regex r6 = new Regex(reassigned);
+    }
+}");
+        }
+
+        [Test]
+        public void RegexFeatureTheOptionsCannotRun_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new InvalidRegexAnalyzer(), @"
+using System.Text.RegularExpressions;
+
+class Target
+{
+    void Check()
+    {
+        Regex r1 = new Regex(@""(a)\1"", RegexOptions.NonBacktracking);
+        Regex r2 = new Regex(""(?=a)a"", RegexOptions.NonBacktracking);
     }
 }");
         }
