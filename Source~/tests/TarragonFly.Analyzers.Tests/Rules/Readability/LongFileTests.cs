@@ -34,5 +34,12 @@ namespace TarragonFly.Analyzers.Tests.Rules.Readability
         {
             AnalyzerVerifier.Verify(new LongFileAnalyzer(), "class Player { int health; }");
         }
+
+        [Test]
+        public void Message_GivesTheLineCountAndLimit()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new LongFileAnalyzer(), "class Player\n{\n    int health;\n}", SnippetAssembly.WithSettings("max_file_lines = 3")),
+                Is.EqualTo(new[] { "This file has 4 lines of code, more than the limit of 3; split it by responsibility" }));
+        }
     }
 }

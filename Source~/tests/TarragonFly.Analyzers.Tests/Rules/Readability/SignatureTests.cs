@@ -29,6 +29,13 @@ class Spawner
         }
 
         [Test]
+        public void Message_GivesTheParameterCountAndLimit()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new TooManyParametersAnalyzer(), "class Spawner { void Spawn(int a, int b, int c, int d, int e, int f, int g, int h) { } }"),
+                Is.EqualTo(new[] { "This has 8 parameters, more than the limit of 7; group related values into a struct or settings object" }));
+        }
+
+        [Test]
         public void FixedSignatures_AreSkipped()
         {
             AnalyzerVerifier.Verify(new TooManyParametersAnalyzer(), @"

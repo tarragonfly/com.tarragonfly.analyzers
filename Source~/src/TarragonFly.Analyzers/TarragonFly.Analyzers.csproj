@@ -10,7 +10,7 @@
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     <IsRoslynComponent>true</IsRoslynComponent>
     <Deterministic>true</Deterministic>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 

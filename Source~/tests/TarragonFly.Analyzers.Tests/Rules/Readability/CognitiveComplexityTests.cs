@@ -112,5 +112,13 @@ class Target
             AnalyzerVerifier.Verify(new CognitiveComplexityAnalyzer(), Template.Replace("MARK", "Run").Replace("BODY", fifteen));
             AnalyzerVerifier.Verify(new CognitiveComplexityAnalyzer(), Template.Replace("int MARK(", "int {|TF1019:Run|}(").Replace("BODY", fifteen + "if (a) y++;"));
         }
+
+        [Test]
+        public void Message_GivesTheNameScoreAndLimit()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new CognitiveComplexityAnalyzer(), Template.Replace("MARK", "Run").Replace("BODY", "if (a) { if (b) { if (c) y++; } }"),
+                    SnippetAssembly.WithSettings("max_cognitive_complexity = 5")),
+                Is.EqualTo(new[] { "'Run' has a cognitive complexity of 6, above the 5 allowed; split it or flatten its nesting" }));
+        }
     }
 }

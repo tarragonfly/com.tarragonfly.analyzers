@@ -61,6 +61,16 @@ namespace TarragonFly.Analyzers.Tests.Harness
             return diagnostics;
         }
 
+        // The formatted messages the analyzer reports, in source order, for tests that pin a value the
+        // rule works out, such as a score, a count or a reason.
+        public static string[] Messages(DiagnosticAnalyzer analyzer, string source, SnippetAssembly assembly = null)
+        {
+            return Run(analyzer, source, assembly)
+                .OrderBy(d => d.Location.SourceSpan.Start)
+                .Select(d => d.GetMessage())
+                .ToArray();
+        }
+
         public static CSharpCompilation Compile(string source, SnippetAssembly assembly = null)
         {
             assembly ??= new SnippetAssembly();

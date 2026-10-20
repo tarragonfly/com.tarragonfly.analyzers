@@ -198,6 +198,23 @@ class Checks
         }
 
         [Test]
+        public void Message_GivesTheLiteralAndTheAssertMethod()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new BoolLiteralInAssertionAnalyzer(), @"
+using NUnit.Framework;
+
+class Checks
+{
+    [Test]
+    public void Cases()
+    {
+        Assert.IsTrue(true);
+    }
+}", SnippetAssembly.Tests()),
+                Is.EqualTo(new[] { "Don't pass true to Assert.IsTrue; assert on the value itself, as in Assert.That(value, Is.True)" }));
+        }
+
+        [Test]
         public void ThreadSleepInsideATest_IsReported()
         {
             AnalyzerVerifier.Verify(new ThreadSleepInTestAnalyzer(), @"

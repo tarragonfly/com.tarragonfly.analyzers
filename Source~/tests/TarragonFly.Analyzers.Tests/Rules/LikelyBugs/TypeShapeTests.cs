@@ -174,6 +174,13 @@ class Inventory
         }
 
         [Test]
+        public void Message_GivesTheAccessorTheFieldUsedAndTheFieldExpected()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new AccessorUsesWrongFieldAnalyzer(), "class Player { int health; int armor; public int Health { get { return armor; } set { health = value; } } }"),
+                Is.EqualTo(new[] { "'Health' uses 'armor', but the field for it looks like 'health'" }));
+        }
+
+        [Test]
         public void FieldOfAnotherTypeOrStaticness_IsNotTheExpectedOne()
         {
             AnalyzerVerifier.Verify(new AccessorUsesWrongFieldAnalyzer(), @"

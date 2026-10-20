@@ -43,6 +43,13 @@ class Player
         }
 
         [Test]
+        public void Message_GivesTheOperatorCountAndLimit()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new ComplexConditionAnalyzer(), "class Player { bool Run(bool a, bool b, bool c, bool d, bool e) => a && b || c && d && e; }"),
+                Is.EqualTo(new[] { "This expression has 4 &&, || and ?: operators, more than the limit of 3; name its parts with locals or a method" }));
+        }
+
+        [Test]
         public void ArgumentsLambdasCastsAndAssignments_StartTheirOwnCount()
         {
             Verify(@"

@@ -1,6 +1,6 @@
 {
   "name": "com.tarragonfly.analyzers",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "tarragon.fly Analyzers",
   "description": "Roslyn analyzers for Unity games that use Init(args), UniTask and Odin Inspector. Rules and settings are listed in README.md.",
   "unity": "6000.0",

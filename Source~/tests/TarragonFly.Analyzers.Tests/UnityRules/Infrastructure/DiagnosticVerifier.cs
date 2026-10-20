@@ -215,12 +215,13 @@ public abstract class DiagnosticVerifier
 	}
 
 	// The editor's managed assemblies, plus TextMeshPro, UI and Mathematics from its 2D project
-	// template. Tests are ignored when no editor is found.
+	// template. Without an editor every Unity rule test fails rather than skipping, so a green run
+	// always means they ran.
 	protected static IEnumerable<string> UnityAssemblies()
 	{
 		var installation = UnityPath.FirstInstallation();
 		if (installation == null)
-			Assert.Ignore("No Unity editor found. Set UNITY_EDITOR_PATH to Unity.exe or its Editor folder.");
+			Assert.Fail("No Unity editor found; the Unity rule tests need one. Set UNITY_EDITOR_PATH to Unity.exe or its Editor folder.");
 
 		var managed = Path.Combine(installation!, "Managed");
 		var assemblies = new List<string> { Path.Combine(managed, "UnityEditor.dll") };

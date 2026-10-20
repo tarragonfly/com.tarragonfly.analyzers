@@ -28,6 +28,7 @@ class Enemy : EnemyBase
     [ShowIf({|TF6000:""isBos""|})] public int bossPhase;
     [ShowIf(""isBoss"")] public int phase;
     [ShowIf(""isFlying"")] public int altitude;
+    [ShowIf(""IsDebug"")] public int debugOnly;
     [HideIf(""@health <= 0"")] public int armor;
     [EnableIf(""CanEdit"")] public int speed;
     [LabelText({|TF6000:""$displayNmae""|})] public int label;
@@ -51,6 +52,7 @@ class Enemy : EnemyBase
 
     bool CanEdit() => true;
     bool IsLow => health < 10;
+    static bool IsDebug => false;
     bool IsValid(int value) => value > 0;
     void Refresh() { }
     IEnumerable<string> Options() => names;
@@ -66,6 +68,20 @@ class Enemy : EnemyBase
         public void MemberOfTheWrongType_IsReported()
         {
             AnalyzerVerifier.Verify(new WrongOdinMemberTypeAnalyzer(), Markup.Without(Code, "TF6000"));
+        }
+
+        [Test]
+        public void Message_GivesTheAttributeWhatItNeedsAndWhatTheMemberIs()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new WrongOdinMemberTypeAnalyzer(), @"
+using Sirenix.OdinInspector;
+
+class Enemy
+{
+    public float health;
+    [ShowIf(""health"")] public int wrongCondition;
+}"),
+                Is.EqualTo(new[] { "ShowIf needs a bool field or property, or a method returning bool, but 'health' is float" }));
         }
     }
 }

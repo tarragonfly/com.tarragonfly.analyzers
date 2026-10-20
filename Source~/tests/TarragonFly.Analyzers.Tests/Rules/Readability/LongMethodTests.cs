@@ -9,6 +9,25 @@ namespace TarragonFly.Analyzers.Tests.Rules.Readability
         private const string Settings = "max_method_lines = 3";
 
         [Test]
+        public void Message_GivesTheLineCountAndLimit()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new LongMethodAnalyzer(), @"
+class Player
+{
+    int health;
+
+    void Update()
+    {
+        health++;
+        health++;
+        health++;
+        health++;
+    }
+}", SnippetAssembly.WithSettings(Settings)),
+                Is.EqualTo(new[] { "This method has 4 lines of code, more than the limit of 3; pull named steps out into methods" }));
+        }
+
+        [Test]
         public void BodyOverTheLimit_IsReportedOnTheName()
         {
             AnalyzerVerifier.Verify(new LongMethodAnalyzer(), @"

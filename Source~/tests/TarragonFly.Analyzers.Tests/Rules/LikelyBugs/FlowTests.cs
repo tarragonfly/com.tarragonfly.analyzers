@@ -106,6 +106,13 @@ class Target
 }");
         }
 
+        [TestCase("public void Spin() { while (true) { System.Console.WriteLine(); } }", "'Spin' can never finish: no path leaves its loop")]
+        [TestCase("public int Recursive(int n) => Recursive(n - 1);", "'Recursive' can never finish: every path calls it again")]
+        public void Message_GivesTheNameAndReason(string member, string message)
+        {
+            Assert.That(AnalyzerVerifier.Messages(new NeverFinishesAnalyzer(), "class Target { " + member + " }"), Is.EqualTo(new[] { message }));
+        }
+
         [Test]
         public void ReturningAVariableItsUsingDisposes_IsReported()
         {

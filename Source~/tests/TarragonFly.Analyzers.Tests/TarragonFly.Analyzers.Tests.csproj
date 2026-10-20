@@ -28,6 +28,8 @@
   <ItemGroup>
     <Compile Include="..\..\shared\StubAssemblies.cs" Link="Harness\StubAssemblies.cs" />
     <None Include="..\..\stubs\*.cs" Link="stubs\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- RuleTableTests checks the README's rule table against the descriptors. -->
+    <None Include="..\..\..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

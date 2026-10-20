@@ -97,6 +97,21 @@ class Player : MonoBehaviour
         }
 
         [Test]
+        public void Message_GivesTheFieldAndWhyUnityCantSaveIt()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new UnsaveableSerializeFieldAnalyzer(), @"
+using UnityEngine;
+
+interface IWeapon { }
+
+class Player : MonoBehaviour
+{
+    [SerializeField] IWeapon weapon;
+}"),
+                Is.EqualTo(new[] { "Unity can't save 'weapon' (an interface without [SerializeReference]), so its value never reaches the Inspector or the saved scene" }));
+        }
+
+        [Test]
         public void SceneSearchFillingAMissingReference_IsReported()
         {
             AnalyzerVerifier.Verify(new SceneSearchRepairsReferenceAnalyzer(), @"

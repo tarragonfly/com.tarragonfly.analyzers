@@ -18,7 +18,7 @@ generated project files and Project Auditor lists its warnings. Severities live 
 Add it to `Packages/manifest.json`, pinned to a release tag:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.0"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git#v0.1.1"
 ```
 
 If you want to work on the rules inside a game project, clone it into
@@ -79,7 +79,7 @@ stay quiet.
 | TF2010 | For loop updates the wrong variable | all | |
 | TF2011 | Collection passed to its own method | all | |
 | TF2012 | Increment whose result is lost | all | |
-| TF2013 | & or | where && or || was meant | game | |
+| TF2013 | & or \| where && or \|\| was meant | game | |
 | TF2014 | Shift by zero or past the bit width | all | |
 | TF2015 | Integer division stored in a floating-point value | all | |
 | TF2016 | Endless loop or recursion | all | |
@@ -224,7 +224,7 @@ stay quiet.
 | TF5103 | MonoBehaviour async method awaits without a cancellation token | all | |
 | TF5104 | Async lambda used as a void delegate | all | |
 | TF6000 | Odin attribute names a member that doesn't exist | all | |
-| TF6001 | Odin attribute names a member of the wrong kind | all | |
+| TF6001 | Odin attribute names a member of the wrong type | all | |
 | TF6500 | Service creates a new instance without its Inspector values | all | |
 | TF6501 | Scene-loaded service without DontDestroyOnLoad = false | all | |
 | TF6502 | Scene service created lazily or asynchronously (info) | all | |
@@ -333,7 +333,8 @@ expected warnings inline with `{|TF1000:...|}`.
 The Unity rules in `Source~/src/TarragonFly.Analyzers/Rules/Unity/` are forked files and keep
 upstream's code style, so later upstream changes are easier to bring over. Their tests compile
 against a real editor's assemblies: they find one through `UNITY_EDITOR_PATH` (Unity.exe or its
-Editor folder) or Unity Hub's install folders, and get skipped when there's no editor.
+Editor folder) or Unity Hub's install folders, and fail when there's no editor, so a green run
+always means every test ran.
 
 | Folder | Contents |
 |---|---|

@@ -62,6 +62,7 @@ class Target
         DateTime r4 = {|TF3501:DateTime.ParseExact(text, ""yyyy"", null)|};
         TimeSpan r5 = {|TF3501:TimeSpan.Parse(text)|};
         DateTimeOffset r6 = {|TF3501:DateTimeOffset.Parse(text)|};
+        DateTime r7 = {|TF3501:DateTime.Parse(text, provider: null)|};
         DateTime f1 = DateTime.Parse(text, CultureInfo.InvariantCulture);
         DateTime f2 = DateTime.ParseExact(text, ""yyyy"", CultureInfo.InvariantCulture);
         bool f3 = DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime other);

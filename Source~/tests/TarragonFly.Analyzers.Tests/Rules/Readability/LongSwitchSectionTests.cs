@@ -49,6 +49,28 @@ class Enemy
         }
 
         [Test]
+        public void Message_GivesTheStatementCountAndLimit()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new LongSwitchSectionAnalyzer(), @"
+class Enemy
+{
+    int state;
+
+    void Think()
+    {
+        switch (state)
+        {
+            case 0:
+                state++;
+                state++;
+                break;
+        }
+    }
+}", SnippetAssembly.WithSettings("max_switch_section_statements = 2")),
+                Is.EqualTo(new[] { "This switch section has 3 statements, more than the limit of 2; move the work into a method" }));
+        }
+
+        [Test]
         public void SectionsUnderTheDefaultLimit_AreFine()
         {
             AnalyzerVerifier.Verify(new LongSwitchSectionAnalyzer(), Code.Replace("{|TF1010:", "").Replace(":|}", ":"));

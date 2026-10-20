@@ -624,7 +624,7 @@
     <value>Cache WaitForSeconds invocations instead of creating new instances.</value>
   </data>
   <data name="CacheYieldInstructionAnalyzerDiagnosticTitle" xml:space="preserve">
-    <value>WaitForSeconds caching </value>
+    <value>WaitForSeconds caching</value>
   </data>
   <data name="RequireComponentAnalyzerCodeFixTitle" xml:space="preserve">
     <value>Use RequireComponent attribute</value>

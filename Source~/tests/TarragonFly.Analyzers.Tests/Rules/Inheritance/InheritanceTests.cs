@@ -53,6 +53,12 @@ abstract class Spawner
     public event Action Spawned;
     public abstract event Action Cleared;
     public virtual event Action Custom { add { } remove { } }
+}
+
+class Nest : Spawner
+{
+    public override event Action Died;
+    public override event Action Cleared;
 }");
         }
 
@@ -147,6 +153,8 @@ ref struct PooledSpan
 using System;
 
 class {|TF2507:ShowInStatsAttribute|} : Attribute { }
+
+class {|TF2507:BossStatAttribute|} : ShowInStatsAttribute { }
 
 [AttributeUsage(AttributeTargets.Field)]
 class StatAttribute : Attribute { }
