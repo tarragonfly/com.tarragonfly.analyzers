@@ -1,8 +1,5 @@
 # Tarragon.Fly() Analyzers
 
-Extra compiler warnings for Unity games: rules for Unity itself, plus optional rules for Init(args),
-UniTask and Odin Inspector that only come into play in a project that uses them.
-
 The package is a Roslyn analyzer: a set of checks that Unity's C# compiler runs over your scripts
 every time it compiles them. Findings appear where compiler warnings already appear, in the Unity
 Console, in Rider and Visual Studio, and in Project Auditor. Nothing runs in Play Mode and nothing
