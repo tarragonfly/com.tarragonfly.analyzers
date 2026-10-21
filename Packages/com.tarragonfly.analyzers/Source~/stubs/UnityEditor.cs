@@ -41,6 +41,7 @@ namespace UnityEditor
         public delegate void CallbackFunction();
 
         public static CallbackFunction delayCall;
+        public static CallbackFunction update;
     }
 
     public static class EditorUtility

@@ -46,13 +46,13 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.1
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.2
    ```
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.1"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.2"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -393,8 +393,9 @@ with a reason. Events the type raises itself, lambdas (TF2505 and TF4100), stati
 GameObject or its children, reached through `GetComponent`, `GetComponentInChildren`,
 `TryGetComponent`, `AddComponent`, `Transform.Find` or `GetChild`, directly or through locals and
 unsaved fields that only get such values. `AsyncOperation.completed` and Addressables'
-`AsyncOperationHandle.Completed` fire once, so they're skipped too. UI Toolkit's `Button.clicked`
-is skipped like `RegisterCallback`, which isn't covered.
+`AsyncOperationHandle.Completed` fire once, so they're skipped too. `EditorApplication.delayCall` fires
+once and Unity clears it before the call, so it is skipped too. UI Toolkit's `Button.clicked` is
+skipped like `RegisterCallback`, which isn't covered.
 
 ### Silent failures, exceptions, logging and culture (TF3000s)
 

@@ -35,7 +35,8 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     //   directly or through locals and fields that only ever get such values. Fields Unity saves
     //   are left out, since the Inspector can point them anywhere, and so is GetComponentInParent;
     // - AsyncOperation.completed and Addressables' AsyncOperationHandle.Completed, which fire once
-    //   when the load finishes and are dropped with the operation;
+    //   when the load finishes and are dropped with the operation, and EditorApplication.delayCall,
+    //   which Unity clears before calling it;
     // - UI Toolkit's Button.clicked, like RegisterCallback, which isn't covered either.
     // A subscription meant to last for the object's whole life gets a suppression with a reason.
     // Reported on the subscription.
@@ -140,7 +141,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 return;
             }
             if (IsOwnEvent(member, instance, type) || RunsOncePerDomain(context.ContainingSymbol)) return;
-            if (IsOneShotLoadCompletion(member) || IsUiToolkitButtonClick(member)) return;
+            if (IsOneShotCallback(member) || IsUiToolkitButtonClick(member)) return;
 
             List<IFieldSymbol> sourceFields = new List<IFieldSymbol>();
             bool fromOwnHierarchy = instance != null && IsFromOwnHierarchy(instance, type, sourceFields, NewLocalSet());
@@ -221,8 +222,9 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 || SymbolNames.HasAttribute(method, "UnityEditor.InitializeOnLoadMethodAttribute");
         }
 
-        private static bool IsOneShotLoadCompletion(ISymbol member)
+        private static bool IsOneShotCallback(ISymbol member)
         {
+            if (member is IFieldSymbol field && field.Name == "delayCall") return SymbolNames.IsNamed(field.ContainingType, "UnityEditor.EditorApplication");
             if (!(member is IEventSymbol loadEvent)) return false;
             if (loadEvent.Name == "completed") return SymbolNames.IsOrDerivesFrom(loadEvent.ContainingType, "UnityEngine.AsyncOperation");
             return loadEvent.Name == "Completed"

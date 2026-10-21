@@ -299,6 +299,25 @@ class OptionsMenu : MonoBehaviour
         }
 
         [Test]
+        public void EditorDelayCall_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
+using UnityEditor;
+
+class ScenarioWindow
+{
+    void Open()
+    {
+        EditorApplication.delayCall += Refresh;
+        {|TF2511:EditorApplication.update += Tick|};
+    }
+
+    void Refresh() { }
+    void Tick() { }
+}", new SnippetAssembly { AssemblyName = "Game.Editor", EditorOnly = true });
+        }
+
+        [Test]
         public void TestCode_IsCheckedToo()
         {
             AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
