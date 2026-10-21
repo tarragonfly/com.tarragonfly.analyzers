@@ -17,9 +17,11 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // The other overload's parameters must match this one's first parameters in type and ref kind
     // (method type parameters by position), and it must need no more arguments than this one does:
     // then every call leaving out the next parameter goes to the other overload or doesn't compile.
-    // Static and instance overloads, constructors, interface members and their implementations all
-    // count. Reported on the first parameter the other overload lacks; later defaults stay reachable
-    // through calls that pass it.
+    // Static and instance overloads, constructors and interface members all count. An override or
+    // an interface implementation is skipped: TF2500 makes it repeat the base declaration's
+    // defaults, so the fix belongs where the pair is declared, and a fake implementing the
+    // interface would otherwise be stuck between the two rules. Reported on the first parameter
+    // the other overload lacks; later defaults stay reachable through calls that pass it.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class UnreachableDefaultParameterAnalyzer : ScopedAnalyzer
     {
@@ -40,7 +42,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 if (!(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is IMethodSymbol method)) return;
 
                 int required = RequiredCount(method);
-                if (required == method.Parameters.Length) return;
+                if (required == method.Parameters.Length || BaseMembers.IsOverrideOrImplementation(method)) return;
 
                 HashSet<int> reported = new HashSet<int>();
                 foreach (ISymbol member in method.ContainingType.GetMembers(method.Name))

@@ -34,6 +34,7 @@ TF1025 | Readability | Warning | VarHidesTypeAnalyzer
 TF1026 | Readability | Warning | BannedNameWordAnalyzer
 TF1027 | Readability | Warning | NonAsciiCharacterAnalyzer
 TF1028 | Readability | Warning | SuppressionWithoutReasonAnalyzer
+TF1029 | Readability | Warning | DiscouragedMemberCallAnalyzer
 TF1500 | DeadCode | Warning | UnusedPrivateMemberAnalyzer
 TF1501 | DeadCode | Warning | UnusedLocalAnalyzer
 TF1502 | DeadCode | Warning | DeadStoreAnalyzer
@@ -125,6 +126,7 @@ TF2507 | Inheritance | Warning | AttributeWithoutUsageAnalyzer
 TF2508 | Inheritance | Warning | HidingLowersVisibilityAnalyzer
 TF2509 | Inheritance | Warning | MethodHidesBaseMethodAnalyzer
 TF2510 | Inheritance | Warning | FieldDiffersByCaseAnalyzer
+TF2511 | Inheritance | Warning | EventNeverUnsubscribedAnalyzer
 TF3000 | SilentFailures | Warning | ConsoleOutputAnalyzer
 TF3001 | SilentFailures | Warning | EmptyBlockAnalyzer
 TF3002 | SilentFailures | Warning | NullCollectionReturnedAnalyzer
@@ -200,6 +202,7 @@ TF5101 | Async | Warning | CancellationTokenNotLastAnalyzer
 TF5102 | Async | Warning | AsyncSuffixAnalyzer
 TF5103 | Async | Warning | MonoBehaviourAwaitWithoutTokenAnalyzer
 TF5104 | Async | Warning | AsyncLambdaAsVoidDelegateAnalyzer
+TF5105 | Async | Warning | RedundantCancellationCheckAnalyzer
 TF6000 | Odin | Warning | UnknownOdinMemberAnalyzer
 TF6001 | Odin | Warning | WrongOdinMemberTypeAnalyzer
 TF6500 | InitArgs | Warning | ServiceLosesInspectorValuesAnalyzer
@@ -244,3 +247,5 @@ TF9003 | Tests | Warning | BoolLiteralInAssertionAnalyzer
 TF9004 | Tests | Warning | ThreadSleepInTestAnalyzer
 TF9005 | Tests | Warning | SwappedExpectedAndActualAnalyzer
 TF9006 | Tests | Warning | UnrunnableTestAnalyzer
+TF9007 | Tests | Warning | TestBenchNeverDisposedAnalyzer
+TF9008 | Tests | Warning | PrivateFieldReflectionInTestAnalyzer

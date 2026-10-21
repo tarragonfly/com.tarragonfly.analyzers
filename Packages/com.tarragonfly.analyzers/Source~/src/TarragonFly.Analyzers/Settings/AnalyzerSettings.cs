@@ -65,6 +65,14 @@ namespace TarragonFly.Analyzers.Settings
         public bool AsciiOnly { get; private set; }
         public ImmutableArray<string> NonAsciiAllowedIn { get; private set; } = ImmutableArray<string>.Empty;
 
+        // TF1029 is silent until the project lists members; discouraged_members_allowed_in names the
+        // types (the helpers themselves) that may still call them directly.
+        public ImmutableArray<DiscouragedMember> DiscouragedMembers { get; private set; } = ImmutableArray<DiscouragedMember>.Empty;
+        public ImmutableArray<string> DiscouragedMembersAllowedIn { get; private set; } = ImmutableArray<string>.Empty;
+
+        // Test assemblies that hold the shared fakes and helpers, where TF9008 lets reflection through.
+        public ImmutableArray<string> TestSupportAssemblies { get; private set; } = ImmutableArray<string>.Empty;
+
         public static bool IsSettingsFile(AdditionalText file)
         {
             return Path.GetFileName(file.Path).EndsWith(FileNameSuffix, StringComparison.OrdinalIgnoreCase);
@@ -149,6 +157,9 @@ namespace TarragonFly.Analyzers.Settings
                 case "banned_name_words_skip_serialized": return ApplyFlag(key, value, v => BannedNameWordsSkipSerialized = v);
                 case "ascii_only": return ApplyFlag(key, value, v => AsciiOnly = v);
                 case "non_ascii_allowed_in": NonAsciiAllowedIn = SplitList(value); return null;
+                case "discouraged_members": return ApplyDiscouragedMembers(value);
+                case "discouraged_members_allowed_in": DiscouragedMembersAllowedIn = SplitList(value); return null;
+                case "test_support_assemblies": TestSupportAssemblies = SplitList(value); return null;
                 default: return $"Unknown setting '{key}'. The package README lists the keys.";
             }
         }
@@ -182,13 +193,38 @@ namespace TarragonFly.Analyzers.Settings
             }
         }
 
-        private static ImmutableArray<string> SplitList(string value)
+        // A bad entry fails the whole line, so the rule stays off rather than matching half a list.
+        private string ApplyDiscouragedMembers(string value)
+        {
+            ImmutableArray<DiscouragedMember>.Builder members = ImmutableArray.CreateBuilder<DiscouragedMember>();
+            foreach (string entry in SplitList(value, keepParenthesized: true))
+            {
+                string error = DiscouragedMember.TryParse(entry, out DiscouragedMember member);
+                if (error != null) return error;
+                members.Add(member);
+            }
+            DiscouragedMembers = members.ToImmutable();
+            return null;
+        }
+
+        // Comma separated; with keepParenthesized, commas inside parentheses belong to the entry, as in
+        // "A.B.M(int, int) -> X, C.D.N -> Y".
+        private static ImmutableArray<string> SplitList(string value, bool keepParenthesized = false)
         {
             ImmutableArray<string>.Builder items = ImmutableArray.CreateBuilder<string>();
-            foreach (string item in value.Split(','))
+            int start = 0;
+            int depth = 0;
+            for (int i = 0; i <= value.Length; i++)
             {
-                string trimmed = item.Trim();
+                if (i < value.Length)
+                {
+                    if (keepParenthesized && value[i] == '(') depth++;
+                    else if (keepParenthesized && value[i] == ')' && depth > 0) depth--;
+                    if (value[i] != ',' || depth > 0) continue;
+                }
+                string trimmed = value.Substring(start, i - start).Trim();
                 if (trimmed.Length > 0) items.Add(trimmed);
+                start = i + 1;
             }
             return items.ToImmutable();
         }

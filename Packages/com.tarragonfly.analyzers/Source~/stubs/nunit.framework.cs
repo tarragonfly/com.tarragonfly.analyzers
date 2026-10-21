@@ -54,6 +54,11 @@ namespace NUnit.Framework
     {
     }
 
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class OneTimeTearDownAttribute : Attribute
+    {
+    }
+
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
     public sealed class IgnoreAttribute : Attribute
     {

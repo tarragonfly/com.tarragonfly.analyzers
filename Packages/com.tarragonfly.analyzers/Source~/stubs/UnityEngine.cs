@@ -187,6 +187,46 @@ namespace UnityEngine.Events
 {
     public delegate void UnityAction();
     public delegate void UnityAction<T0>(T0 arg0);
+
+    public abstract class UnityEventBase
+    {
+        public void RemoveAllListeners() { }
+    }
+
+    public class UnityEvent : UnityEventBase
+    {
+        public void AddListener(UnityAction call) { }
+        public void RemoveListener(UnityAction call) { }
+        public void Invoke() { }
+    }
+
+    public class UnityEvent<T0> : UnityEventBase
+    {
+        public void AddListener(UnityAction<T0> call) { }
+        public void RemoveListener(UnityAction<T0> call) { }
+        public void Invoke(T0 arg0) { }
+    }
+}
+
+namespace UnityEngine.UI
+{
+    public class Button : MonoBehaviour
+    {
+        public class ButtonClickedEvent : Events.UnityEvent
+        {
+        }
+
+        public ButtonClickedEvent onClick { get; set; } = new ButtonClickedEvent();
+    }
+
+    public class Slider : MonoBehaviour
+    {
+        public class SliderEvent : Events.UnityEvent<float>
+        {
+        }
+
+        public SliderEvent onValueChanged { get; set; } = new SliderEvent();
+    }
 }
 
 namespace UnityEngine.SceneManagement
@@ -258,6 +298,12 @@ namespace UnityEngine.UIElements
     {
         public static bool RegisterValueChangedCallback<T>(this INotifyValueChanged<T> control, EventCallback<ChangeEvent<T>> callback) => true;
         public static bool UnregisterValueChangedCallback<T>(this INotifyValueChanged<T> control, EventCallback<ChangeEvent<T>> callback) => true;
+    }
+
+    public static class UQueryExtensions
+    {
+        public static T Q<T>(this VisualElement element, string name = null, string className = null) where T : VisualElement => null;
+        public static VisualElement Q(this VisualElement element, string name = null, string className = null) => null;
     }
 }
 

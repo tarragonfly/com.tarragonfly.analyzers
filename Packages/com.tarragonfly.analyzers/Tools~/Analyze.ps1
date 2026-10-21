@@ -19,6 +19,11 @@ incomplete (exit 1). New files in assemblies the editor leaves out on purpose (d
 constraints or platforms) don't count. -OutputDir can't be inside Assets/ or Packages/,
 since Unity would import the built DLLs as plugins.
 
+A package installed from a "file:" path outside the project (a local clone next to it) is
+compiled from absolute paths. Its files count as present when they exist on disk, and it gets
+rebuilt like any other editable assembly. New files and asmdef edits inside it still aren't
+noticed; see the known limits.
+
 Exit codes:
   0  analysis complete, and no findings remain or -FailOnFindings was not given
   1  analysis incomplete: an assembly did not compile, was skipped because a dependency
@@ -36,6 +41,8 @@ doubt, let Unity compile once (open the editor, or a batch run with -quit) and r
 Known limits:
   - Not detected: Packages/manifest.json changes, Scripting Define Symbols or other
     ProjectSettings edits, and a different editor version than the one that last compiled.
+  - In a "file:" package outside the project, only deleted .cs files are detected; added
+    files and edited .asmdef, .asmref or csc.rsp files there need a Unity compile.
   - Assembly settings are compared by timestamp with Unity's last compile check, so a git
     checkout or a save without changes reads as incomplete until Unity checks again.
   - Define constraints are checked against Assembly-CSharp's defines. An asmdef's own
@@ -180,6 +187,17 @@ function Test-EditableAssembly($Info) {
     return @($Info.Sources | Where-Object { $_ -notlike 'Library/PackageCache/*' }).Count -gt 0
 }
 
+# Unity writes project files relative to the project and files of a "file:" package outside it
+# with their absolute path, so a rooted source is one that lives outside the project.
+function Get-SourceFullPath([string] $Source) {
+    if ([IO.Path]::IsPathRooted($Source)) { return $Source }
+    return Join-Path $project $Source
+}
+
+function Test-OutsideProject($Info) {
+    return @($Info.Sources | Where-Object { -not [IO.Path]::IsPathRooted($_) }).Count -eq 0
+}
+
 function Get-SarifLocation($Result) {
     $location = @{ File = ''; Line = 0; Column = 0 }
     if ($Result.PSObject.Properties['locations'] -and @($Result.locations).Count -gt 0) {
@@ -282,7 +300,7 @@ $sourceRoots = @('Assets', 'Packages') | ForEach-Object { Join-Path $project $_ 
 $onDisk = @(Get-ChildItem -LiteralPath $sourceRoots -Filter *.cs -Recurse -File | ForEach-Object { Get-RelativePath $project $_.FullName } |
     Where-Object { Test-ImportedPath $_ })
 $notCompiled = @($onDisk | Where-Object { -not $compiled.Contains($_) })
-$missing = @($compiled | Where-Object { $_ -notlike 'Library/*' -and -not (Test-Path -LiteralPath (Join-Path $project $_)) })
+$missing = @($compiled | Where-Object { $_ -notlike 'Library/*' -and -not (Test-Path -LiteralPath (Get-SourceFullPath $_)) })
 
 # Defines of the editor compile, for checking asmdef define constraints. Version defines that an
 # asmdef adds for itself are not evaluated.
@@ -355,8 +373,9 @@ foreach ($file in $assemblySettingFiles) {
         $changedAssemblySettings.Add([pscustomobject]@{ File = (Get-RelativePath $project $file.FullName); Change = 'changed' })
     }
 }
+# An asmdef outside the project (a "file:" package) is never scanned, so it can't read as removed.
 foreach ($info in $compiledAssemblies.Values) {
-    if ($info.Name -notlike 'Assembly-CSharp*' -and (Test-EditableAssembly $info) -and -not $asmdefNames.Contains($info.Name)) {
+    if ($info.Name -notlike 'Assembly-CSharp*' -and (Test-EditableAssembly $info) -and -not (Test-OutsideProject $info) -and -not $asmdefNames.Contains($info.Name)) {
         $changedAssemblySettings.Add([pscustomobject]@{ File = "$($info.Name).asmdef"; Change = 'removed' })
     }
 }

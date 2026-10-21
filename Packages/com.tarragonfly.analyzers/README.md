@@ -46,13 +46,13 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.1.5
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.0
    ```
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.1.5"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.0"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -171,6 +171,10 @@ max_switch_section_statements = 12
 
 # TF1025: write the type instead of var in game code; tests may keep var.
 report_var = game
+
+# TF1029: views reach their elements through UIViewBase.Element, which warns when one is missing.
+discouraged_members = UnityEngine.UIElements.UQueryExtensions.Q -> UIViewBase.Element
+discouraged_members_allowed_in = UIViewBase
 ```
 
 Each line is `key = value`. Lines starting with `#` are comments, and lists are comma separated.
@@ -198,6 +202,9 @@ and the setting keeps its default.
 | `banned_name_words_skip_serialized` | `true` | TF1026 leaves out fields Unity saves (`[SerializeField]`, or public on a Unity object or `[Serializable]` type), since renaming one loses the values stored in scenes, prefabs and assets |
 | `ascii_only` | `false` | TF1027 reports every character above U+007F in source files |
 | `non_ascii_allowed_in` | none | Project-relative path globs TF1027 leaves alone, such as `Assets/Game/Dialogue/*` |
+| `discouraged_members` | none | Members TF1029 reports direct calls to, as `Namespace.Type.Member -> Replacement`, one per comma. Every overload counts; a parameter list after the member, `UnityEngine.Debug.Log(object, UnityEngine.Object) -> Log.Info`, picks one, with the types short or with their namespace |
+| `discouraged_members_allowed_in` | none | Types, with or without their namespace, whose code may still call those members directly; the helpers themselves go here |
+| `test_support_assemblies` | none | Test assemblies that hold the shared fakes and helpers, where TF9008 lets reflection into private fields through; `*` matches anything |
 
 Some Unity 6000.0 patches have a bug that drops additional files. On those, add a `csc.rsp` next
 to an `.asmdef` with the line `-additionalfile:Assets/Settings.TarragonFly.Analyzers.additionalfile`.
@@ -251,13 +258,15 @@ hide what the code does, such as a statement indented as if it belonged to an un
 | TF1026 | Name uses a word the project avoids (needs `banned_name_words`) | all | |
 | TF1027 | Non-ASCII character in source (off by default) | all | |
 | TF1028 | Suppression without a reason | all | |
+| TF1029 | Direct call where the project has a helper (needs `discouraged_members`) | all | |
 
 TF1025 is off until `report_var` is set: `game` reports runtime and editor code, `all` reports tests
 too. TF1026 reports nothing until `banned_name_words` or `banned_method_prefixes` lists words, and
 leaves fields Unity saves alone while `banned_name_words_skip_serialized` is `true`. TF1027 is off
 until `ascii_only = true`; `non_ascii_allowed_in` lists path globs it skips. TF1028 wants a comment
 on the line of a `#pragma warning disable` or `[UsedImplicitly]`, or on the line above it, and a
-`Justification` on `[SuppressMessage]`.
+`Justification` on `[SuppressMessage]`. TF1029 reports nothing until `discouraged_members` lists
+members; `discouraged_members_allowed_in` names the types that may still call them directly.
 
 ### Dead code (TF1500s)
 
@@ -374,6 +383,14 @@ expects.
 | TF2508 | Hiding member is less visible than the base member | all | |
 | TF2509 | Method accidentally hides a base method | all | |
 | TF2510 | Field differs from a base class field only by case | all | |
+| TF2511 | Event subscribed but never unsubscribed | all | |
+
+TF2511 pairs each `+=` or `AddListener` on another object's event with a `-=` or `RemoveListener`
+of the same event and handler somewhere in the type, or a `RemoveAllListeners` on that event. A
+subscription meant to last for the object's whole life gets a `#pragma warning disable TF2511`
+with a reason. Events the type raises itself, lambdas (TF2505 and TF4100), static constructors and
+`[RuntimeInitializeOnLoadMethod]` methods are left alone; UI Toolkit's `RegisterCallback` isn't
+covered.
 
 ### Silent failures, exceptions, logging and culture (TF3000s)
 
@@ -515,6 +532,7 @@ tokens that stop halfway, and the UniTask naming and parameter conventions.
 | TF5102 | Async suffix missing or misplaced | all | |
 | TF5103 | MonoBehaviour async method awaits without a cancellation token | all | |
 | TF5104 | Async lambda used as a void delegate | all | |
+| TF5105 | Cancellation check the await already does | all | |
 
 ### Odin Inspector and Init(args) (TF6000s)
 
@@ -596,6 +614,13 @@ forgotten.
 | TF9004 | Thread.Sleep in a test | tests | |
 | TF9005 | Expected and actual swapped in an assertion | tests | |
 | TF9006 | Test method the runner can't run | tests | |
+| TF9007 | TestBench started but never disposed | tests | |
+| TF9008 | Reflection into a private field in a test | tests | |
+
+TF9007 and TF9008 are for projects on TestBench (`com.tarragonfly.testbench`). TF9007 finds
+`TestBench.Start` by name, so it's silent without the package. TF9008 skips types named `*Fakes`
+and the assemblies `test_support_assemblies` lists, which is where the one shared
+`PrivateField.Set` lives.
 
 ## Working on the rules
 

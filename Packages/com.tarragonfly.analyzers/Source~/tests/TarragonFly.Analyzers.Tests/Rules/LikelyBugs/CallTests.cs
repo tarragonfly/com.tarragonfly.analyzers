@@ -141,7 +141,7 @@ interface IAudio
 class Audio : IAudio
 {
     public void Play(string clip) { }
-    public void Play(string clip, {|TF2049:float volume = 1f|}, bool loop = true) { }
+    public void Play(string clip, float volume = 1f, bool loop = true) { }
 
     public string Load(string path, string extension = "".png"") => path;
     public string Load(string path, string extension = "".png"", {|TF2049:bool lowRes = false|}) => path;
@@ -166,6 +166,46 @@ struct Cell
 {
     public Cell(int x = 0) { }
 }");
+        }
+
+        // The pair is the interface's or base class's design; TF2500 makes the implementation repeat
+        // its defaults, so a fake implementing both overloads has nothing to change.
+        [Test]
+        public void ImplementationsAndOverrides_AreNotReported()
+        {
+            AnalyzerVerifier.Verify(new UnreachableDefaultParameterAnalyzer(), @"
+interface IAudioManager
+{
+    void PlayMusic(string clip);
+    void PlayMusic(string clip, {|TF2049:float? volume = null|}, bool loop = true);
+}
+
+class RecordedAudio : IAudioManager
+{
+    public void PlayMusic(string clip) { }
+    public void PlayMusic(string clip, float? volume = null, bool loop = true) { }
+}
+
+class ExplicitAudio : IAudioManager
+{
+    void IAudioManager.PlayMusic(string clip) { }
+    void IAudioManager.PlayMusic(string clip, float? volume, bool loop) { }
+}
+
+class Speaker
+{
+    public virtual void Say(string line) { }
+    public virtual void Say(string line, {|TF2049:float delay = 0f|}) { }
+}
+
+class LoudSpeaker : Speaker
+{
+    public override void Say(string line) { }
+    public override void Say(string line, float delay = 0f) { }
+
+    public void Shout(string line) { }
+    public void Shout(string line, {|TF2049:int times = 1|}) { }
+}", SnippetAssembly.Tests());
         }
     }
 }

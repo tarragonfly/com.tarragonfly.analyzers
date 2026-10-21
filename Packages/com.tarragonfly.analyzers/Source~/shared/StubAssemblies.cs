@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace TarragonFly.Analyzers.Testing
 {
     // Compiles Source~/stubs/*.cs into in-memory assemblies named like the real ones, so test code
-    // compiles against UnityEngine, UniTask, Odin and Init(args) without a Unity install. Linked into
-    // the test project, which copies the stubs next to its output.
+    // compiles against UnityEngine, UniTask, Odin, Init(args) and TestBench without a Unity install.
+    // Linked into the test project, which copies the stubs next to its output.
     public static class StubAssemblies
     {
         // Only the .NET runtime's own assemblies: the test host also lists its dependencies, such as
@@ -28,12 +28,14 @@ namespace TarragonFly.Analyzers.Testing
         public static readonly MetadataReference UniTask = Compile("UniTask", "UniTask.cs");
         public static readonly MetadataReference Odin = Compile("Sirenix.OdinInspector", "Odin.cs", UnityEngine);
         public static readonly MetadataReference InitArgs = Compile("InitArgs", "InitArgs.cs", UnityEngine);
+        public static readonly MetadataReference TestBench = Compile("TarragonFly.TestBench", "TestBench.cs", UnityEngine);
 
         // What a runtime game assembly in a Unity project can see.
         public static ImmutableArray<MetadataReference> GameReferences => Platform.AddRange(new[] { UnityEngine, UnityEditor, UniTask, Odin, InitArgs });
 
-        // Unity also gives every editor-only assembly the test runner and NUnit.
-        public static ImmutableArray<MetadataReference> EditorReferences => GameReferences.AddRange(new[] { TestRunner, NUnit });
+        // Unity also gives every editor-only assembly the test runner and NUnit; TestBench is a test
+        // package, so it sits beside them.
+        public static ImmutableArray<MetadataReference> EditorReferences => GameReferences.AddRange(new[] { TestRunner, NUnit, TestBench });
 
         public static string StubsFolder => Path.Combine(AppContext.BaseDirectory, "stubs");
 

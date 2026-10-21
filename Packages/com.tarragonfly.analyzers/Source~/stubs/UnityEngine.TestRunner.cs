@@ -9,6 +9,16 @@ namespace UnityEngine.TestTools
     {
     }
 
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class UnitySetUpAttribute : Attribute
+    {
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public sealed class UnityTearDownAttribute : Attribute
+    {
+    }
+
     public static class LogAssert
     {
         public static void Expect(LogType type, string message) { }

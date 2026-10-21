@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading;
 using NUnit.Framework;
 using TarragonFly.Analyzers.Settings;
@@ -27,6 +28,9 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.BannedNameWordsSkipSerialized, Is.True);
             Assert.That(settings.AsciiOnly, Is.False);
             Assert.That(settings.NonAsciiAllowedIn, Is.Empty);
+            Assert.That(settings.DiscouragedMembers, Is.Empty);
+            Assert.That(settings.DiscouragedMembersAllowedIn, Is.Empty);
+            Assert.That(settings.TestSupportAssemblies, Is.Empty);
         }
 
         [Test]
@@ -67,6 +71,39 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.BannedNameWordsSkipSerialized, Is.False);
             Assert.That(settings.AsciiOnly, Is.True);
             Assert.That(settings.NonAsciiAllowedIn, Is.EqualTo(new[] { "Assets/Game/Dialogue/*", "Assets/Banners/*" }));
+        }
+
+        // Commas inside a parameter list belong to the entry, not the list.
+        [Test]
+        public void DiscouragedMembers_AreParsed_WithOptionalParameterLists()
+        {
+            AnalyzerSettings settings = Parse(
+                "discouraged_members = UnityEngine.UIElements.UQueryExtensions.Q -> UIViewBase.Element, UnityEngine.Debug.Log(object , UnityEngine.Object) -> Log.Info, System.Collections.Generic.List<T>.Add -> Bag.Put\n" +
+                "discouraged_members_allowed_in = UIViewBase, Game.Logging.Log\n" +
+                "test_support_assemblies = *.Tests.Shared\n");
+
+            Assert.That(settings.Problems, Is.Empty);
+            Assert.That(settings.DiscouragedMembers.Select(m => (m.TypeName, m.MemberName, m.ParameterTypes, m.Replacement)), Is.EqualTo(new[]
+            {
+                ("UnityEngine.UIElements.UQueryExtensions", "Q", (string)null, "UIViewBase.Element"),
+                ("UnityEngine.Debug", "Log", "object, UnityEngine.Object", "Log.Info"),
+                ("System.Collections.Generic.List", "Add", (string)null, "Bag.Put")
+            }));
+            Assert.That(settings.DiscouragedMembersAllowedIn, Is.EqualTo(new[] { "UIViewBase", "Game.Logging.Log" }));
+            Assert.That(settings.TestSupportAssemblies, Is.EqualTo(new[] { "*.Tests.Shared" }));
+        }
+
+        [TestCase("discouraged_members = UnityEngine.Debug.Log")]
+        [TestCase("discouraged_members = UnityEngine.Debug.Log ->")]
+        [TestCase("discouraged_members = Log -> Log.Info")]
+        [TestCase("discouraged_members = UnityEngine.Debug.Log(object -> Log.Info")]
+        [TestCase("discouraged_members = UnityEngine.Debug.Log -> Log.Info, Broken")]
+        public void BadDiscouragedMember_KeepsTheListEmpty_AndReportsTheLine(string line)
+        {
+            AnalyzerSettings settings = Parse(line);
+
+            Assert.That(settings.DiscouragedMembers, Is.Empty);
+            Assert.That(settings.Problems, Has.Length.EqualTo(1));
         }
 
         [TestCase("report_var = sometimes")]
