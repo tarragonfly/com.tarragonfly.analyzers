@@ -21,6 +21,12 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.MaxSwitchSectionStatements, Is.EqualTo(8));
             Assert.That(settings.AnalyzePaths, Is.EqualTo(new[] { "Assets/" }));
             Assert.That(settings.AllowedServiceSetTypes, Is.Empty);
+            Assert.That(settings.ReportVarIn, Is.EqualTo(CodeKind.None));
+            Assert.That(settings.BannedNameWords, Is.Empty);
+            Assert.That(settings.BannedMethodPrefixes, Is.Empty);
+            Assert.That(settings.BannedNameWordsSkipSerialized, Is.True);
+            Assert.That(settings.AsciiOnly, Is.False);
+            Assert.That(settings.NonAsciiAllowedIn, Is.Empty);
         }
 
         [Test]
@@ -43,6 +49,39 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.AllowedServiceSetTypes, Is.EqualTo(new[] { "Game.UI.ViewManager" }));
         }
 
+        [Test]
+        public void RuleSwitches_AreApplied_WhateverTheirCase()
+        {
+            AnalyzerSettings settings = Parse(
+                "report_var = Game\n" +
+                "banned_name_words = widget, flux capacitor\n" +
+                "banned_method_prefixes = frob\n" +
+                "banned_name_words_skip_serialized = False\n" +
+                "ascii_only = TRUE\n" +
+                "non_ascii_allowed_in = Assets/Game/Dialogue/*, Assets/Banners/*\n");
+
+            Assert.That(settings.Problems, Is.Empty);
+            Assert.That(settings.ReportVarIn, Is.EqualTo(CodeKind.Game));
+            Assert.That(settings.BannedNameWords, Is.EqualTo(new[] { "widget", "flux capacitor" }));
+            Assert.That(settings.BannedMethodPrefixes, Is.EqualTo(new[] { "frob" }));
+            Assert.That(settings.BannedNameWordsSkipSerialized, Is.False);
+            Assert.That(settings.AsciiOnly, Is.True);
+            Assert.That(settings.NonAsciiAllowedIn, Is.EqualTo(new[] { "Assets/Game/Dialogue/*", "Assets/Banners/*" }));
+        }
+
+        [TestCase("report_var = sometimes")]
+        [TestCase("ascii_only = yes")]
+        [TestCase("banned_name_words_skip_serialized = 1")]
+        public void BadWord_KeepsDefault_AndReportsTheLine(string line)
+        {
+            AnalyzerSettings settings = Parse(line);
+
+            Assert.That(settings.ReportVarIn, Is.EqualTo(CodeKind.None));
+            Assert.That(settings.AsciiOnly, Is.False);
+            Assert.That(settings.BannedNameWordsSkipSerialized, Is.True);
+            Assert.That(settings.Problems, Has.Length.EqualTo(1));
+        }
+
         [TestCase("max_parameters = seven")]
         [TestCase("max_parameters = 0")]
         [TestCase("max_parameters = -3")]
@@ -63,7 +102,9 @@ namespace TarragonFly.Analyzers.Tests
                     "max_parameters = 5\n" +
                     "  {|TF0000:max_parmeters = 5|}\n" +
                     "{|TF0000:max_nesting|}\n" +
-                    "{|TF0000:max_parameters = 6|}\n"
+                    "{|TF0000:max_parameters = 6|}\n" +
+                    "{|TF0000:report_var = sometimes|}\n" +
+                    "{|TF0000:ascii_only = yes|}\n"
             });
         }
 

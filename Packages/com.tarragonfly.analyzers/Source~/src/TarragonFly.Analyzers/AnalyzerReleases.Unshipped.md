@@ -30,6 +30,10 @@ TF1021 | Readability | Warning | IfAfterClosingBraceAnalyzer
 TF1022 | Readability | Warning | UnindentedBodyAnalyzer
 TF1023 | Readability | Warning | SplitOverloadsAnalyzer
 TF1024 | Readability | Warning | DuplicateMethodBodyAnalyzer
+TF1025 | Readability | Warning | VarHidesTypeAnalyzer
+TF1026 | Readability | Warning | BannedNameWordAnalyzer
+TF1027 | Readability | Warning | NonAsciiCharacterAnalyzer
+TF1028 | Readability | Warning | SuppressionWithoutReasonAnalyzer
 TF1500 | DeadCode | Warning | UnusedPrivateMemberAnalyzer
 TF1501 | DeadCode | Warning | UnusedLocalAnalyzer
 TF1502 | DeadCode | Warning | DeadStoreAnalyzer

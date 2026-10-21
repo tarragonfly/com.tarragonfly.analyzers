@@ -52,6 +52,19 @@ namespace TarragonFly.Analyzers.Settings
         public string LogPrefix { get; private set; } = "[{Type}]";
         public ImmutableArray<string> AllowedServiceSetTypes { get; private set; } = ImmutableArray<string>.Empty;
 
+        // Which kinds of code TF1025 reports 'var' in: none (the default), game or all.
+        public CodeKind ReportVarIn { get; private set; } = CodeKind.None;
+
+        // TF1026 is silent until the project lists words. Entries are matched as whole name tokens,
+        // so "flux capacitor" matches fluxCapacitor and FluxCapacitorId but not fluxCapacitors.
+        public ImmutableArray<string> BannedNameWords { get; private set; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<string> BannedMethodPrefixes { get; private set; } = ImmutableArray<string>.Empty;
+        public bool BannedNameWordsSkipSerialized { get; private set; } = true;
+
+        // TF1027 is off until ascii_only is set; non_ascii_allowed_in lists project-relative path globs it leaves alone.
+        public bool AsciiOnly { get; private set; }
+        public ImmutableArray<string> NonAsciiAllowedIn { get; private set; } = ImmutableArray<string>.Empty;
+
         public static bool IsSettingsFile(AdditionalText file)
         {
             return Path.GetFileName(file.Path).EndsWith(FileNameSuffix, StringComparison.OrdinalIgnoreCase);
@@ -130,6 +143,12 @@ namespace TarragonFly.Analyzers.Settings
                 case "editor_assemblies": EditorAssemblies = SplitList(value); return null;
                 case "log_prefix": LogPrefix = value; return null;
                 case "allowed_service_set_types": AllowedServiceSetTypes = SplitList(value); return null;
+                case "report_var": return ApplyCodeKind(key, value, v => ReportVarIn = v);
+                case "banned_name_words": BannedNameWords = SplitList(value); return null;
+                case "banned_method_prefixes": BannedMethodPrefixes = SplitList(value); return null;
+                case "banned_name_words_skip_serialized": return ApplyFlag(key, value, v => BannedNameWordsSkipSerialized = v);
+                case "ascii_only": return ApplyFlag(key, value, v => AsciiOnly = v);
+                case "non_ascii_allowed_in": NonAsciiAllowedIn = SplitList(value); return null;
                 default: return $"Unknown setting '{key}'. The package README lists the keys.";
             }
         }
@@ -142,6 +161,25 @@ namespace TarragonFly.Analyzers.Settings
             }
             set(limit);
             return null;
+        }
+
+        private static string ApplyFlag(string key, string value, Action<bool> set)
+        {
+            if (!bool.TryParse(value, out bool flag)) return $"'{key}' needs true or false, found '{value}'.";
+            set(flag);
+            return null;
+        }
+
+        // "none", "game" (runtime and editor assemblies) or "all" (tests too).
+        private static string ApplyCodeKind(string key, string value, Action<CodeKind> set)
+        {
+            switch (value.ToLowerInvariant())
+            {
+                case "none": set(CodeKind.None); return null;
+                case "game": set(CodeKind.Game); return null;
+                case "all": set(CodeKind.All); return null;
+                default: return $"'{key}' needs none, game or all, found '{value}'.";
+            }
         }
 
         private static ImmutableArray<string> SplitList(string value)

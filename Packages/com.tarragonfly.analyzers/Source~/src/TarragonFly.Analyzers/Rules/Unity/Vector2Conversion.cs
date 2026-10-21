@@ -24,14 +24,14 @@ public class Vector2ConversionAnalyzer : BaseVectorConversionAnalyzer
 
 	internal static readonly DiagnosticDescriptor Rule = Descriptors.Create(
 		id: RuleId,
-		title: Strings.Vector3ConversionDiagnosticTitle,
-		messageFormat: Strings.Vector3ConversionDiagnosticMessageFormat,
+		title: Strings.Vector2ConversionDiagnosticTitle,
+		messageFormat: Strings.Vector2ConversionDiagnosticMessageFormat,
 		area: DiagnosticCategory.Readability,
 		severity: DiagnosticSeverity.Info,
 		enabledByDefault: true,
 		checks: CodeKind.All,
 		sourceRule: "UNT0035",
-		description: Strings.Vector3ConversionDiagnosticDescription);
+		description: Strings.Vector2ConversionDiagnosticDescription);
 
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 

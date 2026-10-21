@@ -10,7 +10,7 @@ looks like this:
 Assets/Game/Player.cs(42,13): warning TF4008: Unity objects should not use null propagation.
 ```
 
-The 236 rules fall into two groups:
+The 240 rules fall into two groups:
 
 - **General C# checks that understand Unity.** Likely bugs, dead code, swallowed exceptions,
   hard-to-read methods, allocation-heavy LINQ and weak tests. Where a general-purpose analyzer
@@ -27,7 +27,7 @@ The 236 rules fall into two groups:
 A project that does not use UniTask, Odin Inspector or Init(args) can still use the package. Those
 rules look for the frameworks' types by name and have nothing to report when the types are absent.
 
-This is an early release (0.1.4). The rules are tested, but they are still being tuned against real
+This is an early release. The rules are tested, but they are still being tuned against real
 projects, so expect some of them to get narrower or wider between versions.
 
 ## Requirements
@@ -168,6 +168,9 @@ max_condition_operators = 5
 
 # TF1010: the save and load switches have one case per step and read fine up to 12 statements.
 max_switch_section_statements = 12
+
+# TF1025: write the type instead of var in game code; tests may keep var.
+report_var = game
 ```
 
 Each line is `key = value`. Lines starting with `#` are comments, and lists are comma separated.
@@ -189,6 +192,12 @@ and the setting keeps its default.
 | `max_cognitive_complexity` | 15 | TF1019 |
 | `log_prefix` | `[{Type}]` | Tag TF3100 expects at the start of log messages. Any name without spaces can stand in for `{Type}`, and the warning suggests the calling class. Without `{Type}`, messages have to start with it exactly |
 | `allowed_service_set_types` | none | Full names of types allowed to call Init(args)' `Service.Set` (TF6506) |
+| `report_var` | `none` | TF1025. `game` reports `var` in runtime and editor code, `all` in tests too |
+| `banned_name_words` | none | Words TF1026 reports in declared names and file names, matched as whole words of the name: `widget` matches `widgetCount` and `WidgetPool` but not `widgets`; a two-word entry matches its words side by side |
+| `banned_method_prefixes` | none | Words TF1026 reports when a method name starts with one, such as `handle` or `process` |
+| `banned_name_words_skip_serialized` | `true` | TF1026 leaves out fields Unity saves (`[SerializeField]`, or public on a Unity object or `[Serializable]` type), since renaming one loses the values stored in scenes, prefabs and assets |
+| `ascii_only` | `false` | TF1027 reports every character above U+007F in source files |
+| `non_ascii_allowed_in` | none | Project-relative path globs TF1027 leaves alone, such as `Assets/Game/Dialogue/*` |
 
 Some Unity 6000.0 patches have a bug that drops additional files. On those, add a `csc.rsp` next
 to an `.asmdef` with the line `-additionalfile:Assets/Settings.TarragonFly.Analyzers.additionalfile`.
@@ -238,6 +247,17 @@ hide what the code does, such as a statement indented as if it belonged to an un
 | TF1022 | Unbraced body not indented | all | |
 | TF1023 | Overloads are not together | all | |
 | TF1024 | Methods with identical bodies | all | |
+| TF1025 | 'var' hides the type (off by default) | all | |
+| TF1026 | Name uses a word the project avoids (needs `banned_name_words`) | all | |
+| TF1027 | Non-ASCII character in source (off by default) | all | |
+| TF1028 | Suppression without a reason | all | |
+
+TF1025 is off until `report_var` is set: `game` reports runtime and editor code, `all` reports tests
+too. TF1026 reports nothing until `banned_name_words` or `banned_method_prefixes` lists words, and
+leaves fields Unity saves alone while `banned_name_words_skip_serialized` is `true`. TF1027 is off
+until `ascii_only = true`; `non_ascii_allowed_in` lists path globs it skips. TF1028 wants a comment
+on the line of a `#pragma warning disable` or `[UsedImplicitly]`, or on the line above it, and a
+`Justification` on `[SuppressMessage]`.
 
 ### Dead code (TF1500s)
 
@@ -423,7 +443,7 @@ for Unity API mistakes.
 | TF4032 | Inefficient localPosition/localRotation assignment | all | UNT0032 |
 | TF4033 | Incorrect message case | all | UNT0033 |
 | TF4034 | A Vector3 can be converted into a Vector2. | all | UNT0034 |
-| TF4035 | A Vector3 can be converted into a Vector2. | all | UNT0035 |
+| TF4035 | A Vector2 can be converted into a Vector3. | all | UNT0035 |
 | TF4036 | Inefficient position/rotation read | all | UNT0036 |
 | TF4037 | Inefficient localPosition/localRotation read | all | UNT0037 |
 | TF4038 | WaitForSeconds caching | all | UNT0038 |

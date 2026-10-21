@@ -29,9 +29,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE
 ```
-
-## Planned
-
-Ports of CA1068, CA1806 and CA1861 are planned from Roslyn analyzers
-(Microsoft.CodeAnalysis.NetAnalyzers), https://github.com/dotnet/roslyn-analyzers, also MIT. Its
-notice gets added here with the first copied file.
