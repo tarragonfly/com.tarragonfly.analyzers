@@ -10,8 +10,25 @@ namespace TarragonFly.Analyzers.Tests.Rules.Async
         private const string Code = @"
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 
-static class CancellationExtensions
+namespace Cysharp.Threading.Tasks
+{
+    static class UnityAsyncExtensions
+    {
+        public static UniTask WithCancellation(this AsyncOperation operation, CancellationToken cancellationToken) => default;
+    }
+}
+
+namespace UnityEngine
+{
+    static class Frames
+    {
+        public static UniTask NextAsync(CancellationToken cancellationToken) => default;
+    }
+}
+
+static class FaderExtensions
 {
     public static UniTask WithCancellation(this UniTask task, CancellationToken ct) => task;
     public static UniTask<bool> SuppressCancellationThrow(this UniTask task) => default;
@@ -22,54 +39,64 @@ class Fader
     CancellationTokenSource cts;
 
     UniTask FadeAsync(CancellationToken ct) => UniTask.CompletedTask;
-    UniTask<int> CountAsync(CancellationToken ct) => default;
+    UniTask<int> CountAsync() => default;
     UniTask LoadAsync() => UniTask.CompletedTask;
 
-    async UniTask Run(CancellationToken ct, CancellationToken other)
+    async UniTask Run(CancellationToken ct, CancellationToken other, AsyncOperation loading)
     {
         await UniTask.Delay(500, ct);
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
         {|TF5105:ct.ThrowIfCancellationRequested()|};
-        await FadeAsync(ct);
+        await Frames.NextAsync(ct);
 
-        int count = await CountAsync(ct: ct);
+        int count = await CountAsync().AttachExternalCancellation(cancellationToken: ct);
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
-        count = await CountAsync(ct);
+        count = await CountAsync().AttachExternalCancellation(ct);
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
         await LoadAsync().AttachExternalCancellation(ct);
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
-        await LoadAsync().WithCancellation(ct);
+        await loading.WithCancellation(ct);
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
-        await FadeAsync(cts.Token);
+        await UniTask.NextFrame(cts.Token);
         {|TF5105:cts.Token.ThrowIfCancellationRequested()|};
+
+        // The project's own methods might return before looking at the token.
+        await FadeAsync(ct);
+        ct.ThrowIfCancellationRequested();
+
+        ct.ThrowIfCancellationRequested();
+        await FadeAsync(ct);
+
+        await LoadAsync().WithCancellation(ct);
+        ct.ThrowIfCancellationRequested();
 
         await LoadAsync();
         ct.ThrowIfCancellationRequested();
 
-        await FadeAsync(other);
+        await UniTask.Delay(500, other);
         ct.ThrowIfCancellationRequested();
 
-        await FadeAsync(ct).SuppressCancellationThrow();
+        await UniTask.Delay(500, ct).SuppressCancellationThrow();
         ct.ThrowIfCancellationRequested();
         count++;
 
-        await FadeAsync(ct);
+        await UniTask.Delay(500, ct);
         count++;
         ct.ThrowIfCancellationRequested();
 
         if (count > 0) ct.ThrowIfCancellationRequested();
-        await FadeAsync(ct);
+        await UniTask.Delay(500, ct);
     }
 
     async UniTask<int> Returned(CancellationToken ct)
     {
         {|TF5105:ct.ThrowIfCancellationRequested()|};
-        return await CountAsync(ct);
+        return await CountAsync().AttachExternalCancellation(ct);
     }
 }";
 

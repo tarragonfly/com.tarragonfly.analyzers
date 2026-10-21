@@ -7,7 +7,7 @@ settings keys.
 Install it in a game from the Package Manager with this git URL, keeping a release tag after the `#`:
 
 ```
-https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.0
+https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.1
 ```
 
 The rest of this repository is an empty Unity 6000.6 project, set up so the package stays embedded

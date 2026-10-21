@@ -46,13 +46,13 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.0
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.1
    ```
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.0"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.1"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -389,8 +389,12 @@ TF2511 pairs each `+=` or `AddListener` on another object's event with a `-=` or
 of the same event and handler somewhere in the type, or a `RemoveAllListeners` on that event. A
 subscription meant to last for the object's whole life gets a `#pragma warning disable TF2511`
 with a reason. Events the type raises itself, lambdas (TF2505 and TF4100), static constructors and
-`[RuntimeInitializeOnLoadMethod]` methods are left alone; UI Toolkit's `RegisterCallback` isn't
-covered.
+`[RuntimeInitializeOnLoadMethod]` methods are left alone. So are events of the component's own
+GameObject or its children, reached through `GetComponent`, `GetComponentInChildren`,
+`TryGetComponent`, `AddComponent`, `Transform.Find` or `GetChild`, directly or through locals and
+unsaved fields that only get such values. `AsyncOperation.completed` and Addressables'
+`AsyncOperationHandle.Completed` fire once, so they're skipped too. UI Toolkit's `Button.clicked`
+is skipped like `RegisterCallback`, which isn't covered.
 
 ### Silent failures, exceptions, logging and culture (TF3000s)
 

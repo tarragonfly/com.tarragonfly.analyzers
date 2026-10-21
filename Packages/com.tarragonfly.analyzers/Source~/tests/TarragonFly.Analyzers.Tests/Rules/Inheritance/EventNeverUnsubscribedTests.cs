@@ -192,6 +192,112 @@ static class Startup
 }");
         }
 
+        // Components on the subscriber's GameObject or under it are destroyed along with it.
+        [Test]
+        public void EventsOfTheOwnGameObject_AreNotReported()
+        {
+            AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
+using UnityEngine;
+using UnityEngine.UI;
+
+class VolumePanel : MonoBehaviour
+{
+    [SerializeField] Button savedButton;
+    Button closeButton;
+    Slider volume;
+    Toggle mute;
+    ScrollRect presets;
+    Transform options;
+    Button parentButton;
+    Button sharedButton;
+
+    void Awake()
+    {
+        closeButton = GetComponent<Button>();
+        options = transform.Find(""Options"");
+        volume = options.GetComponentInChildren<Slider>();
+        mute = gameObject.AddComponent<Toggle>();
+        TryGetComponent(out presets);
+        savedButton = GetComponent<Button>();
+        parentButton = GetComponentInParent<Button>();
+        sharedButton = GetComponent<Button>();
+    }
+
+    public void Share(Button button)
+    {
+        sharedButton = button;
+    }
+
+    void Start()
+    {
+        closeButton.onClick.AddListener(Close);
+        volume.onValueChanged.AddListener(SetVolume);
+        mute.onValueChanged.AddListener(SetMuted);
+        GetComponent<Button>().onClick.AddListener(Close);
+        if (TryGetComponent(out Slider own)) own.onValueChanged.AddListener(SetVolume);
+        Toggle[] items = presets.content.GetComponentsInChildren<Toggle>();
+        foreach (Toggle item in items) item.onValueChanged.AddListener(SetMuted);
+        items[0].onValueChanged.AddListener(SetMuted);
+
+        {|TF2511:savedButton.onClick.AddListener(Close)|};
+        {|TF2511:parentButton.onClick.AddListener(Close)|};
+        {|TF2511:sharedButton.onClick.AddListener(Close)|};
+        Button found = FindAnyObjectByType<Button>();
+        {|TF2511:found.onClick.AddListener(Close)|};
+        Button picked = GetComponent<Button>();
+        picked = found;
+        {|TF2511:picked.onClick.AddListener(Close)|};
+    }
+
+    void Close() { }
+    void SetVolume(float value) { }
+    void SetMuted(bool muted) { }
+}");
+        }
+
+        [Test]
+        public void LoadCompletionsAndUiToolkitClicks_AreNotReported()
+        {
+            AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
+using System;
+using UnityEngine;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
+
+namespace UnityEngine.ResourceManagement.AsyncOperations
+{
+    public struct AsyncOperationHandle<TObject>
+    {
+        public event Action<AsyncOperationHandle<TObject>> Completed;
+    }
+}
+
+class Download
+{
+    public event Action Completed;
+    public event Action clicked;
+}
+
+class OptionsMenu : MonoBehaviour
+{
+    Download download;
+
+    void Open(Button close, AsyncOperationHandle<GameObject> prefab)
+    {
+        SceneManager.LoadSceneAsync(""Options"").completed += OnSceneLoaded;
+        prefab.Completed += OnPrefabLoaded;
+        close.clicked += Close;
+        {|TF2511:download.Completed += Close|};
+        {|TF2511:download.clicked += Close|};
+    }
+
+    void OnSceneLoaded(AsyncOperation operation) { }
+    void OnPrefabLoaded(AsyncOperationHandle<GameObject> handle) { }
+    void Close() { }
+}");
+        }
+
         [Test]
         public void TestCode_IsCheckedToo()
         {

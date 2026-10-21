@@ -70,6 +70,7 @@ namespace Cysharp.Threading.Tasks
         public static UniTask Preserve(this UniTask task) => task;
         public static UniTask<T> Preserve<T>(this UniTask<T> task) => task;
         public static UniTask AttachExternalCancellation(this UniTask task, CancellationToken cancellationToken) => task;
+        public static UniTask<T> AttachExternalCancellation<T>(this UniTask<T> task, CancellationToken cancellationToken) => task;
         public static System.Collections.IEnumerator ToCoroutine(this UniTask task) => null;
     }
 }

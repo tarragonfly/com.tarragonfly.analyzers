@@ -29,6 +29,7 @@ namespace UnityEngine
         public T GetComponentInChildren<T>() => default;
         public T GetComponentInParent<T>() => default;
         public T[] GetComponents<T>() => null;
+        public T[] GetComponentsInChildren<T>() => null;
         public bool TryGetComponent<T>(out T component) { component = default; return false; }
     }
 
@@ -40,6 +41,10 @@ namespace UnityEngine
         public Transform Find(string name) => null;
         public Transform GetChild(int index) => null;
         public void SetParent(Transform parent) { }
+    }
+
+    public class RectTransform : Transform
+    {
     }
 
     public class Behaviour : Component
@@ -227,6 +232,21 @@ namespace UnityEngine.UI
 
         public SliderEvent onValueChanged { get; set; } = new SliderEvent();
     }
+
+    public class Toggle : MonoBehaviour
+    {
+        public class ToggleEvent : Events.UnityEvent<bool>
+        {
+        }
+
+        public ToggleEvent onValueChanged { get; set; } = new ToggleEvent();
+    }
+
+    public class ScrollRect : MonoBehaviour
+    {
+        public RectTransform content { get; set; }
+        public RectTransform viewport { get; set; }
+    }
 }
 
 namespace UnityEngine.SceneManagement
@@ -242,6 +262,7 @@ namespace UnityEngine
 {
     public class AsyncOperation
     {
+        public event Action<AsyncOperation> completed;
     }
 }
 
