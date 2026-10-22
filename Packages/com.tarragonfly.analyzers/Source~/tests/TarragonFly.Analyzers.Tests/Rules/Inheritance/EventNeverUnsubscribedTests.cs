@@ -317,8 +317,9 @@ class ScenarioWindow
 }", new SnippetAssembly { AssemblyName = "Game.Editor", EditorOnly = true });
         }
 
+        // Tests create and destroy what they subscribe to in SetUp and TearDown.
         [Test]
-        public void TestCode_IsCheckedToo()
+        public void TestCode_IsNotChecked()
         {
             AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
 using System;
@@ -335,11 +336,109 @@ class DoorTests
 
     public void SetUp()
     {
-        {|TF2511:door.Opened += Count|};
+        door.Opened += Count;
     }
 
     void Count() => opened++;
 }", SnippetAssembly.Tests());
+        }
+
+        // Nothing but the component holds an object it made with new, so the pair dies together.
+        [Test]
+        public void ObjectsTheComponentCreates_AreNotReported()
+        {
+            AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
+using System;
+using UnityEngine;
+
+class Door
+{
+    public event Action Opened;
+}
+
+class DoorInput : MonoBehaviour
+{
+    Door front;
+    Door back;
+    Door shared;
+
+    public void Share(Door door) => shared = door;
+
+    void OnEnable()
+    {
+        front = new Door();
+        front.Opened += Open;
+        back = new Door();
+        back.Opened += Open;
+        Door local = new Door();
+        local.Opened += Open;
+        shared = new Door();
+        {|TF2511:shared.Opened += Open|};
+        front.Paint();
+        back?.Paint();
+    }
+
+    void OnDisable()
+    {
+        front = back = null;
+        shared = default;
+    }
+
+    void Open() { }
+}
+
+static class DoorPaint
+{
+    public static void Paint(this Door door) { }
+}");
+        }
+
+        // Once the object is handed elsewhere, or is a Unity object living in the scene, it can
+        // outlive the component.
+        [Test]
+        public void CreatedObjectsPassedOnOrInTheScene_AreReported()
+        {
+            AnalyzerVerifier.Verify(new EventNeverUnsubscribedAnalyzer(), @"
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+class Door
+{
+    public static readonly List<Door> All = new List<Door>();
+    public event Action Opened;
+}
+
+class Lever : MonoBehaviour
+{
+    public event Action Pulled;
+}
+
+class DoorInput : MonoBehaviour
+{
+    Door kept;
+    Action later;
+
+    void OnEnable()
+    {
+        Door listed = new Door();
+        Door.All.Add(listed);
+        {|TF2511:listed.Opened += Open|};
+        Door captured = new Door();
+        later = () => captured.Opened -= Close;
+        {|TF2511:captured.Opened += Open|};
+        kept = new Door();
+        {|TF2511:kept.Opened += Open|};
+        Lever lever = new Lever();
+        {|TF2511:lever.Pulled += Open|};
+    }
+
+    void Register() => Door.All.Add(kept);
+
+    void Open() { }
+
+    void Close() { }
+}");
         }
     }
 }

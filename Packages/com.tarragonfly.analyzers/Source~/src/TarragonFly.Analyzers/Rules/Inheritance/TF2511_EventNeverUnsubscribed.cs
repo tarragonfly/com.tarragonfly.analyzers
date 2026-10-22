@@ -34,12 +34,19 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     //   AddComponent, Transform.Find or GetChild, ScrollRect.content, array elements and foreach,
     //   directly or through locals and fields that only ever get such values. Fields Unity saves
     //   are left out, since the Inspector can point them anywhere, and so is GetComponentInParent;
+    // - objects the type creates itself with new, such as an InputAction made in OnEnable, held in a
+    //   local or in fields that only ever get such values (a "= null" reset doesn't count against
+    //   them), since nothing else holds on to them. Only while the object stays private, though: a
+    //   Unity object made with new lives in the scene, and an object passed as an argument, stored,
+    //   returned or captured by a lambda can outlive the type, so those are reported. Calling its
+    //   methods, extension methods too, doesn't count as passing it on;
     // - AsyncOperation.completed and Addressables' AsyncOperationHandle.Completed, which fire once
     //   when the load finishes and are dropped with the operation, and EditorApplication.delayCall,
     //   which Unity clears before calling it;
     // - UI Toolkit's Button.clicked, like RegisterCallback, which isn't covered either.
     // A subscription meant to last for the object's whole life gets a suppression with a reason.
-    // Reported on the subscription.
+    // Reported on the subscription. Game code only: tests create and destroy what they subscribe to
+    // in SetUp and TearDown.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class EventNeverUnsubscribedAnalyzer : ScopedAnalyzer
     {
@@ -48,7 +55,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             "Event subscribed but never unsubscribed",
             "'{0}' is subscribed here but never unsubscribed in this type; pair it in the matching lifecycle method",
             "Inheritance",
-            CodeKind.All,
+            CodeKind.Game,
             extraTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
 
         // Instance methods that return the object they're called on, a component on it, or a child of it.
@@ -64,7 +71,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             ConcurrentBag<Subscription> subscriptions = new ConcurrentBag<Subscription>();
             // Keys are "type|event|handler"; "type|event|*" is a RemoveAllListeners on that event.
             ConcurrentDictionary<string, bool> unsubscribed = new ConcurrentDictionary<string, bool>();
-            FieldAssignments fieldAssignments = new FieldAssignments();
+            ComponentFieldValues fieldValues = new ComponentFieldValues();
 
             start.RegisterOperationAction(context =>
             {
@@ -101,28 +108,30 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             start.RegisterOperationAction(context =>
             {
                 ISimpleAssignmentOperation assignment = (ISimpleAssignmentOperation)context.Operation;
-                if (Unwrap(assignment.Target) is IFieldReferenceOperation field) fieldAssignments.Add(field.Field, IsThis(field.Instance), assignment.Value, context.ContainingSymbol);
+                if (Unwrap(assignment.Target) is IFieldReferenceOperation field) fieldValues.AddAssignment(field.Field, IsThis(field.Instance), assignment.Value, context.ContainingSymbol);
             }, OperationKind.SimpleAssignment);
 
             start.RegisterOperationAction(context =>
             {
                 IFieldInitializerOperation initializer = (IFieldInitializerOperation)context.Operation;
-                foreach (IFieldSymbol field in initializer.InitializedFields) fieldAssignments.Add(field, true, initializer.Value, context.ContainingSymbol);
+                foreach (IFieldSymbol field in initializer.InitializedFields) fieldValues.AddAssignment(field, true, initializer.Value, context.ContainingSymbol);
             }, OperationKind.FieldInitializer);
 
             // "TryGetComponent(out button)" into a field.
             start.RegisterOperationAction(context =>
             {
                 IArgumentOperation argument = (IArgumentOperation)context.Operation;
-                if (IsOutOrRef(argument) && Unwrap(argument.Value) is IFieldReferenceOperation field) fieldAssignments.Add(field.Field, IsThis(field.Instance), argument.Parent, context.ContainingSymbol);
+                if (IsOutOrRef(argument) && Unwrap(argument.Value) is IFieldReferenceOperation field) fieldValues.AddAssignment(field.Field, IsThis(field.Instance), argument.Parent, context.ContainingSymbol);
             }, OperationKind.Argument);
+
+            start.RegisterOperationAction(context => fieldValues.AddRead((IFieldReferenceOperation)context.Operation), OperationKind.FieldReference);
 
             start.RegisterCompilationEndAction(context =>
             {
                 foreach (Subscription subscription in subscriptions)
                 {
                     if (unsubscribed.ContainsKey(subscription.Key) || unsubscribed.ContainsKey(subscription.AnyHandlerKey)) continue;
-                    if (subscription.SourceFields != null && subscription.SourceFields.All(fieldAssignments.HoldsOwnHierarchy)) continue;
+                    if (subscription.SourceFields != null && subscription.SourceFields.All(fieldValues.HoldsOwnHierarchy)) continue;
                     if (scope.IsAnalyzed(subscription.Location.SourceTree)) context.ReportDiagnostic(Diagnostic.Create(Rule, subscription.Location, subscription.EventName));
                 }
             });
@@ -237,9 +246,10 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             return member is IEventSymbol click && click.Name == "clicked" && SymbolNames.IsOrDerivesFrom(click.ContainingType, "UnityEngine.UIElements.Button");
         }
 
-        // Whether value is the component itself, its GameObject, or a component on it or on one of
-        // its children. Fields of the component read along the way go into sourceFields, and the
-        // answer only holds if each of them does too, which is known once every assignment is seen.
+        // Whether value is the component itself, its GameObject, a component on it or on one of its
+        // children, or an object other than a Unity object created right there with new. Fields of the
+        // component read along the way go into sourceFields, and the answer only holds if each of them
+        // does too, which is known once every assignment is seen.
         // localsInProgress stops a local assigned from itself from looping.
         private static bool IsFromOwnHierarchy(IOperation value, INamedTypeSymbol type, List<IFieldSymbol> sourceFields, HashSet<ILocalSymbol> localsInProgress)
         {
@@ -250,6 +260,8 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 {
                     case IInstanceReferenceOperation _:
                         return IsThis(value) && SymbolNames.IsOrDerivesFrom(type, "UnityEngine.Component");
+                    case IObjectCreationOperation creation:
+                        return !SymbolNames.IsOrDerivesFrom(creation.Type, "UnityEngine.Object");
                     case IInvocationOperation call when IsOwnHierarchyLookup(call.TargetMethod):
                         value = call.Instance;
                         continue;
@@ -270,7 +282,8 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             }
         }
 
-        // Every value the local gets in its method has to qualify, and it has to get at least one.
+        // Every value the local gets in its method has to qualify, and it has to get at least one. A
+        // local holding an object made with new also has to keep it to itself.
         private static bool LocalIsFromOwnHierarchy(ILocalReferenceOperation reference, INamedTypeSymbol type, List<IFieldSymbol> sourceFields, HashSet<ILocalSymbol> localsInProgress)
         {
             if (!localsInProgress.Add(reference.Local)) return false;
@@ -278,6 +291,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             while (body.Parent != null) body = body.Parent;
 
             bool assigned = false;
+            bool created = false;
             foreach (IOperation operation in body.Descendants())
             {
                 IOperation source = LocalValueSource(operation, reference.Local);
@@ -288,9 +302,53 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                     break;
                 }
                 assigned = true;
+                created |= Unwrap(source) is IObjectCreationOperation;
             }
             localsInProgress.Remove(reference.Local);
-            return assigned;
+            return assigned && !(created && LocalIsPassedOn(body, reference.Local));
+        }
+
+        // A lambda or local function that captures the local can keep its object alive, so any use
+        // inside one counts.
+        private static bool LocalIsPassedOn(IOperation body, ILocalSymbol local)
+        {
+            foreach (ILocalReferenceOperation use in body.Descendants().OfType<ILocalReferenceOperation>())
+            {
+                if (!SymbolEqualityComparer.Default.Equals(use.Local, local)) continue;
+                if (IsInsideFunction(use) || !OnlyUsesOrReplaces(use)) return true;
+            }
+            return false;
+        }
+
+        private static bool IsInsideFunction(IOperation operation)
+        {
+            for (IOperation parent = operation.Parent; parent != null; parent = parent.Parent)
+            {
+                if (parent is IAnonymousFunctionOperation || parent is ILocalFunctionOperation) return true;
+            }
+            return false;
+        }
+
+        // A read of a variable that calls the object's members or extension methods, compares it or
+        // writes a new value, so the object itself goes nowhere else.
+        private static bool OnlyUsesOrReplaces(IOperation reference)
+        {
+            IOperation read = reference;
+            while (read.Parent is IConversionOperation || read.Parent is IParenthesizedOperation) read = read.Parent;
+            switch (read.Parent)
+            {
+                case IMemberReferenceOperation member: return member.Instance == read;
+                case IInvocationOperation call: return call.Instance == read;
+                case IConditionalAccessOperation access: return access.Operation == read;
+                case ISimpleAssignmentOperation assignment: return assignment.Target == read;
+                case IBinaryOperation _:
+                case IIsPatternOperation _:
+                    return true;
+                case IArgumentOperation argument:
+                    return argument.Parent is IInvocationOperation extension && extension.TargetMethod.IsExtensionMethod && argument.Parameter?.Ordinal == 0;
+                default:
+                    return false;
+            }
         }
 
         // What operation gives the local a value: its initializer, a foreach collection, the right
@@ -364,19 +422,23 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             return new HashSet<ILocalSymbol>(SymbolEqualityComparer.Default);
         }
 
-        // Every value assigned to a component's fields, to tell at compilation end which fields
-        // only ever hold the component's own GameObject or something on it or under it.
-        private sealed class FieldAssignments
+        // Every value assigned to a component's fields, and which fields get read somewhere other than
+        // their own members, to tell at compilation end which fields only ever hold the component's own
+        // GameObject, something on it or under it, or an object it made and kept to itself.
+        private sealed class ComponentFieldValues
         {
             // Per field, one list per qualifying assignment: the fields that assignment read its value from.
             private readonly ConcurrentDictionary<IFieldSymbol, ConcurrentBag<List<IFieldSymbol>>> ownHierarchyAssignments =
                 new ConcurrentDictionary<IFieldSymbol, ConcurrentBag<List<IFieldSymbol>>>(SymbolEqualityComparer.Default);
             private readonly ConcurrentDictionary<IFieldSymbol, bool> otherAssignments = new ConcurrentDictionary<IFieldSymbol, bool>(SymbolEqualityComparer.Default);
+            private readonly ConcurrentDictionary<IFieldSymbol, bool> createdAssignments = new ConcurrentDictionary<IFieldSymbol, bool>(SymbolEqualityComparer.Default);
+            private readonly ConcurrentDictionary<IFieldSymbol, bool> passedOn = new ConcurrentDictionary<IFieldSymbol, bool>(SymbolEqualityComparer.Default);
 
-            public void Add(IFieldSymbol field, bool onThisObject, IOperation value, ISymbol containingSymbol)
+            public void AddAssignment(IFieldSymbol field, bool onThisObject, IOperation value, ISymbol containingSymbol)
             {
                 field = field.OriginalDefinition;
-                if (field.IsStatic || !SymbolNames.IsOrDerivesFrom(field.ContainingType, "UnityEngine.Component")) return;
+                if (!IsComponentField(field) || IsNullOrDefault(value)) return;
+                if (Unwrap(value) is IObjectCreationOperation) createdAssignments[field] = true;
                 List<IFieldSymbol> sourceFields = new List<IFieldSymbol>();
                 if (onThisObject && ContainingType(containingSymbol) is INamedTypeSymbol type && IsFromOwnHierarchy(value, type, sourceFields, NewLocalSet()))
                 {
@@ -388,15 +450,36 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 }
             }
 
+            // Lambdas don't count here: they capture the component, not the object in the field.
+            public void AddRead(IFieldReferenceOperation reference)
+            {
+                IFieldSymbol field = reference.Field.OriginalDefinition;
+                if (IsComponentField(field) && (!IsThis(reference.Instance) || !OnlyUsesOrReplaces(reference))) passedOn[field] = true;
+            }
+
             public bool HoldsOwnHierarchy(IFieldSymbol field)
             {
                 return HoldsOwnHierarchy(field, new HashSet<IFieldSymbol>(SymbolEqualityComparer.Default));
+            }
+
+            private static bool IsComponentField(IFieldSymbol field)
+            {
+                return !field.IsStatic && SymbolNames.IsOrDerivesFrom(field.ContainingType, "UnityEngine.Component");
+            }
+
+            // "a = null", "a = default", or "a = b = null", which clears the field rather than pointing it elsewhere.
+            private static bool IsNullOrDefault(IOperation value)
+            {
+                value = Unwrap(value);
+                while (value is ISimpleAssignmentOperation chained) value = Unwrap(chained.Value);
+                return value is IDefaultValueOperation || (value != null && value.ConstantValue.HasValue && value.ConstantValue.Value == null);
             }
 
             // fieldsInProgress stops "child = child.GetChild(0)" from looping; such a field doesn't qualify.
             private bool HoldsOwnHierarchy(IFieldSymbol field, HashSet<IFieldSymbol> fieldsInProgress)
             {
                 if (otherAssignments.ContainsKey(field) || Frameworks.Unity.IsSavedByUnity(field)) return false;
+                if (createdAssignments.ContainsKey(field) && passedOn.ContainsKey(field)) return false;
                 if (!ownHierarchyAssignments.TryGetValue(field, out ConcurrentBag<List<IFieldSymbol>> assignments)) return false;
                 if (!fieldsInProgress.Add(field)) return false;
                 bool holds = assignments.All(sourceFields => sourceFields.All(source => HoldsOwnHierarchy(source, fieldsInProgress)));

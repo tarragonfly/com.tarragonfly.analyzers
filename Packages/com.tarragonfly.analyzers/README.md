@@ -404,7 +404,7 @@ expects.
 | TF2508 | Hiding member is less visible than the base member | all | |
 | TF2509 | Method accidentally hides a base method | all | |
 | TF2510 | Field differs from a base class field only by case | all | |
-| TF2511 | Event subscribed but never unsubscribed | all | |
+| TF2511 | Event subscribed but never unsubscribed | game | |
 
 TF2511 pairs each `+=` or `AddListener` on another object's event with a `-=` or `RemoveListener`
 of the same event and handler somewhere in the type, or a `RemoveAllListeners` on that event. A
@@ -413,7 +413,10 @@ with a reason. Events the type raises itself, lambdas (TF2505 and TF4100), stati
 `[RuntimeInitializeOnLoadMethod]` methods are left alone. So are events of the component's own
 GameObject or its children, reached through `GetComponent`, `GetComponentInChildren`,
 `TryGetComponent`, `AddComponent`, `Transform.Find` or `GetChild`, directly or through locals and
-unsaved fields that only get such values. `AsyncOperation.completed` and Addressables'
+unsaved fields that only get such values, and objects the type creates itself with `new`, such as an
+`InputAction` made in `OnEnable`, as long as it isn't a Unity object and is never passed as an argument,
+stored, returned or captured by a lambda; a `= null` reset doesn't count against those fields. Test code isn't
+checked, since tests create and destroy what they subscribe to. `AsyncOperation.completed` and Addressables'
 `AsyncOperationHandle.Completed` fire once, so they're skipped too. `EditorApplication.delayCall` fires
 once and Unity clears it before the call, so it is skipped too. UI Toolkit's `Button.clicked` is
 skipped like `RegisterCallback`, which isn't covered.
