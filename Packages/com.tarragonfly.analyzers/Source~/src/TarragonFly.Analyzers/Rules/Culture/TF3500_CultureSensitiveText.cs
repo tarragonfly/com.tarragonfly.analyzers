@@ -3,7 +3,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.Culture
 {
@@ -16,8 +15,8 @@ namespace TarragonFly.Analyzers.Rules.Culture
     //
     // Checked: string ToUpper() and ToLower(); string IndexOf, LastIndexOf and CompareTo given a
     // string, and string.Compare, without a StringComparison or culture; ToString() without arguments
-    // on float, double, decimal and DateTime. int.ToString, StartsWith and formats without a culture
-    // aren't checked. Reported on the method name. Game code only.
+    // on float, double, decimal and DateTime. int.ToString isn't checked; StartsWith and EndsWith are
+    // TF3104's job and formats without a culture TF3103's. Reported on the method name. Game code only.
     //
     // Calls through "?." count too, as in "name?.ToLower()".
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -58,9 +57,9 @@ namespace TarragonFly.Analyzers.Rules.Culture
                         case "IndexOf":
                         case "LastIndexOf":
                         case "CompareTo":
-                            return method.Parameters.Length > 0 && method.Parameters[0].Type.SpecialType == SpecialType.System_String && !TakesComparison(method);
+                            return method.Parameters.Length > 0 && method.Parameters[0].Type.SpecialType == SpecialType.System_String && !CultureArguments.TakesComparison(method);
                         case "Compare":
-                            return method.IsStatic && !TakesComparison(method);
+                            return method.IsStatic && !CultureArguments.TakesComparison(method);
                         default:
                             return false;
                     }
@@ -72,17 +71,6 @@ namespace TarragonFly.Analyzers.Rules.Culture
                 default:
                     return false;
             }
-        }
-
-        // A StringComparison, CultureInfo or CompareOptions parameter.
-        private static bool TakesComparison(IMethodSymbol method)
-        {
-            foreach (IParameterSymbol parameter in method.Parameters)
-            {
-                if (SymbolNames.IsNamed(parameter.Type, "System.StringComparison") || SymbolNames.IsNamed(parameter.Type, "System.Globalization.CultureInfo")
-                    || SymbolNames.IsNamed(parameter.Type, "System.Globalization.CompareOptions")) return true;
-            }
-            return false;
         }
     }
 }

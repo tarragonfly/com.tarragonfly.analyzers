@@ -40,20 +40,9 @@ namespace TarragonFly.Analyzers.Rules.Culture
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
                 INamedTypeSymbol type = operation.TargetMethod.ContainingType;
                 if (!SymbolNames.IsNamed(type, "System.DateTime") && !SymbolNames.IsNamed(type, "System.DateTimeOffset") && !SymbolNames.IsNamed(type, "System.TimeSpan")) return;
-
-                foreach (IArgumentOperation argument in operation.Arguments)
-                {
-                    if (!SymbolNames.IsNamed(argument.Parameter.Type, "System.IFormatProvider") || argument.ArgumentKind == ArgumentKind.DefaultValue) continue;
-                    if (!(argument.Value.Syntax is ExpressionSyntax value) || !IsNull(value)) return;
-                }
+                if (CultureArguments.PassesFormatProvider(operation)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation(), type.Name, name));
             }), SyntaxKind.InvocationExpression);
-        }
-
-        private static bool IsNull(ExpressionSyntax value)
-        {
-            while (value is ParenthesizedExpressionSyntax parenthesized) value = parenthesized.Expression;
-            return value.IsKind(SyntaxKind.NullLiteralExpression);
         }
     }
 }

@@ -422,8 +422,8 @@ skipped like `RegisterCallback`, which isn't covered.
 ### Silent failures, exceptions, logging and culture (TF3000s)
 
 Places where a problem disappears instead of being seen: a swallowed exception, a `Console.WriteLine`
-that no Unity log collects, a log line with no tag to search for, a string comparison that changes
-with the player's language.
+that no Unity log collects, a log line with no tag to search for, a string comparison or number format
+that changes with the player's language.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
@@ -437,6 +437,10 @@ with the player's language.
 | TF3052 | Exception thrown from a member that shouldn't throw | all | |
 | TF3053 | Argument check in an iterator runs late | all | |
 | TF3100 | Log message without a tag | game | |
+| TF3102 | Number parsed without a culture | all | CA1305 |
+| TF3103 | Number or date turned into text without a culture | game | CA1305 |
+| TF3104 | Prefix or suffix check that depends on the player's culture | game | CA1310 |
+| TF3105 | Character case changed with the player's culture | game | CA1304 |
 | TF3500 | Text operation that depends on the player's culture | game | |
 | TF3501 | Date or time parsed without a culture | all | |
 
