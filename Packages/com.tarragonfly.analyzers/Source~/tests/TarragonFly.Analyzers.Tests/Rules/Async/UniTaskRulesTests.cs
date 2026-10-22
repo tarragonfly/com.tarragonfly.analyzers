@@ -225,7 +225,6 @@ class Door : MonoBehaviour
 {
     UniTask {|TF5102:Open|}(CancellationToken ct) => default;
     UniTask<int> {|TF5102:Count|}() => default;
-    async UniTaskVoid {|TF5102:Slam|}() { await UniTask.Yield(); }
     Task {|TF5102:Save|}() => Task.CompletedTask;
     void {|TF5102:LoadAsync|}() { }
     int {|TF5102:CountAsync|}() => 0;
@@ -233,6 +232,8 @@ class Door : MonoBehaviour
     UniTask OpenAsync(CancellationToken ct) => default;
     async UniTaskVoid Start() { await UniTask.Yield(); }
     async UniTaskVoid OnEnable() { await UniTask.Yield(); }
+    async UniTaskVoid Slam() { await UniTask.Yield(); }
+    async UniTaskVoid ShakeAsync() { await UniTask.Yield(); }
     async IAsyncEnumerable<int> StreamAsync() { await Task.Yield(); yield return 1; }
     Waiter SpecialAsync() => default;
     static Task Main() => Task.CompletedTask;

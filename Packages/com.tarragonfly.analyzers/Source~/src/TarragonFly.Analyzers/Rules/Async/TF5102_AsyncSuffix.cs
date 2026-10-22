@@ -9,7 +9,7 @@ using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.Async
 {
-    // TF5102: a method that returns UniTask, UniTaskVoid, Task or ValueTask without the "Async" suffix,
+    // TF5102: a method that returns UniTask, Task or ValueTask without the "Async" suffix,
     // as in "UniTask FadeIn(CancellationToken ct)", or one named "...Async" that returns something
     // else, as in "void LoadAsync()".
     //
@@ -18,9 +18,9 @@ namespace TarragonFly.Analyzers.Rules.Async
     // comes next. A suffix on a method that isn't awaitable sends the caller looking for a task that
     // isn't there.
     //
-    // UniTask, UniTask<T>, UniTaskVoid, Task, Task<T>, ValueTask and ValueTask<T> need the suffix. Any
-    // return type with a GetAwaiter() method, and IAsyncEnumerable<T>, may carry it without needing
-    // it. Fine without the suffix: overrides and interface implementations, whose name is set
+    // UniTask, UniTask<T>, Task, Task<T>, ValueTask and ValueTask<T> need the suffix. UniTaskVoid,
+    // any return type with a GetAwaiter() method, and IAsyncEnumerable<T> may carry it without needing
+    // it: a UniTaskVoid method can't be awaited and runs to the end without a Forget(). Fine without the suffix: overrides and interface implementations, whose name is set
     // elsewhere; Unity messages on MonoBehaviour, ScriptableObject, editor and other Unity types, such
     // as "async UniTaskVoid Start()"; test and setup methods; and Main. Local functions and lambdas
     // aren't checked. Reported on the method name.
@@ -57,6 +57,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (BaseMembers.IsOverrideOrImplementation(method)) return;
 
                 bool named = method.Name.EndsWith(Suffix, StringComparison.Ordinal) && method.Name.Length > Suffix.Length;
+                if (SymbolNames.IsNamed(method.ReturnType, "Cysharp.Threading.Tasks.UniTaskVoid")) return;
                 if (UniTask.IsAwaitable(method.ReturnType))
                 {
                     if (named || IsNameFixedElsewhere(method)) return;
