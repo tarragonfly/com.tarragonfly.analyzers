@@ -75,6 +75,16 @@ class Fader
         string text = count.ToString();
         await count;
     }
+
+    async UniTask MaybeReassignedThroughAConditionalRef(bool replace)
+    {
+        UniTask<int> first = CountAsync();
+        UniTask<int> second = CountAsync();
+        await first;
+        (replace ? ref first : ref second) = default;
+        await {|TF5100:first|};
+        await second;
+    }
 }");
         }
 
@@ -82,12 +92,14 @@ class Fader
         public void TaskUsedOnceOnEachPath_IsFine()
         {
             AnalyzerVerifier.Verify(new TaskAwaitedTwiceAnalyzer(), @"
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 
 class Fader
 {
     UniTask FadeAsync() => UniTask.CompletedTask;
+    UniTask PlayAsync(List<int> steps) => default;
 
     async UniTask Branches(bool quick)
     {
@@ -102,6 +114,14 @@ class Fader
         await fade;
         fade = FadeAsync();
         await fade;
+    }
+
+    async UniTask ReassignedFromACallWithAListInitializer()
+    {
+        UniTask playing = PlayAsync(new List<int> { 1 });
+        await playing;
+        playing = PlayAsync(new List<int> { 2 });
+        playing.Forget();
     }
 
     async UniTask NewEachPass()

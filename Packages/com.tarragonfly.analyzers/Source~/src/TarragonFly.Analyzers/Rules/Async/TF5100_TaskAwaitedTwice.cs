@@ -182,14 +182,39 @@ namespace TarragonFly.Analyzers.Rules.Async
             return false;
         }
 
-        private static bool Writes(IOperation operation, ISymbol variable)
+        private static bool Writes(IOperation operation, ISymbol variable, HashSet<CaptureId> captures)
         {
             foreach (IOperation node in operation.DescendantsAndSelf())
             {
-                if (node is IAssignmentOperation assignment && References(assignment.Target, variable)) return true;
+                if (node is IAssignmentOperation assignment && IsVariableOrItsCapture(assignment.Target, variable, captures)) return true;
                 if (node is IArgumentOperation argument && argument.Parameter?.RefKind != RefKind.None && References(argument.Value, variable)) return true;
             }
             return false;
+        }
+
+        // When the right side of "playing = PlayAsync(new List<T> { ... })" is split into several
+        // operations, the graph captures the target first and assigns through the capture. A capture
+        // that can hold another variable too, as in "(replace ? ref first : ref second) = default",
+        // doesn't count, since the assignment may not touch this one.
+        private static HashSet<CaptureId> CapturesOf(ControlFlowGraph graph, ISymbol variable)
+        {
+            HashSet<CaptureId> captures = new HashSet<CaptureId>();
+            HashSet<CaptureId> capturesOfOtherValues = new HashSet<CaptureId>();
+            foreach (BasicBlock block in graph.Blocks)
+            {
+                foreach (IFlowCaptureOperation capture in OperationsOf(block).SelectMany(o => o.DescendantsAndSelf()).OfType<IFlowCaptureOperation>())
+                {
+                    if (References(capture.Value, variable)) captures.Add(capture.Id);
+                    else capturesOfOtherValues.Add(capture.Id);
+                }
+            }
+            captures.ExceptWith(capturesOfOtherValues);
+            return captures;
+        }
+
+        private static bool IsVariableOrItsCapture(IOperation target, ISymbol variable, HashSet<CaptureId> captures)
+        {
+            return References(target, variable) || (target is IFlowCaptureReferenceOperation capture && captures.Contains(capture.Id));
         }
 
         private static bool IsEverPreserved(ControlFlowGraph graph, ISymbol variable)
@@ -224,15 +249,16 @@ namespace TarragonFly.Analyzers.Rules.Async
                 break;
             }
             if (startBlock == null) return null;
+            HashSet<CaptureId> captures = CapturesOf(graph, variable);
 
             // The rest of the operation that holds the first use, then the rest of its block.
             List<IOperation> inFirst = UsesUpIn(startOperations[startIndex], variable).ToList();
             int position = inFirst.IndexOf(first);
             if (position >= 0 && position + 1 < inFirst.Count) return inFirst[position + 1];
-            if (Writes(startOperations[startIndex], variable)) return null;
+            if (Writes(startOperations[startIndex], variable, captures)) return null;
             for (int i = startIndex + 1; i < startOperations.Count; i++)
             {
-                IOperation found = FirstUseOrStop(startOperations[i], variable, out bool stop);
+                IOperation found = FirstUseOrStop(startOperations[i], variable, captures, out bool stop);
                 if (found != null) return found;
                 if (stop) return null;
             }
@@ -247,7 +273,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 bool stopped = false;
                 foreach (IOperation operation in OperationsOf(block))
                 {
-                    IOperation found = FirstUseOrStop(operation, variable, out bool stop);
+                    IOperation found = FirstUseOrStop(operation, variable, captures, out bool stop);
                     if (found != null) return found;
                     if (stop)
                     {
@@ -260,10 +286,10 @@ namespace TarragonFly.Analyzers.Rules.Async
             return null;
         }
 
-        private static IOperation FirstUseOrStop(IOperation operation, ISymbol variable, out bool stop)
+        private static IOperation FirstUseOrStop(IOperation operation, ISymbol variable, HashSet<CaptureId> captures, out bool stop)
         {
             IOperation use = UsesUpIn(operation, variable).FirstOrDefault();
-            stop = use == null && Writes(operation, variable);
+            stop = use == null && Writes(operation, variable, captures);
             return use;
         }
 
