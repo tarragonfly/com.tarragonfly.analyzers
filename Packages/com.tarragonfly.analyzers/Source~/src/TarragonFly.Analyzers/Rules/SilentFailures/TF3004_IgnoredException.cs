@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -34,14 +35,21 @@ namespace TarragonFly.Analyzers.Rules.SilentFailures
             {
                 CatchClauseSyntax catchClause = (CatchClauseSyntax)context.Node;
                 BlockSyntax block = catchClause.Block;
-                if (catchClause.Filter != null || block.Statements.Count > 0) return;
-                if (catchClause.Declaration != null && context.SemanticModel.GetTypeInfo(catchClause.Declaration.Type, context.CancellationToken).Type is ITypeSymbol caught
-                    && SymbolNames.IsOrDerivesFrom(caught, "System.OperationCanceledException")) return;
+                if (block.Statements.Count > 0 || IsIgnoredOnPurpose(context.SemanticModel, catchClause, context.CancellationToken)) return;
                 if (Braces.HaveOnlyWhitespaceBetween(block.OpenBraceToken, block.CloseBraceToken))
                 {
                     context.ReportDiagnostic(Diagnostic.Create(Rule, catchClause.GetLocation()));
                 }
             }), SyntaxKind.CatchClause);
+        }
+
+        // A "when" filter, or a caught OperationCanceledException or subtype. TF3001 uses it too, so an
+        // empty catch this rule lets through isn't reported as an empty block instead.
+        internal static bool IsIgnoredOnPurpose(SemanticModel model, CatchClauseSyntax catchClause, CancellationToken cancellationToken)
+        {
+            if (catchClause.Filter != null) return true;
+            return catchClause.Declaration != null && model.GetTypeInfo(catchClause.Declaration.Type, cancellationToken).Type is ITypeSymbol caught
+                && SymbolNames.IsOrDerivesFrom(caught, "System.OperationCanceledException");
         }
     }
 }

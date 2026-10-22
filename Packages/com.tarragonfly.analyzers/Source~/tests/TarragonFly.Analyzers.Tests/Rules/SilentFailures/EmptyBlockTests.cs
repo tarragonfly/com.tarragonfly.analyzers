@@ -66,5 +66,39 @@ class SaveSystem
     }
 }");
         }
+
+        [Test]
+        public void EventAccessorsCancelCatchesAndWorkingLoopHeaders_AreFine()
+        {
+            AnalyzerVerifier.Verify(new EmptyBlockAnalyzer(), @"
+using System;
+using System.Threading.Tasks;
+
+class FakeInput
+{
+    public event Action Pressed { add { } remove { } }
+
+    bool Step() => false;
+
+    async Task Run(Task wait, int[] items)
+    {
+        try { await wait; }
+        catch (OperationCanceledException) { }
+        try { await wait; }
+        catch (TaskCanceledException) { }
+        try { await wait; }
+        catch (Exception exception) when (exception is TimeoutException) { }
+        try { await wait; }
+        catch (Exception) {|TF3001:{ }|}
+
+        while (Step()) { }
+        do { } while (Step());
+        int i;
+        for (i = 0; i < items.Length && items[i] != 0; i++) { }
+        while (items.Length > 0) {|TF3001:{ }|}
+        for (; i < items.Length;) {|TF3001:{ }|}
+    }
+}");
+        }
     }
 }
