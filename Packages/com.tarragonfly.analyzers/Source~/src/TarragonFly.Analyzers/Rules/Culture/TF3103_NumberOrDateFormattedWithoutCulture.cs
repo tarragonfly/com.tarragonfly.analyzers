@@ -19,7 +19,9 @@ namespace TarragonFly.Analyzers.Rules.Culture
     // one of those values; all with no IFormatProvider or a null one. ToString() without arguments is
     // TF3500's job. Interpolated strings and Debug.LogFormat aren't checked: they mostly build UI text
     // and logs, where the player's culture is what you want. Integer formats such as "N0" aren't
-    // checked either. Reported on the method name. Game code only.
+    // checked either. Dates written with "O", "R", "s" or "u" aren't reported, they come out the same
+    // in every culture. The same formats inside string.Format, as in "{0:O}", are still reported for
+    // now. Revisit if that shows up in game code. Reported on the method name. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class NumberOrDateFormattedWithoutCultureAnalyzer : ScopedAnalyzer
     {
@@ -54,7 +56,7 @@ namespace TarragonFly.Analyzers.Rules.Culture
             if (method.Name == "ToString")
             {
                 if (SymbolNames.IsNamed(method.ContainingType, "System.Convert")) return method.Parameters.Length > 0 && IsNumberOrDate(method.Parameters[0].Type);
-                return !method.IsStatic && method.Parameters.Length > 0 && IsNumberOrDate(method.ContainingType);
+                return !method.IsStatic && method.Parameters.Length > 0 && IsNumberOrDate(method.ContainingType) && !HasCultureFreeDateFormat(operation);
             }
             bool formatsText = (method.ContainingType.SpecialType == SpecialType.System_String && method.Name == "Format")
                 || (SymbolNames.IsNamed(method.ContainingType, "System.Text.StringBuilder") && method.Name == "AppendFormat");
@@ -77,6 +79,32 @@ namespace TarragonFly.Analyzers.Rules.Culture
                 else if (argument.Parameter.Type.SpecialType == SpecialType.System_Object && IsNumberOrDate(TypeBeforeBoxing(argument.Value)))
                 {
                     return true;
+                }
+            }
+            return false;
+        }
+
+        // Dates only. Numbers don't have a format like this, even "R" still uses the culture's decimal
+        // separator. "U" and custom date formats still follow the culture's patterns, separators or calendar.
+        private static bool HasCultureFreeDateFormat(IInvocationOperation operation)
+        {
+            ITypeSymbol type = operation.TargetMethod.ContainingType;
+            if (type.SpecialType != SpecialType.System_DateTime && !SymbolNames.IsNamed(type, "System.DateTimeOffset")) return false;
+            foreach (IArgumentOperation argument in operation.Arguments)
+            {
+                if (argument.Parameter.Type.SpecialType != SpecialType.System_String) continue;
+                if (!argument.Value.ConstantValue.HasValue) return false;
+                switch (argument.Value.ConstantValue.Value as string)
+                {
+                    case "O":
+                    case "o":
+                    case "R":
+                    case "r":
+                    case "s":
+                    case "u":
+                        return true;
+                    default:
+                        return false;
                 }
             }
             return false;

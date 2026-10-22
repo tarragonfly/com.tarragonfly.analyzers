@@ -126,7 +126,7 @@ using static System.String;
 
 class Target
 {
-    void Check(float speed, double d, decimal m, DateTime date, DateTimeOffset offset, float? maybe, int count, StringBuilder builder)
+    void Check(float speed, double d, decimal m, DateTime date, DateTimeOffset offset, float? maybe, int count, StringBuilder builder, string format)
     {
         string r1 = speed.{|TF3103:ToString|}(""F2"");
         string r2 = d.{|TF3103:ToString|}(""0.00"", null);
@@ -142,6 +142,10 @@ class Target
         string r11 = string.{|TF3103:Format|}(""{0:F2}"", new object[] { speed });
         builder.{|TF3103:AppendFormat|}(""{0}"", new object[] { m });
         string r12 = {|TF3103:Format|}(""{0}"", speed);
+        string r13 = d.{|TF3103:ToString|}(""R"");
+        string r14 = speed.{|TF3103:ToString|}(""R"");
+        string r15 = date.{|TF3103:ToString|}(""U"");
+        string r16 = date.{|TF3103:ToString|}(format);
         string f1 = speed.ToString(""F2"", CultureInfo.InvariantCulture);
         string f2 = speed.ToString();
         string f3 = $""{speed}"";
@@ -153,6 +157,11 @@ class Target
         string f8 = Convert.ToString(speed, CultureInfo.CurrentCulture);
         builder.AppendFormat(CultureInfo.InvariantCulture, ""{0}"", m);
         string f9 = string.Format(""{0}"", new object[] { count });
+        string f10 = date.ToString(""O"");
+        string f11 = date.ToString(""o"");
+        string f12 = date.ToString(""s"", null);
+        string f13 = offset.ToString(""u"");
+        string f14 = offset.ToString(""R"");
     }
 }";
             AnalyzerVerifier.Verify(new NumberOrDateFormattedWithoutCultureAnalyzer(), Code);
