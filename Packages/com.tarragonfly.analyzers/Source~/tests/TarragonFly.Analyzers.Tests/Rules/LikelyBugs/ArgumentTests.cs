@@ -202,6 +202,46 @@ class Target
         }
 
         [Test]
+        public void SwitchOnAField_SaysToThrowInvalidOperationException()
+        {
+            const string NoName = "This doesn't say which parameter is wrong; pass its name, ideally with nameof()";
+            const string NotAnArgument = "This switch isn't on a parameter, so no argument is wrong; throw InvalidOperationException instead";
+            Assert.That(AnalyzerVerifier.Messages(new WrongParameterNameAnalyzer(), @"
+using System;
+
+class Target
+{
+    enum Mode { Walk, Run }
+
+    Mode mode;
+
+    int Speed()
+    {
+        switch (mode)
+        {
+            case Mode.Walk: return 1;
+            case Mode.Run: { throw new ArgumentOutOfRangeException(); }
+            default: throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    int Pace() => mode switch { Mode.Walk => 1, _ => throw new ArgumentOutOfRangeException() };
+
+    int Speed(Mode other) => (other == mode ? other : mode) switch { Mode.Walk => 1, _ => throw new ArgumentOutOfRangeException() };
+
+    void Rename(string title)
+    {
+        switch (mode)
+        {
+            case Mode.Walk:
+                if (title == null) throw new ArgumentNullException();
+                break;
+        }
+    }
+}"), Is.EqualTo(new[] { NotAnArgument, NotAnArgument, NotAnArgument, NoName, NoName }));
+        }
+
+        [Test]
         public void EmptyGuidThatLooksNew_IsReported()
         {
             AnalyzerVerifier.Verify(new EmptyGuidAnalyzer(), @"

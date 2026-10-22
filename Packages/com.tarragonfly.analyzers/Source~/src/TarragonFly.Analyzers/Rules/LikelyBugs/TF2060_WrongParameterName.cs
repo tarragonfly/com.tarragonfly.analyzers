@@ -23,7 +23,10 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // and a null name counts as none. The parameterless constructors of ArgumentException,
     // ArgumentNullException, ArgumentOutOfRangeException and DuplicateWaitObjectException are reported
     // wherever they're used. Other argument exceptions aren't, since they may have no constructor that
-    // takes a name. Reported on the "new" expression.
+    // takes a name. When a parameterless one is thrown straight from a case, default or arm of a switch
+    // on a field or anything else that isn't a parameter, there's no argument to name, so the message
+    // says to throw InvalidOperationException instead. One inside an if in that case still gets the
+    // usual message, since it's checking an argument. Reported on the "new" expression.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class WrongParameterNameAnalyzer : ScopedAnalyzer
     {
@@ -35,6 +38,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             CodeKind.All);
 
         private const string NoNameMessage = "This doesn't say which parameter is wrong; pass its name, ideally with nameof()";
+
+        private const string NotAnArgumentMessage = "This switch isn't on a parameter, so no argument is wrong; throw InvalidOperationException instead";
 
         private static readonly string[] TypesTakingAName =
         {
@@ -53,7 +58,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 
                 if (constructor.Parameters.IsEmpty)
                 {
-                    if (TypesTakingAName.Any(type => SymbolNames.IsNamed(constructor.ContainingType, type))) context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), NoNameMessage));
+                    if (!TypesTakingAName.Any(type => SymbolNames.IsNamed(constructor.ContainingType, type))) return;
+                    string message = RejectsSwitchOnNoParameter(context.SemanticModel, creation, context.CancellationToken) ? NotAnArgumentMessage : NoNameMessage;
+                    context.ReportDiagnostic(Diagnostic.Create(Rule, creation.GetLocation(), message));
                     return;
                 }
                 if (!TryGetParamName(context.SemanticModel, creation, constructor, context.CancellationToken, out string name)) return;
@@ -83,6 +90,31 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 return value.HasValue;
             }
             return false;
+        }
+
+        // Thrown straight from a switch section or arm whose switch value reads no parameter, as in
+        // "switch (_state) { ... default: throw new ArgumentOutOfRangeException(); }". A throw nested
+        // deeper, as in "case 0: if (title == null) throw ...", is checking an argument.
+        private static bool RejectsSwitchOnNoParameter(SemanticModel model, SyntaxNode creation, System.Threading.CancellationToken ct)
+        {
+            ExpressionSyntax value = SwitchValueRejectedBy(creation.Parent);
+            if (value == null) return false;
+            foreach (IdentifierNameSyntax identifier in value.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+            {
+                if (model.GetSymbolInfo(identifier, ct).Symbol is IParameterSymbol) return false;
+            }
+            return true;
+        }
+
+        private static ExpressionSyntax SwitchValueRejectedBy(SyntaxNode throwNode)
+        {
+            if (throwNode is ThrowExpressionSyntax && throwNode.Parent is SwitchExpressionArmSyntax arm && arm.Expression == throwNode)
+            {
+                return ((SwitchExpressionSyntax)arm.Parent).GoverningExpression;
+            }
+            if (!(throwNode is ThrowStatementSyntax)) return null;
+            SyntaxNode section = throwNode.Parent is BlockSyntax block ? block.Parent : throwNode.Parent;
+            return section is SwitchSectionSyntax && section.Parent is SwitchStatementSyntax switchStatement ? switchStatement.Expression : null;
         }
 
         private static HashSet<string> NamesInScope(SemanticModel model, SyntaxNode node, System.Threading.CancellationToken ct)
