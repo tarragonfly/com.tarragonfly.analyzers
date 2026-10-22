@@ -304,5 +304,64 @@ class Door : MonoBehaviour
     }
 }");
         }
+
+        [Test]
+        public void CancelMarkersAndOwnMethodsThatReadTheTokenField_AreFine()
+        {
+            AnalyzerVerifier.Verify(new CancellationTokenNotPassedAnalyzer(), @"
+using System.Threading;
+using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+
+class Menu
+{
+    CancellationTokenSource transitionCancellation = new CancellationTokenSource();
+    TaskCompletionSource<bool> closing = new TaskCompletionSource<bool>();
+
+    void Open()
+    {
+        closing.TrySetCanceled();
+        ShowAsync().Forget();
+        this.HideAsync().Forget();
+        {|TF5005:FadeAsync|}().Forget();
+        {|TF5005:Task.Delay|}(1);
+    }
+
+    public UniTask ShowAsync(CancellationToken cancellationToken = default) => RunTransitionAsync(cancellationToken);
+    public UniTask HideAsync(CancellationToken cancellationToken = default) => this.RunTransitionAsync(cancellationToken);
+    public UniTask FadeAsync(CancellationToken cancellationToken = default) => UniTask.Delay(1, cancellationToken: cancellationToken);
+
+    UniTask RunTransitionAsync(CancellationToken cancellationToken)
+    {
+        CancellationToken lifetime = transitionCancellation.Token;
+        return UniTask.Delay(1, cancellationToken: lifetime);
+    }
+}");
+        }
+
+        [Test]
+        public void ParameterNamedLikeTheTokenFieldOrAnUncalledOverload_DoesNotCount()
+        {
+            AnalyzerVerifier.Verify(new CancellationTokenNotPassedAnalyzer(), @"
+using System.Threading;
+using Cysharp.Threading.Tasks;
+
+class Popup
+{
+    CancellationToken cancellationToken;
+
+    void Open()
+    {
+        {|TF5005:ShowAsync|}().Forget();
+        {|TF5005:HideAsync|}().Forget();
+    }
+
+    public UniTask ShowAsync(CancellationToken cancellationToken = default) => UniTask.Delay(1, cancellationToken: cancellationToken);
+    public UniTask HideAsync(CancellationToken token = default) => RunAsync(token);
+
+    UniTask RunAsync(CancellationToken token) => UniTask.Delay(1, cancellationToken: token);
+    UniTask RunAsync(int frames, CancellationToken token) => UniTask.Delay(frames, cancellationToken: cancellationToken);
+}");
+        }
     }
 }

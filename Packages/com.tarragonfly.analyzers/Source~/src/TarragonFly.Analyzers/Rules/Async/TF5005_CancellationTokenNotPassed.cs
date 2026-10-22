@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -25,7 +27,12 @@ namespace TarragonFly.Analyzers.Rules.Async
     // at hand when an enclosing method, lambda or local function has a CancellationToken parameter,
     // or the type itself declares a CancellationToken or CancellationTokenSource field or property;
     // locals and inherited members don't count. CancellationToken.None is a deliberate choice and
-    // fine. Reported on the called method.
+    // fine. TrySetCanceled, SetCanceled and FromCanceled aren't checked: their token only labels the
+    // exception they make. A call on this object to one of the type's own methods is fine when that
+    // method, or a method of the type it calls on this object in turn, already reads the field or
+    // property the token would come from. The usual case: ShowAsync goes through a RunTransitionAsync
+    // that links _transitionCancellation's token itself. Only methods declared in the same file are
+    // followed. Reported on the called method.
     //
     // In instance members of a MonoBehaviour with no other token, Unity's destroyCancellationToken
     // counts as the token at hand for awaited calls, so the wait ends with the object. Calls that
@@ -49,7 +56,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
                 if (!MissesToken(context.SemanticModel, invocation, operation)) return;
-                string token = TokenAtHand(context, invocation, invocation.Parent is AwaitExpressionSyntax);
+                string token = TokenAtHand(context, invocation, operation.TargetMethod, invocation.Parent is AwaitExpressionSyntax);
                 if (token != null) context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.Expression.GetLocation(), operation.TargetMethod.Name, token));
             }), SyntaxKind.InvocationExpression);
         }
@@ -57,6 +64,7 @@ namespace TarragonFly.Analyzers.Rules.Async
         // Also used by TF5103, which stays quiet where this rule already reports.
         internal static bool MissesToken(SemanticModel model, InvocationExpressionSyntax invocation, IInvocationOperation operation)
         {
+            if (TokenOnlyLabelsTheException(operation.TargetMethod.Name)) return false;
             bool takesToken = false;
             foreach (IArgumentOperation argument in operation.Arguments)
             {
@@ -65,6 +73,11 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (argument.ArgumentKind == ArgumentKind.DefaultValue || IsDefault(argument.Value.Syntax)) return true;
             }
             return !takesToken && HasTokenOverload(model, invocation.SpanStart, operation.TargetMethod, CallingMember(model, invocation.SpanStart));
+        }
+
+        private static bool TokenOnlyLabelsTheException(string name)
+        {
+            return name == "TrySetCanceled" || name == "SetCanceled" || name == "FromCanceled";
         }
 
         // The method, constructor or accessor the call is in, outside any lambda or local function.
@@ -107,7 +120,7 @@ namespace TarragonFly.Analyzers.Rules.Async
         }
 
         // How the code here would pass a token, or null when it has none.
-        private static string TokenAtHand(SyntaxNodeAnalysisContext context, SyntaxNode node, bool awaited)
+        private static string TokenAtHand(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax node, IMethodSymbol callee, bool awaited)
         {
             foreach (SyntaxNode ancestor in node.Ancestors())
             {
@@ -126,10 +139,50 @@ namespace TarragonFly.Analyzers.Rules.Async
             {
                 if (candidate.IsStatic != member.IsStatic && !candidate.IsStatic) continue;
                 ITypeSymbol type = candidate is IFieldSymbol field && !field.IsImplicitlyDeclared ? field.Type : (candidate as IPropertySymbol)?.Type;
-                if (UniTask.IsCancellationToken(type)) return candidate.Name;
-                if (SymbolNames.IsNamed(type, "System.Threading.CancellationTokenSource")) return candidate.Name + ".Token";
+                bool isToken = UniTask.IsCancellationToken(type);
+                if (!isToken && !SymbolNames.IsNamed(type, "System.Threading.CancellationTokenSource")) continue;
+                if (CalleeReadsMember(context.SemanticModel, node, callee, candidate, context.CancellationToken)) return null;
+                return isToken ? candidate.Name : candidate.Name + ".Token";
             }
             return awaited && !member.IsStatic && Frameworks.Unity.IsMonoBehaviour(member.ContainingType) ? "destroyCancellationToken" : null;
+        }
+
+        // The call goes to a method of this type on this object, and that method, or a method of the
+        // type it calls on this object in turn, reads tokenMember. Matched by symbol, so a parameter
+        // with the member's name doesn't count. Only methods declared in this file are followed, since
+        // the semantic model only covers this file; a partial type split across files still gets reported.
+        private static bool CalleeReadsMember(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol callee, ISymbol tokenMember, CancellationToken ct)
+        {
+            INamedTypeSymbol type = tokenMember.ContainingType;
+            if (!IsOwnInstanceCall(invocation, callee, type)) return false;
+            foreach (SyntaxNode body in Declarations(model, callee))
+            {
+                if (ReadsMember(model, body, tokenMember, ct)) return true;
+                foreach (InvocationExpressionSyntax inner in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                {
+                    if (!(model.GetSymbolInfo(inner, ct).Symbol is IMethodSymbol next) || !IsOwnInstanceCall(inner, next, type)) continue;
+                    if (Declarations(model, next).Any(nextBody => ReadsMember(model, nextBody, tokenMember, ct))) return true;
+                }
+            }
+            return false;
+        }
+
+        // "Run(...)" or "this.Run(...)" calling an instance method of the type.
+        private static bool IsOwnInstanceCall(InvocationExpressionSyntax invocation, IMethodSymbol method, INamedTypeSymbol type)
+        {
+            bool onThis = invocation.Expression is SimpleNameSyntax || invocation.Expression is MemberAccessExpressionSyntax access && access.Expression is ThisExpressionSyntax;
+            return onThis && !method.IsStatic && SymbolEqualityComparer.Default.Equals(method.ContainingType.OriginalDefinition, type);
+        }
+
+        private static IEnumerable<SyntaxNode> Declarations(SemanticModel model, IMethodSymbol method)
+        {
+            return method.OriginalDefinition.DeclaringSyntaxReferences.Where(reference => reference.SyntaxTree == model.SyntaxTree).Select(reference => reference.GetSyntax());
+        }
+
+        private static bool ReadsMember(SemanticModel model, SyntaxNode body, ISymbol member, CancellationToken ct)
+        {
+            return body.DescendantNodes().OfType<IdentifierNameSyntax>().Any(identifier => identifier.Identifier.ValueText == member.Name
+                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, ct).Symbol?.OriginalDefinition, member.OriginalDefinition));
         }
     }
 }
