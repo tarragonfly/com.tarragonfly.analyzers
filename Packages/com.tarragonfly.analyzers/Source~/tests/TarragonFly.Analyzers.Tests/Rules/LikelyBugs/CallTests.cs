@@ -129,13 +129,13 @@ class Audio
         }
 
         [Test]
-        public void OnlyTheFirstParameterTheOtherOverloadLacks_IsReported()
+        public void DefaultFollowedByAnotherOptional_StaysReachableByName()
         {
             AnalyzerVerifier.Verify(new UnreachableDefaultParameterAnalyzer(), @"
 interface IAudio
 {
     void Play(string clip);
-    void Play(string clip, {|TF2049:float volume = 1f|}, bool loop = true);
+    void Play(string clip, float volume = 1f, bool loop = true);
 }
 
 class Audio : IAudio
@@ -159,7 +159,7 @@ class Audio : IAudio
 class Icons
 {
     public Icons() { }
-    public Icons({|TF2049:bool lowRes = false|}, int size = 1) { }
+    public Icons(bool lowRes = false, int size = 1) { }
 }
 
 struct Cell
@@ -177,19 +177,19 @@ struct Cell
 interface IAudioManager
 {
     void PlayMusic(string clip);
-    void PlayMusic(string clip, {|TF2049:float? volume = null|}, bool loop = true);
+    void PlayMusic(string clip, {|TF2049:float? volume = null|});
 }
 
 class RecordedAudio : IAudioManager
 {
     public void PlayMusic(string clip) { }
-    public void PlayMusic(string clip, float? volume = null, bool loop = true) { }
+    public void PlayMusic(string clip, float? volume = null) { }
 }
 
 class ExplicitAudio : IAudioManager
 {
     void IAudioManager.PlayMusic(string clip) { }
-    void IAudioManager.PlayMusic(string clip, float? volume, bool loop) { }
+    void IAudioManager.PlayMusic(string clip, float? volume) { }
 }
 
 class Speaker

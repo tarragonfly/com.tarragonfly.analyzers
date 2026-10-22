@@ -20,8 +20,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // Static and instance overloads, constructors and interface members all count. An override or
     // an interface implementation is skipped: TF2500 makes it repeat the base declaration's
     // defaults, so the fix belongs where the pair is declared, and a fake implementing the
-    // interface would otherwise be stuck between the two rules. Reported on the first parameter
-    // the other overload lacks; later defaults stay reachable through calls that pass it.
+    // interface would otherwise be stuck between the two rules. A default with another optional
+    // parameter after it isn't reported: Play("hit", fade: 0.5f) skips to the later one by name and
+    // so does use it. Reported on the first parameter the other overload lacks.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class UnreachableDefaultParameterAnalyzer : ScopedAnalyzer
     {
@@ -50,7 +51,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                     if (!(member is IMethodSymbol other) || SymbolEqualityComparer.Default.Equals(other, method) || other.IsImplicitlyDeclared) continue;
                     int hidden = other.Parameters.Length;
                     if (hidden >= method.Parameters.Length || !method.Parameters[hidden].IsOptional) continue;
-                    if (RequiredCount(other) > required || !MatchesFirstParameters(method, other)) continue;
+                    if (RequiredCount(other) > required || !MatchesFirstParameters(method, other) || HasOptionalAfter(method, hidden)) continue;
                     if (reported.Add(hidden))
                     {
                         context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.ParameterList.Parameters[hidden].GetLocation(), method.Name));
@@ -64,6 +65,16 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             int required = 0;
             while (required < method.Parameters.Length && !method.Parameters[required].IsOptional && !method.Parameters[required].IsParams) required++;
             return required;
+        }
+
+        // A named argument can skip past the parameter to a later optional one, which uses its default.
+        private static bool HasOptionalAfter(IMethodSymbol method, int index)
+        {
+            for (int i = index + 1; i < method.Parameters.Length; i++)
+            {
+                if (method.Parameters[i].IsOptional) return true;
+            }
+            return false;
         }
 
         // Whether all of the other overload's parameters match this one's first parameters.
