@@ -34,7 +34,7 @@ public class NonAllocatingArrayAccessAnalyzer : ScopedAnalyzer
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0045",
 		description: Strings.NonAllocatingArrayAccessDiagnosticDescription);
 

@@ -31,7 +31,7 @@ public class PhysicsAllocMethodUsageAnalyzer : MethodUsageAnalyzer<PhysicsAllocM
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0028",
 		description: Strings.PhysicsAllocMethodUsageDiagnosticDescription);
 

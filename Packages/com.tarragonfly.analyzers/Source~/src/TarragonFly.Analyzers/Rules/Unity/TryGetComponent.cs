@@ -31,7 +31,7 @@ public class TryGetComponentAnalyzer : BaseGetComponentAnalyzer
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0026",
 		description: Strings.TryGetComponentDiagnosticDescription);
 

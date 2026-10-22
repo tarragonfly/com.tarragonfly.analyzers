@@ -32,7 +32,7 @@ public class ShaderPropertyToIDAnalyzer : ScopedAnalyzer
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0046",
 		description: Strings.ShaderPropertyToIDDiagnosticDescription);
 

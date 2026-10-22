@@ -33,7 +33,7 @@ public class SetPositionAndRotationAnalyzer() : BasePositionAndRotationAnalyzer(
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0022",
 		description: Strings.SetPositionAndRotationDiagnosticDescription);
 

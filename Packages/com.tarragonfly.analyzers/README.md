@@ -453,9 +453,11 @@ IDs: UNT0008 is TF4008, and so on. They behave the same, with two changes: TF403
 `[RequireComponent]` inherited from a base class, which UNT0039 missed, and TF4003 also reports
 `GetComponent(typeof(T))` on another object, `AddComponent(typeof(T))`, `CreateInstance(typeof(T))`
 and type names passed as constant strings, saying when a name matches no type, since the call then
-returns null. UNT0003 only reported `GetComponent(typeof(T))` with no receiver. Microsoft's code
-fixes and suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4105 are
-new rules for Unity API mistakes.
+returns null. UNT0003 only reported `GetComponent(typeof(T))` with no receiver. The rules that are
+only about speed, such as TF4038's cached WaitForSeconds, check game code only, like the TF8000s: a
+test that waits once or sets a position once doesn't need the faster form. Microsoft's code fixes and
+suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4105 are new rules
+for Unity API mistakes.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
@@ -475,36 +477,36 @@ new rules for Unity API mistakes.
 | TF4014 | Invalid type for call to GetComponent | all | UNT0014 |
 | TF4015 | Use a static and parameterless method | all | UNT0015 |
 | TF4016 | Unsafe way to get the method name | all | UNT0016 |
-| TF4017 | SetPixels invocation is slow | all | UNT0017 |
+| TF4017 | SetPixels invocation is slow | game | UNT0017 |
 | TF4018 | System.Reflection features in performance critical messages | all | UNT0018 |
 | TF4019 | Indirection call | all | UNT0019 |
 | TF4020 | Make method static | all | UNT0020 |
 | TF4021 | Prefer protected Unity Message. (off by default) | all | UNT0021 |
-| TF4022 | Inefficient position/rotation assignment | all | UNT0022 |
+| TF4022 | Inefficient position/rotation assignment | game | UNT0022 |
 | TF4023 | Coalescing assignment on Unity objects | all | UNT0023 |
-| TF4024 | Give priority to scalar calculations over vector calculations | all | UNT0024 |
+| TF4024 | Give priority to scalar calculations over vector calculations | game | UNT0024 |
 | TF4025 | Input.GetKey overloads with KeyCode argument | all | UNT0025 |
-| TF4026 | GetComponent always allocates | all | UNT0026 |
+| TF4026 | GetComponent always allocates | game | UNT0026 |
 | TF4027 | Do not call PropertyDrawer.OnGUI() | all | UNT0027 |
-| TF4028 | Use non-allocating physics APIs | all | UNT0028 |
+| TF4028 | Use non-allocating physics APIs | game | UNT0028 |
 | TF4029 | Pattern matching with null on Unity objects | all | UNT0029 |
 | TF4030 | Calling Destroy or DestroyImmediate on a Transform | all | UNT0030 |
 | TF4031 | Asset operations in LoadAttribute method | all | UNT0031 |
-| TF4032 | Inefficient localPosition/localRotation assignment | all | UNT0032 |
+| TF4032 | Inefficient localPosition/localRotation assignment | game | UNT0032 |
 | TF4033 | Incorrect message case | all | UNT0033 |
 | TF4034 | A Vector3 can be converted into a Vector2. | all | UNT0034 |
 | TF4035 | A Vector2 can be converted into a Vector3. | all | UNT0035 |
-| TF4036 | Inefficient position/rotation read | all | UNT0036 |
-| TF4037 | Inefficient localPosition/localRotation read | all | UNT0037 |
-| TF4038 | WaitForSeconds caching | all | UNT0038 |
+| TF4036 | Inefficient position/rotation read | game | UNT0036 |
+| TF4037 | Inefficient localPosition/localRotation read | game | UNT0037 |
+| TF4038 | WaitForSeconds caching | game | UNT0038 |
 | TF4039 | Use RequireComponent attribute when self-invoking GetComponent | all | UNT0039 |
 | TF4040 | GameObject.isStatic is editor-only | all | UNT0040 |
-| TF4041 | Use Animator.StringToHash instead of strings | all | UNT0041 |
-| TF4042 | Mesh array property accessed in loop | all | UNT0042 |
+| TF4041 | Use Animator.StringToHash instead of strings | game | UNT0041 |
+| TF4042 | Mesh array property accessed in loop | game | UNT0042 |
 | TF4043 | Possible typo in conditional compilation symbol | all | UNT0043 |
-| TF4044 | Avoid temporary strings when setting TextMeshPro text | all | UNT0044 |
-| TF4045 | Use non-allocating array access | all | UNT0045 |
-| TF4046 | Cache Shader.PropertyToID calls | all | UNT0046 |
+| TF4044 | Avoid temporary strings when setting TextMeshPro text | game | UNT0044 |
+| TF4045 | Use non-allocating array access | game | UNT0045 |
+| TF4046 | Cache Shader.PropertyToID calls | game | UNT0046 |
 | TF4100 | New lambda unregistered from a callback | all | |
 | TF4101 | Serialized field of a type Unity can't save (quiet on 6000.6 and newer) | all | |
 | TF4102 | Scene search fills in a missing Inspector reference | game | |

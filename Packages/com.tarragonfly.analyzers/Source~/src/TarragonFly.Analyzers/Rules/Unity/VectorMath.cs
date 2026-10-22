@@ -34,7 +34,7 @@ public class VectorMathAnalyzer : ScopedAnalyzer
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Info,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0024",
 		description: Strings.VectorMathDiagnosticDescription);
 

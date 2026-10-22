@@ -34,7 +34,7 @@ public class GetLocalPositionAndRotationAnalyzer() : BasePositionAndRotationAnal
 		area: DiagnosticCategory.Performance,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		checks: CodeKind.Game,
 		sourceRule: "UNT0037",
 		description: Strings.GetLocalPositionAndRotationDiagnosticDescription);
 
