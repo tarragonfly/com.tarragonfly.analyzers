@@ -46,13 +46,17 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.2
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.4.0
    ```
+
+4. Add `TarragonFly.Analyzers.Scope` to the Assembly Definition References of each of your
+   `.asmdef` files, so the analyzer runs on them (see
+   [What happens after installing](#what-happens-after-installing)).
 
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.3.2"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.4.0"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
@@ -75,15 +79,31 @@ with the same name, so keep only one of them.
 
 ## What happens after installing
 
-Unity recompiles every script assembly, and the findings show up in the Console alongside the
-compiler's own warnings. The analyzer DLL in `Analyzers/` carries Unity's `RoslynAnalyzer` label,
-which is what makes Unity run it on every assembly in the project; Rider picks it up from the
-project files Unity generates, and Project Auditor lists its findings in its code view.
+The analyzer DLL in `Analyzers/` carries Unity's `RoslynAnalyzer` label and sits next to
+`TarragonFly.Analyzers.Scope.asmdef`, so Unity runs it only on assemblies that reference
+`TarragonFly.Analyzers.Scope`, plus the predefined ones (`Assembly-CSharp`,
+`Assembly-CSharp-Editor` and their `firstpass` versions), which Unity always gives every analyzer.
+Scripts without an `.asmdef` of their own are checked straight away; each `.asmdef` you want checked
+needs the reference. The scope assembly holds no code and is not auto-referenced, so nothing else
+changes for the assemblies that use it. It's also editor-only. Runtime assemblies can reference it
+and it still stays out of player builds, since Unity simply drops the reference when it compiles for
+a player. Those `.asmdef` assemblies build without the analyzer there, so player builds get a bit
+faster, and their findings still show up in the editor as usual.
 
-Only code under `Assets/` is reported. Packages, including everything in `Library/PackageCache/`,
-compile with the analyzer but never produce a finding. Third-party code that lives inside `Assets/`,
-such as asset store imports and samples, is reported like your own until you narrow `analyze_paths`
-(see [Settings](#settings)) or switch rules off for those assemblies (next section).
+Third-party packages and plugins don't load it at all. Changing the settings file or updating the
+package only recompiles the assemblies that run it, so compiles stay short.
+
+Findings show up in the Console alongside the compiler's own warnings. Rider picks the analyzer up
+from the project files Unity generates, and Project Auditor lists its findings in its code view.
+
+Only code under `Assets/` is reported, even in an assembly that runs the analyzer. Third-party code
+that lives inside `Assets/` without an `.asmdef`, such as some asset store imports and samples,
+compiles into `Assembly-CSharp` and is reported like your own until you narrow `analyze_paths` (see
+[Settings](#settings)) or switch rules off for that assembly (next section).
+
+Upgrading from 0.3 or earlier: those versions ran on every assembly in the project. From 0.4.0 an
+`.asmdef` assembly without the `TarragonFly.Analyzers.Scope` reference reports nothing, with no
+warning, so add the reference before you rely on a clean Console.
 
 Nearly every rule reports as a warning. Five Unity rules are style or micro-optimisation nudges and
 report as infos instead: TF4019, TF4024, TF4034, TF4035 and TF4039. TF6502 is an info too. Two Unity
@@ -114,12 +134,14 @@ Where the file goes decides which assemblies it covers:
 | `Assets/Assembly-CSharp.ruleset`, `Assets/Assembly-CSharp-Editor.ruleset` and so on | That predefined assembly |
 | A `.ruleset` in the same folder as an `.asmdef` | That assembly |
 
-A common setup is a `Default.ruleset` that switches everything off, so plugins and samples stay
-quiet, and a shared rule set for your own code that each of your `.asmdef` folders includes:
+A common setup is a shared rule set for your own code that each of your `.asmdef` folders includes:
 
 ```xml
 <Include Path="..\..\GameRules.ruleset" Action="Default" />
 ```
+
+Keep shared rule sets out of `Assets/Default.ruleset`. Unity passes that file to every assembly,
+including third-party ones that never run the analyzer, so each edit to it recompiles all of them.
 
 Unity watches the rule set it reads, not the files that one includes. After editing an included
 file, change a script in the assembly or reimport it so Unity compiles again.
@@ -153,8 +175,8 @@ Everything else is runtime code. Both name patterns are settings.
 
 Settings are optional. They live in one plain text file named
 `Settings.TarragonFly.Analyzers.additionalfile`, anywhere under `Assets/`. Unity hands files named
-`Name.[AnalyzerName].additionalfile` to the matching analyzer in every assembly, and Rider's project
-files list it too.
+`Name.[AnalyzerName].additionalfile` to the matching analyzer in every assembly that runs it, and
+Rider's project files list it too.
 
 ```
 # Report our own scripts only. The rest of Assets/ is plugins and samples.

@@ -1,0 +1,9 @@
+{
+    "name": "TarragonFly.Analyzers.Scope",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "autoReferenced": false,
+    "noEngineReferences": true
+}
