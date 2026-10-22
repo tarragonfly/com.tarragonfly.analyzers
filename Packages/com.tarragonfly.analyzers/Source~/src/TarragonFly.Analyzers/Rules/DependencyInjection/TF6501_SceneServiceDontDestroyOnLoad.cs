@@ -13,6 +13,9 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
     // the Hierarchy stop matching how the game is set up. Write "DontDestroyOnLoad = false" so the
     // service stays in the scene that owns it.
     //
+    // Init(args) only moves a service whose GameObject is a root of its scene, so one nested under
+    // another object stays put today. It's still reported: it moves as soon as someone makes it a root.
+    //
     // Reported on LoadScene when DontDestroyOnLoad is left out or set to true. Projects that want
     // their scene services moved can turn the rule off in their rule set.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
