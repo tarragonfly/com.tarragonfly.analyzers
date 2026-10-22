@@ -24,12 +24,39 @@ class Spawner
                     {
                         if (a) a = false;
                     }
-                    finally
+                    catch (System.InvalidOperationException)
                     {
                         a = false;
                     }
                 }
             }
+        }
+    }
+}");
+        }
+
+        [Test]
+        public void TryWithOnlyFinally_AddsNoLevel()
+        {
+            AnalyzerVerifier.Verify(new DeepNestingAnalyzer(), @"
+class GoalsView
+{
+    void Refresh(bool a, int[] goals)
+    {
+        try
+        {
+            while (a)
+            {
+                foreach (int goal in goals)
+                {
+                    if (goal > 0) a = false;
+                    if (goal < 0) a = true;
+                }
+            }
+        }
+        finally
+        {
+            a = false;
         }
     }
 }");

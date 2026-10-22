@@ -13,8 +13,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // helper methods flatten it.
     //
     // An else if continues its chain and adds no level. lock, using, fixed and plain blocks don't
-    // count. Lambdas and local functions keep counting from where they're declared. Only the first
-    // statement past the limit is reported, not everything inside it.
+    // count, and neither does a try with only a finally, which is a hand-written using. Lambdas and
+    // local functions keep counting from where they're declared. Only the first statement past the
+    // limit is reported, not everything inside it.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class DeepNestingAnalyzer : ScopedAnalyzer
     {
@@ -24,7 +25,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
             "This statement is nested more than {0} levels deep; flatten it with early returns or a helper method",
             "Readability",
             CodeKind.All,
-            description: "Counts if, switch, for, foreach, while, do and try statements. The limit is max_nesting in the settings file.");
+            description: "Counts if, switch, for, foreach, while, do and try statements with a catch. The limit is max_nesting in the settings file.");
 
         private static readonly SyntaxKind[] NestingKinds =
         {
@@ -52,6 +53,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
         private static bool AddsLevel(SyntaxNode node)
         {
             if (node is IfStatementSyntax ifStatement) return Branches.IsChainStart(ifStatement);
+            if (node is TryStatementSyntax tryStatement) return tryStatement.Catches.Count > 0;
             foreach (SyntaxKind kind in NestingKinds)
             {
                 if (node.IsKind(kind)) return true;
