@@ -16,8 +16,9 @@ namespace TarragonFly.Analyzers.Rules.StaticState
     // [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)].
     //
     // Checked: static fields that aren't const or readonly, and static auto-properties with a setter,
-    // when code in this assembly writes them outside their initializer and static constructor, or when
-    // they aren't private, so other assemblies can. A reset is a write in a static method marked
+    // when code in this assembly writes them outside their initializer and static constructor. One that
+    // only other assemblies could write isn't reported; TF7000 reports a static field that isn't
+    // private. A reset is a write in a static method marked
     // [RuntimeInitializeOnLoadMethod] with SubsystemRegistration, AfterAssembliesLoaded,
     // BeforeSplashScreen or BeforeSceneLoad, or [InitializeOnEnterPlayMode]; anywhere in the
     // assembly counts. The default load type, AfterSceneLoad, runs after Awake and doesn't count.
@@ -48,7 +49,6 @@ namespace TarragonFly.Analyzers.Rules.StaticState
                 ISymbol member = context.Symbol;
                 if (!IsCandidate(member) || PlayModeResets.NeedsNoReset(member)) return;
                 candidates[member] = true;
-                if (member.DeclaredAccessibility != Accessibility.Private) changed[member] = true;
             }, SymbolKind.Field, SymbolKind.Property);
 
             start.RegisterOperationAction(context =>

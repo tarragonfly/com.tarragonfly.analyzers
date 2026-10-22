@@ -18,7 +18,7 @@ class Score
     static int resetTotal;
     static int lateTotal;
     static int editorTotal;
-    public static bool {|TF7100:DebugMode|};
+    public static bool DebugMode; // nothing here writes it; TF7000 covers it being public
     static Score {|TF7100:Last|} { get; set; }
     static int Lookup { get; } = 3;
     static readonly int[] Table = { 1, 2 };
