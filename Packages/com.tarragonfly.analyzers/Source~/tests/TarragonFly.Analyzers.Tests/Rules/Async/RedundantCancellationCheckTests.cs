@@ -25,6 +25,7 @@ namespace UnityEngine
     static class Frames
     {
         public static UniTask NextAsync(CancellationToken cancellationToken) => default;
+        public static UniTask<int> CountAsync(CancellationToken cancellationToken) => default;
     }
 }
 
@@ -91,11 +92,21 @@ class Fader
 
         if (count > 0) ct.ThrowIfCancellationRequested();
         await UniTask.Delay(500, ct);
+
+        {|TF5105:ct.ThrowIfCancellationRequested()|};
+        await loading.WithCancellation(ct);
     }
 
     async UniTask<int> Returned(CancellationToken ct)
     {
         {|TF5105:ct.ThrowIfCancellationRequested()|};
+        return await Frames.CountAsync(ct);
+    }
+
+    // CountAsync runs before the wrapper looks at the token, so this check still stops it starting.
+    async UniTask<int> WrappedProjectCall(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
         return await CountAsync().AttachExternalCancellation(ct);
     }
 }";

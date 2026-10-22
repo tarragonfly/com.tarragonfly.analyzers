@@ -20,7 +20,9 @@ namespace TarragonFly.Analyzers.Rules.Async
     // WithCancellation(token) or AttachExternalCancellation(token) sits in the call chain, and that
     // method is UniTask's or Unity's. Those throw as soon as they get a cancelled token. A project
     // method might return early without looking at the token, so neither the check before its await
-    // nor the one after it is dead code. An await
+    // nor the one after it is dead code. For a check before the await only the call that runs first
+    // counts: in "OnHideAsync(ct).AttachExternalCancellation(ct)" the project method runs before the
+    // wrapper looks at the token, so the check still stops it from starting. An await
     // ending in SuppressCancellationThrow() doesn't throw, so it never counts. Reported on the check.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class RedundantCancellationCheckAnalyzer : ScopedAnalyzer
@@ -44,8 +46,8 @@ namespace TarragonFly.Analyzers.Rules.Async
                 int index = block.Statements.IndexOf(statement);
 
                 // After a cancelled await the check is dead code, so that neighbour is named first.
-                if (index > 0 && AwaitReceivesToken(context, block.Statements[index - 1], token)) Report(context, statement, token, "previous");
-                else if (index < block.Statements.Count - 1 && AwaitReceivesToken(context, block.Statements[index + 1], token)) Report(context, statement, token, "next");
+                if (index > 0 && AwaitReceivesToken(context, block.Statements[index - 1], token, false)) Report(context, statement, token, "previous");
+                else if (index < block.Statements.Count - 1 && AwaitReceivesToken(context, block.Statements[index + 1], token, true)) Report(context, statement, token, "next");
             }), SyntaxKind.ExpressionStatement);
         }
 
@@ -62,10 +64,10 @@ namespace TarragonFly.Analyzers.Rules.Async
             return Text(access.Expression);
         }
 
-        private static bool AwaitReceivesToken(SyntaxNodeAnalysisContext context, StatementSyntax statement, string token)
+        private static bool AwaitReceivesToken(SyntaxNodeAnalysisContext context, StatementSyntax statement, string token, bool onlyFirstCall)
         {
             ExpressionSyntax awaited = AwaitedExpression(statement);
-            return awaited != null && ReceivesToken(context, awaited, token);
+            return awaited != null && ReceivesToken(context, awaited, token, onlyFirstCall);
         }
 
         // The operand of the await in "await X;", "y = await X;", "T y = await X;" or "return await X;".
@@ -93,8 +95,9 @@ namespace TarragonFly.Analyzers.Rules.Async
 
         // The innermost call takes the token as an argument, or a WithCancellation or
         // AttachExternalCancellation on the way out does. Walks "Load(id).AsUniTask().WithCancellation(ct)"
-        // from the outside in.
-        private static bool ReceivesToken(SyntaxNodeAnalysisContext context, ExpressionSyntax awaited, string token)
+        // from the outside in. With onlyFirstCall, the wrappers on the way out don't count, since the
+        // innermost call has already run by the time they see the token.
+        private static bool ReceivesToken(SyntaxNodeAnalysisContext context, ExpressionSyntax awaited, string token, bool onlyFirstCall)
         {
             bool received = false;
             ExpressionSyntax current = awaited;
@@ -104,7 +107,8 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (name == "SuppressCancellationThrow") return false;
                 ExpressionSyntax receiver = (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
                 bool innermost = !(receiver is InvocationExpressionSyntax);
-                if ((innermost || name == "WithCancellation" || name == "AttachExternalCancellation") && HasTokenArgument(invocation, token) && IsUniTaskOrUnityCall(context, invocation)) received = true;
+                bool wrapper = !onlyFirstCall && (name == "WithCancellation" || name == "AttachExternalCancellation");
+                if ((innermost || wrapper) && HasTokenArgument(invocation, token) && IsUniTaskOrUnityCall(context, invocation)) received = true;
                 current = receiver;
             }
             return received;
