@@ -17,8 +17,9 @@ namespace TarragonFly.Analyzers.Rules.Async
     // ([CallerMemberName], [CallerFilePath], [CallerLineNumber], [CallerArgumentExpression]).
     // Overrides and interface implementations are fine, since their order is set elsewhere, and so is
     // an extension method whose "this" parameter is the token.
-    // Methods, constructors, local functions and delegate types are checked. Reported on the token
-    // parameter.
+    // Methods, local functions and delegate types are checked. Constructors aren't: one that takes a
+    // token usually stores it next to the other values in field order, and nobody awaits it. Reported
+    // on the token parameter.
     //
     // Written from the CA1068 rule's documented behaviour.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -53,7 +54,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 IParameterSymbol misplaced = FirstMisplacedToken(method);
                 if (misplaced == null || misplaced.Locations.Length == 0) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, misplaced.Locations[0], misplaced.Name));
-            }), SyntaxKind.MethodDeclaration, SyntaxKind.ConstructorDeclaration, SyntaxKind.LocalFunctionStatement, SyntaxKind.DelegateDeclaration);
+            }), SyntaxKind.MethodDeclaration, SyntaxKind.LocalFunctionStatement, SyntaxKind.DelegateDeclaration);
         }
 
         // The first token that has an ordinary parameter after it.

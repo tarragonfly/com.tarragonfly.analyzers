@@ -187,6 +187,8 @@ interface IFader
 
 class Fader : IFader
 {
+    Fader(CancellationToken ct, int id) { }
+
     public UniTask FadeAsync(CancellationToken ct, float seconds) => default;
 
     UniTask MoveAsync(CancellationToken {|TF5101:ct|}, float speed, int steps) => default;
