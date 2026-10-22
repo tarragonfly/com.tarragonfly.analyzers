@@ -7,7 +7,7 @@ settings keys.
 Install it in a game from the Package Manager with this git URL, keeping a release tag after the `#`:
 
 ```
-https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.5.1
+https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v0.5.2
 ```
 
 Then add `TarragonFly.Analyzers.Scope` to the references of each `.asmdef` the analyzer should check.
