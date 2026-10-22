@@ -17,7 +17,10 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // It stops at anything else: method arguments, lambdas, casts, assignments, initializers and
     // interpolations each start a separate count. ??, &, |, ^ and is-pattern and/or don't count. #if
     // and #elif conditions are checked too. Equals overrides and IEquatable<T>.Equals methods are
-    // skipped, since comparing every field is what they're for. Reported once, on the whole expression.
+    // skipped, since comparing every field is what they're for. So is a plain chain of only && or only
+    // || that is the whole body of a method, property or local function, such as
+    // "bool HasReferences() => _root != null && _target != null && ...": the method already names it.
+    // Reported once, on the whole expression.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ComplexConditionAnalyzer : ScopedAnalyzer
     {
@@ -42,8 +45,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 foreach (SyntaxNode node in root.DescendantNodes(descendIntoTrivia: true))
                 {
                     if (!(node is ExpressionSyntax) || !CountsThrough(node) || CountsThrough(node.Parent)) continue;
-                    int operators = CountOperators(node);
+                    int operators = CountOperators(node, out bool oneKind);
                     if (operators <= limit || IsInEqualsMethod(context.SemanticModel, node)) continue;
+                    if (oneKind && IsWholeMemberBody(node)) continue;
                     context.ReportDiagnostic(Diagnostic.Create(Rule, node.GetLocation(), operators, limit));
                 }
             });
@@ -68,15 +72,49 @@ namespace TarragonFly.Analyzers.Rules.Readability
             return false;
         }
 
-        private static int CountOperators(SyntaxNode expression)
+        // The expression is all a method, property, getter or local function returns, through "=>" or
+        // a lone return statement. Lambdas don't count, since they have no name.
+        private static bool IsWholeMemberBody(SyntaxNode expression)
+        {
+            SyntaxNode body = expression.Parent;
+            if (body is ReturnStatementSyntax returnStatement)
+            {
+                if (!(returnStatement.Parent is BlockSyntax block) || block.Statements.Count != 1) return false;
+                body = block;
+            }
+            else if (!(body is ArrowExpressionClauseSyntax))
+            {
+                return false;
+            }
+            SyntaxNode member = body.Parent;
+            return member is MethodDeclarationSyntax || member is PropertyDeclarationSyntax || member is LocalFunctionStatementSyntax
+                || member.IsKind(SyntaxKind.GetAccessorDeclaration);
+        }
+
+        // The number of &&, || and ?: operators an expression counts toward the limit. TF1006 uses it
+        // too, to leave alone an if whose merged condition would go over the limit.
+        internal static int CountOperators(SyntaxNode expression)
+        {
+            return CountOperators(expression, out _);
+        }
+
+        // oneKind is true when every counted operator is && or every one is ||, with no ?:.
+        private static int CountOperators(SyntaxNode expression, out bool oneKind)
         {
             int count = 0;
+            SyntaxKind firstKind = SyntaxKind.None;
+            oneKind = true;
             Stack<SyntaxNode> pending = new Stack<SyntaxNode>();
             pending.Push(expression);
             while (pending.Count > 0)
             {
                 SyntaxNode node = pending.Pop();
-                if (IsCounted(node)) count++;
+                if (IsCounted(node))
+                {
+                    count++;
+                    if (firstKind == SyntaxKind.None) firstKind = node.Kind();
+                    if (!node.IsKind(firstKind) || node.IsKind(SyntaxKind.ConditionalExpression)) oneKind = false;
+                }
                 foreach (SyntaxNode child in node.ChildNodes())
                 {
                     if (CountsThrough(child)) pending.Push(child);

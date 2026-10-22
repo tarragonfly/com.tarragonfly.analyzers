@@ -100,6 +100,39 @@ class Cell : IEquatable<Cell>
         }
 
         [Test]
+        public void OneKindChain_ThatIsAWholeMemberBody_IsSkipped()
+        {
+            AnalyzerVerifier.Verify(new ComplexConditionAnalyzer(), @"
+class CardMotion
+{
+    object root, target, visual, shadow, tilt;
+    bool a, b, c, d, e;
+
+    bool HasRequiredReferences()
+    {
+        return root != null && target != null && visual != null && shadow != null && tilt != null;
+    }
+
+    bool IsBlocked => a || b || c || d || e;
+
+    bool Mixed() => {|TF1007:a && b && c && d || e|};
+
+    bool WithTernary() => {|TF1007:a && b && c && d ? e : a|};
+
+    bool NotTheOnlyStatement()
+    {
+        if (a) return false;
+        return {|TF1007:a && b && c && d && e|};
+    }
+
+    void Lambda()
+    {
+        System.Func<bool> check = () => {|TF1007:a && b && c && d && e|};
+    }
+}", LimitOfThree);
+        }
+
+        [Test]
         public void PreprocessorConditions_AreChecked()
         {
             AnalyzerVerifier.Verify(new ComplexConditionAnalyzer(), @"#if {|TF1007:DEBUG || TRACE || UNITY_EDITOR || UNITY_IOS || UNITY_ANDROID|}

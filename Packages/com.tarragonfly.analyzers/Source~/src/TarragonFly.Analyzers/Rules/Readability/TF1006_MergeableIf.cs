@@ -11,8 +11,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
     //
     // One condition reads faster than two nested ones and saves a level of nesting.
     //
-    // The outer if may be an else if. Comments around the inner if don't stop the merge. Reported on
-    // the inner if keyword.
+    // The outer if may be an else if. Comments around the inner if don't stop the merge. A pair whose
+    // joined condition would have more &&, || and ?: operators than max_condition_operators isn't
+    // reported, since TF1007 would then report the merged condition. Reported on the inner if keyword.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class MergeableIfAnalyzer : ScopedAnalyzer
     {
@@ -27,6 +28,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
         protected override void OnCompilationStart(CompilationStartAnalysisContext start, CompilationScope scope)
         {
+            int limit = scope.Settings.MaxConditionOperators;
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 IfStatementSyntax inner = (IfStatementSyntax)context.Node;
@@ -34,10 +36,11 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
                 // The outer if's body: the inner if itself, or a block holding nothing else.
                 SyntaxNode body = inner.Parent is BlockSyntax block && block.Statements.Count == 1 ? block : (SyntaxNode)inner;
-                if (body.Parent is IfStatementSyntax outer && outer.Statement == body && outer.Else == null)
-                {
-                    context.ReportDiagnostic(Diagnostic.Create(Rule, inner.IfKeyword.GetLocation()));
-                }
+                if (!(body.Parent is IfStatementSyntax outer) || outer.Statement != body || outer.Else != null) return;
+
+                int merged = ComplexConditionAnalyzer.CountOperators(outer.Condition) + ComplexConditionAnalyzer.CountOperators(inner.Condition) + 1;
+                if (merged > limit) return;
+                context.ReportDiagnostic(Diagnostic.Create(Rule, inner.IfKeyword.GetLocation()));
             }), SyntaxKind.IfStatement);
         }
     }

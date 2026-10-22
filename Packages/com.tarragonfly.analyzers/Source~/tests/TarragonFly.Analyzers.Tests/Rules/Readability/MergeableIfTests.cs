@@ -69,5 +69,26 @@ class Player
     }
 }");
         }
+
+        [Test]
+        public void MergeThatWouldGoOverTheConditionLimit_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new MergeableIfAnalyzer(), @"
+class Board
+{
+    void Check(bool a, bool b, bool c, bool d)
+    {
+        if (a)
+        {
+            if (b || c || d) a = false;
+        }
+
+        if (a)
+        {
+            {|TF1006:if|} (b || c) a = false;
+        }
+    }
+}", SnippetAssembly.WithSettings("max_condition_operators = 2"));
+        }
     }
 }
