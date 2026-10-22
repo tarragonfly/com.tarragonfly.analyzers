@@ -38,13 +38,12 @@ namespace TarragonFly.Analyzers.Rules.Culture
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                SimpleNameSyntax name = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name
-                    : invocation.Expression is MemberBindingExpressionSyntax binding ? binding.Name : null;
+                SimpleNameSyntax name = CultureCalls.CalledName(invocation);
                 if (name == null) return;
                 string methodName = name.Identifier.ValueText;
                 if (methodName != "ToString" && methodName != "Format" && methodName != "AppendFormat") return;
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
-                if (!FormatsNumberOrDate(operation) || CultureArguments.PassesFormatProvider(operation)) return;
+                if (!FormatsNumberOrDate(operation) || CultureCalls.PassesFormatProvider(operation)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), methodName));
             }), SyntaxKind.InvocationExpression);
         }
@@ -62,12 +61,13 @@ namespace TarragonFly.Analyzers.Rules.Culture
             return formatsText && HasNumberOrDateArgument(operation);
         }
 
-        // The values after the format string, including the ones packed into a params array.
+        // The values after the format string. Params arrays count too, whether the compiler built the
+        // array or the call wrote "new object[] { speed }" itself.
         private static bool HasNumberOrDateArgument(IInvocationOperation operation)
         {
             foreach (IArgumentOperation argument in operation.Arguments)
             {
-                if (argument.ArgumentKind == ArgumentKind.ParamArray && argument.Value is IArrayCreationOperation array && array.Initializer != null)
+                if (argument.Parameter.IsParams && argument.Value is IArrayCreationOperation array && array.Initializer != null)
                 {
                     foreach (IOperation element in array.Initializer.ElementValues)
                     {

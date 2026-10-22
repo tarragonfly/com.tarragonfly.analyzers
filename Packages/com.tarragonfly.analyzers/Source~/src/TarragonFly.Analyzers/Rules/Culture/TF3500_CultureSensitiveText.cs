@@ -36,8 +36,7 @@ namespace TarragonFly.Analyzers.Rules.Culture
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                SimpleNameSyntax name = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name
-                    : invocation.Expression is MemberBindingExpressionSyntax binding ? binding.Name : null;
+                SimpleNameSyntax name = CultureCalls.CalledName(invocation);
                 if (name == null) return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
                 if (DependsOnCulture(method)) context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), method.Name));
@@ -57,9 +56,9 @@ namespace TarragonFly.Analyzers.Rules.Culture
                         case "IndexOf":
                         case "LastIndexOf":
                         case "CompareTo":
-                            return method.Parameters.Length > 0 && method.Parameters[0].Type.SpecialType == SpecialType.System_String && !CultureArguments.TakesComparison(method);
+                            return method.Parameters.Length > 0 && method.Parameters[0].Type.SpecialType == SpecialType.System_String && !CultureCalls.TakesComparison(method);
                         case "Compare":
-                            return method.IsStatic && !CultureArguments.TakesComparison(method);
+                            return method.IsStatic && !CultureCalls.TakesComparison(method);
                         default:
                             return false;
                     }

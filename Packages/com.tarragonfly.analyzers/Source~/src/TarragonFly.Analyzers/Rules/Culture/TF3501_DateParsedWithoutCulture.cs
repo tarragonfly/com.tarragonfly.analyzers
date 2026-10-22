@@ -34,13 +34,12 @@ namespace TarragonFly.Analyzers.Rules.Culture
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access)) return;
-                string name = access.Name.Identifier.ValueText;
+                string name = CultureCalls.CalledName(invocation)?.Identifier.ValueText;
                 if (name != "Parse" && name != "TryParse" && name != "ParseExact" && name != "TryParseExact") return;
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
                 INamedTypeSymbol type = operation.TargetMethod.ContainingType;
                 if (!SymbolNames.IsNamed(type, "System.DateTime") && !SymbolNames.IsNamed(type, "System.DateTimeOffset") && !SymbolNames.IsNamed(type, "System.TimeSpan")) return;
-                if (CultureArguments.PassesFormatProvider(operation)) return;
+                if (CultureCalls.PassesFormatProvider(operation)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation(), type.Name, name));
             }), SyntaxKind.InvocationExpression);
         }

@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace TarragonFly.Analyzers.Rules.Culture
 {
@@ -13,7 +14,8 @@ namespace TarragonFly.Analyzers.Rules.Culture
     // language-specific letter matching can change the answer between PCs, and they run slower than
     // a plain character compare. Pass StringComparison.Ordinal, or OrdinalIgnoreCase.
     //
-    // Checked: string StartsWith and EndsWith given a string, without a StringComparison or culture.
+    // Checked: string StartsWith and EndsWith given a string, without a StringComparison or culture,
+    // or with a null culture, which falls back to the player's.
     // The char overloads already compare ordinally. Reported on the method name. Game code only.
     //
     // Calls through "?." count too, as in "name?.StartsWith("a")".
@@ -35,12 +37,13 @@ namespace TarragonFly.Analyzers.Rules.Culture
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                SimpleNameSyntax name = invocation.Expression is MemberAccessExpressionSyntax access ? access.Name
-                    : invocation.Expression is MemberBindingExpressionSyntax binding ? binding.Name : null;
+                SimpleNameSyntax name = CultureCalls.CalledName(invocation);
                 if (name == null || (name.Identifier.ValueText != "StartsWith" && name.Identifier.ValueText != "EndsWith")) return;
-                if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
+                if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
+                IMethodSymbol method = operation.TargetMethod;
                 if (method.ContainingType.SpecialType != SpecialType.System_String || method.Parameters.Length == 0) return;
-                if (method.Parameters[0].Type.SpecialType != SpecialType.System_String || CultureArguments.TakesComparison(method)) return;
+                if (method.Parameters[0].Type.SpecialType != SpecialType.System_String) return;
+                if (CultureCalls.TakesComparison(method) && !CultureCalls.PassesNullCulture(operation)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), method.Name));
             }), SyntaxKind.InvocationExpression);
         }

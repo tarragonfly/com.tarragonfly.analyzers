@@ -35,11 +35,10 @@ namespace TarragonFly.Analyzers.Rules.Culture
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access)) return;
-                string name = access.Name.Identifier.ValueText;
+                string name = CultureCalls.CalledName(invocation)?.Identifier.ValueText;
                 if (name != "Parse" && name != "TryParse" && name != "ToSingle" && name != "ToDouble" && name != "ToDecimal") return;
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
-                if (!ParsesFractionalNumber(operation.TargetMethod) || CultureArguments.PassesFormatProvider(operation)) return;
+                if (!ParsesFractionalNumber(operation.TargetMethod) || CultureCalls.PassesFormatProvider(operation)) return;
                 string call = operation.TargetMethod.ContainingType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) + "." + name;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation(), call));
             }), SyntaxKind.InvocationExpression);

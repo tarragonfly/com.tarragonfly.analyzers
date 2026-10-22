@@ -32,12 +32,11 @@ namespace TarragonFly.Analyzers.Rules.Culture
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access)) return;
-                string name = access.Name.Identifier.ValueText;
-                if (name != "ToUpper" && name != "ToLower") return;
+                SimpleNameSyntax name = CultureCalls.CalledName(invocation);
+                if (name == null || (name.Identifier.ValueText != "ToUpper" && name.Identifier.ValueText != "ToLower")) return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
                 if (method.ContainingType.SpecialType != SpecialType.System_Char || method.Parameters.Length != 1) return;
-                context.ReportDiagnostic(Diagnostic.Create(Rule, access.Name.GetLocation(), name));
+                context.ReportDiagnostic(Diagnostic.Create(Rule, name.GetLocation(), method.Name));
             }), SyntaxKind.InvocationExpression);
         }
     }

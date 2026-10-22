@@ -15,6 +15,7 @@ namespace TarragonFly.Analyzers.Tests.Rules.Culture
             const string Code = @"
 using System;
 using System.Globalization;
+using static System.String;
 
 class Target
 {
@@ -30,6 +31,7 @@ class Target
         string r8 = d.{|TF3500:ToString|}();
         string r9 = m.{|TF3500:ToString|}();
         string r10 = date.{|TF3500:ToString|}();
+        int r11 = {|TF3500:Compare|}(id, other);
         string f1 = id.ToLowerInvariant();
         string f2 = id.ToUpper(CultureInfo.InvariantCulture);
         int f3 = id.IndexOf('b');
@@ -53,6 +55,7 @@ class Target
             AnalyzerVerifier.Verify(new DateParsedWithoutCultureAnalyzer(), @"
 using System;
 using System.Globalization;
+using static System.DateTime;
 
 class Target
 {
@@ -65,6 +68,8 @@ class Target
         TimeSpan r5 = {|TF3501:TimeSpan.Parse(text)|};
         DateTimeOffset r6 = {|TF3501:DateTimeOffset.Parse(text)|};
         DateTime r7 = {|TF3501:DateTime.Parse(text, provider: null)|};
+        DateTime r8 = {|TF3501:Parse(text)|};
+        DateTime r9 = {|TF3501:DateTime.Parse(text, default(IFormatProvider))|};
         DateTime f1 = DateTime.Parse(text, CultureInfo.InvariantCulture);
         DateTime f2 = DateTime.ParseExact(text, ""yyyy"", CultureInfo.InvariantCulture);
         bool f3 = DateTime.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime other);
@@ -79,6 +84,8 @@ class Target
             AnalyzerVerifier.Verify(new NumberParsedWithoutCultureAnalyzer(), @"
 using System;
 using System.Globalization;
+using static System.Convert;
+using static System.Single;
 
 class Target
 {
@@ -92,6 +99,11 @@ class Target
         double r6 = {|TF3102:Convert.ToDouble(text)|};
         float r7 = {|TF3102:Single.Parse(text)|};
         decimal r8 = {|TF3102:Convert.ToDecimal(text, provider: null)|};
+        float r9 = {|TF3102:float.Parse(text, provider: default)|};
+        double r10 = {|TF3102:double.Parse(text, (IFormatProvider)null)|};
+        decimal r11 = {|TF3102:decimal.Parse(text, (CultureInfo)null)|};
+        float r12 = {|TF3102:Parse(text)|};
+        double r13 = {|TF3102:ToDouble(text)|};
         float f1 = float.Parse(text, CultureInfo.InvariantCulture);
         bool f2 = double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double other);
         int f3 = int.Parse(text);
@@ -110,6 +122,7 @@ using System;
 using System.Globalization;
 using System.Text;
 using UnityEngine;
+using static System.String;
 
 class Target
 {
@@ -125,6 +138,10 @@ class Target
         string r8 = string.{|TF3103:Format|}(""{0}"", speed);
         string r9 = string.{|TF3103:Format|}(""{0} {1} {2} {3}"", count, count, count, date);
         builder.{|TF3103:AppendFormat|}(""{0}"", m);
+        string r10 = speed.{|TF3103:ToString|}(""F2"", default);
+        string r11 = string.{|TF3103:Format|}(""{0:F2}"", new object[] { speed });
+        builder.{|TF3103:AppendFormat|}(""{0}"", new object[] { m });
+        string r12 = {|TF3103:Format|}(""{0}"", speed);
         string f1 = speed.ToString(""F2"", CultureInfo.InvariantCulture);
         string f2 = speed.ToString();
         string f3 = $""{speed}"";
@@ -135,6 +152,7 @@ class Target
         string f7 = count.ToString(""N0"");
         string f8 = Convert.ToString(speed, CultureInfo.CurrentCulture);
         builder.AppendFormat(CultureInfo.InvariantCulture, ""{0}"", m);
+        string f9 = string.Format(""{0}"", new object[] { count });
     }
 }";
             AnalyzerVerifier.Verify(new NumberOrDateFormattedWithoutCultureAnalyzer(), Code);
@@ -154,6 +172,8 @@ class Target
     {
         bool r1 = id.{|TF3104:StartsWith|}(""boss"");
         bool r2 = id?.{|TF3104:EndsWith|}(other) == true;
+        bool r3 = id.{|TF3104:StartsWith|}(""file"", true, null);
+        bool r4 = id.{|TF3104:EndsWith|}(""file"", true, (CultureInfo)null);
         bool f1 = id.StartsWith(""boss"", StringComparison.Ordinal);
         bool f2 = id.EndsWith('x');
         bool f3 = id.StartsWith(""boss"", true, CultureInfo.InvariantCulture);
@@ -169,6 +189,7 @@ class Target
         {
             const string Code = @"
 using System.Globalization;
+using static System.Char;
 
 class Target
 {
@@ -176,6 +197,7 @@ class Target
     {
         char r1 = char.{|TF3105:ToLower|}(c);
         char r2 = char.{|TF3105:ToUpper|}(id[0]);
+        char r3 = {|TF3105:ToLower|}(c);
         char f1 = char.ToLowerInvariant(c);
         char f2 = char.ToUpper(c, CultureInfo.InvariantCulture);
         string f3 = id.ToLowerInvariant();
