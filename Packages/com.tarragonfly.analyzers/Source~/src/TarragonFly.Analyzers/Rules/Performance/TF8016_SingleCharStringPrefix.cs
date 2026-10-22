@@ -30,14 +30,22 @@ namespace TarragonFly.Analyzers.Rules.Performance
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access) || invocation.ArgumentList.Arguments.Count != 1) return;
+                if (!PassesOneCharLiteral(invocation)) return;
+                MemberAccessExpressionSyntax access = (MemberAccessExpressionSyntax)invocation.Expression;
                 string name = access.Name.Identifier.ValueText;
                 if (name != "StartsWith" && name != "EndsWith") return;
-                if (!(invocation.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal) || !literal.IsKind(SyntaxKind.StringLiteralExpression)) return;
-                if (literal.Token.ValueText.Length != 1) return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method) || method.ContainingType.SpecialType != SpecialType.System_String) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, access.Name.GetLocation(), name));
             }), SyntaxKind.InvocationExpression);
+        }
+
+        // "x.M("a")": a member call whose only argument is a one-character string literal. TF3104 uses
+        // it to leave these StartsWith and EndsWith calls to this rule, whose char fix clears both.
+        internal static bool PassesOneCharLiteral(InvocationExpressionSyntax invocation)
+        {
+            if (!(invocation.Expression is MemberAccessExpressionSyntax) || invocation.ArgumentList.Arguments.Count != 1) return false;
+            return invocation.ArgumentList.Arguments[0].Expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression)
+                && literal.Token.ValueText.Length == 1;
         }
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
+using TarragonFly.Analyzers.Rules.Performance;
 
 namespace TarragonFly.Analyzers.Rules.Culture
 {
@@ -16,9 +17,11 @@ namespace TarragonFly.Analyzers.Rules.Culture
     //
     // Checked: string StartsWith and EndsWith given a string, without a StringComparison or culture,
     // or with a null culture, which falls back to the player's.
-    // The char overloads already compare ordinally. Reported on the method name. Game code only.
+    // The char overloads already compare ordinally. A plain "x.StartsWith("a")" with a one-character
+    // literal is left to TF8016, whose switch to the char overload fixes both. Reported on the method
+    // name. Game code only.
     //
-    // Calls through "?." count too, as in "name?.StartsWith("a")".
+    // Calls through "?." count too, as in "name?.StartsWith("ab")".
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class PrefixOrSuffixCheckWithCultureAnalyzer : ScopedAnalyzer
     {
@@ -39,6 +42,7 @@ namespace TarragonFly.Analyzers.Rules.Culture
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
                 SimpleNameSyntax name = CultureCalls.CalledName(invocation);
                 if (name == null || (name.Identifier.ValueText != "StartsWith" && name.Identifier.ValueText != "EndsWith")) return;
+                if (SingleCharStringPrefixAnalyzer.PassesOneCharLiteral(invocation)) return;
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation operation)) return;
                 IMethodSymbol method = operation.TargetMethod;
                 if (method.ContainingType.SpecialType != SpecialType.System_String || method.Parameters.Length == 0) return;

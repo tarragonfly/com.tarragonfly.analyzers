@@ -183,6 +183,8 @@ class Target
         bool r2 = id?.{|TF3104:EndsWith|}(other) == true;
         bool r3 = id.{|TF3104:StartsWith|}(""file"", true, null);
         bool r4 = id.{|TF3104:EndsWith|}(""file"", true, (CultureInfo)null);
+        bool r5 = id?.{|TF3104:EndsWith|}(""/"") == true;
+        bool f0 = id.EndsWith(""/""); // TF8016's char fix covers it
         bool f1 = id.StartsWith(""boss"", StringComparison.Ordinal);
         bool f2 = id.EndsWith('x');
         bool f3 = id.StartsWith(""boss"", true, CultureInfo.InvariantCulture);
