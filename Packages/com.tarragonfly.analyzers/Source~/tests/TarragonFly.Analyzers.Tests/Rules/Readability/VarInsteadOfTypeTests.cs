@@ -5,8 +5,8 @@ using TarragonFly.Analyzers.Tests.Harness;
 
 namespace TarragonFly.Analyzers.Tests.Rules.Readability
 {
-    // TF1025 'var' hides the type.
-    public class VarHidesTypeTests
+    // TF1025 'var' instead of the type name.
+    public class VarInsteadOfTypeTests
     {
         private const string Code = @"
 using System.Collections.Generic;
@@ -41,34 +41,34 @@ class Spawner
         [Test]
         public void WithReportVarAll_EveryVarThatCanBeWritten_IsReported()
         {
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), Code, SnippetAssembly.WithSettings("report_var = all"));
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Code, SnippetAssembly.WithSettings("report_var = all"));
         }
 
         [Test]
         public void WithoutTheSetting_NothingIsReported()
         {
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), Markup.Without(Code, "TF1025"));
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), Markup.Without(Code, "TF1025"), SnippetAssembly.WithSettings("report_var = none"));
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Markup.Without(Code, "TF1025"));
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Markup.Without(Code, "TF1025"), SnippetAssembly.WithSettings("report_var = none"));
         }
 
         [Test]
         public void WithReportVarGame_GameCodeIsReported_AndTestCodeIsNot()
         {
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), Code, SnippetAssembly.WithSettings("report_var = game"));
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), Markup.Without(Code, "TF1025"), SnippetAssembly.Tests("report_var = game"));
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Code, SnippetAssembly.WithSettings("report_var = game"));
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Markup.Without(Code, "TF1025"), SnippetAssembly.Tests("report_var = game"));
         }
 
         [Test]
         public void WithReportVarAll_TestCodeIsReportedToo()
         {
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), Code, SnippetAssembly.Tests("report_var = all"));
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Code, SnippetAssembly.Tests("report_var = all"));
         }
 
         // With a type named var in scope, var always means that type, so there's nothing hidden.
         [Test]
         public void TypeNamedVar_IsNotReported()
         {
-            AnalyzerVerifier.Verify(new VarHidesTypeAnalyzer(), @"
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), @"
 class var { }
 
 class Holder

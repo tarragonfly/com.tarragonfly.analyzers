@@ -18,11 +18,11 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // never reported. Left alone: a deconstruction such as "var (a, b) = pair", a pattern such as
     // "is var x", "out var _" and a type that happens to be named var. Reported on the 'var' keyword.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
-    public sealed class VarHidesTypeAnalyzer : ScopedAnalyzer
+    public sealed class VarInsteadOfTypeAnalyzer : ScopedAnalyzer
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF1025",
-            "'var' hides the type",
+            "'var' instead of the type name",
             "Write the type instead of 'var'",
             "Readability",
             CodeKind.All,

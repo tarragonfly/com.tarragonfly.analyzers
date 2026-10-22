@@ -275,7 +275,7 @@ hide what the code does, such as a statement indented as if it belonged to an un
 | TF1022 | Unbraced body not indented | all | |
 | TF1023 | Overloads are not together | all | |
 | TF1024 | Methods with identical bodies | all | |
-| TF1025 | 'var' hides the type (off by default) | all | |
+| TF1025 | 'var' instead of the type name (off by default) | all | |
 | TF1026 | Name uses a word the project avoids (needs `banned_name_words`) | all | |
 | TF1027 | Non-ASCII character in source (off by default) | all | |
 | TF1028 | Suppression without a reason | all | |
