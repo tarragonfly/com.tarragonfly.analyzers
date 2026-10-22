@@ -954,36 +954,36 @@ namespace TarragonFly.Analyzers.Rules.Unity.Resources {
         /// <summary>
         ///   Looks up a localized string similar to Use the generic form of GetComponent.
         /// </summary>
-        internal static string NonGenericGetComponentCodeFixTitle {
+        internal static string PreferGenericOverloadCodeFixTitle {
             get {
-                return ResourceManager.GetString("NonGenericGetComponentCodeFixTitle", resourceCulture);
+                return ResourceManager.GetString("PreferGenericOverloadCodeFixTitle", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Usage of the generic form of GetComponent is preferred for type safety..
+        ///   Looks up a localized string similar to The generic overloads give back the right type without a cast, and a type name passed as a string is only checked when the game runs..
         /// </summary>
-        internal static string NonGenericGetComponentDiagnosticDescription {
+        internal static string PreferGenericOverloadDiagnosticDescription {
             get {
-                return ResourceManager.GetString("NonGenericGetComponentDiagnosticDescription", resourceCulture);
+                return ResourceManager.GetString("PreferGenericOverloadDiagnosticDescription", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Method &apos;{0}&apos; has a preferred generic overload..
+        ///   Looks up a localized string similar to {0}; use {1}.
         /// </summary>
-        internal static string NonGenericGetComponentDiagnosticMessageFormat {
+        internal static string PreferGenericOverloadDiagnosticMessageFormat {
             get {
-                return ResourceManager.GetString("NonGenericGetComponentDiagnosticMessageFormat", resourceCulture);
+                return ResourceManager.GetString("PreferGenericOverloadDiagnosticMessageFormat", resourceCulture);
             }
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Usage of non generic GetComponent.
+        ///   Looks up a localized string similar to Non-generic GetComponent, AddComponent or CreateInstance.
         /// </summary>
-        internal static string NonGenericGetComponentDiagnosticTitle {
+        internal static string PreferGenericOverloadDiagnosticTitle {
             get {
-                return ResourceManager.GetString("NonGenericGetComponentDiagnosticTitle", resourceCulture);
+                return ResourceManager.GetString("PreferGenericOverloadDiagnosticTitle", resourceCulture);
             }
         }
         

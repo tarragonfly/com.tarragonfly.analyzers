@@ -142,18 +142,18 @@
   <data name="TagComparisonDiagnosticTitle" xml:space="preserve">
     <value>Inefficient tag comparison</value>
   </data>
-  <data name="NonGenericGetComponentCodeFixTitle" xml:space="preserve">
+  <data name="PreferGenericOverloadCodeFixTitle" xml:space="preserve">
     <value>Use the generic form of GetComponent</value>
   </data>
-  <data name="NonGenericGetComponentDiagnosticDescription" xml:space="preserve">
-    <value>Usage of the generic form of GetComponent is preferred for type safety.</value>
+  <data name="PreferGenericOverloadDiagnosticDescription" xml:space="preserve">
+    <value>The generic overloads give back the right type without a cast, and a type name passed as a string is only checked when the game runs.</value>
   </data>
-  <data name="NonGenericGetComponentDiagnosticMessageFormat" xml:space="preserve">
-    <value>Method '{0}' has a preferred generic overload.</value>
-    <comment>{0} is a method name</comment>
+  <data name="PreferGenericOverloadDiagnosticMessageFormat" xml:space="preserve">
+    <value>{0}; use {1}</value>
+    <comment>{0} is the call and what is wrong with it, {1} is the generic call to use instead</comment>
   </data>
-  <data name="NonGenericGetComponentDiagnosticTitle" xml:space="preserve">
-    <value>Usage of non generic GetComponent</value>
+  <data name="PreferGenericOverloadDiagnosticTitle" xml:space="preserve">
+    <value>Non-generic GetComponent, AddComponent or CreateInstance</value>
   </data>
   <data name="UpdateWithoutFixedDeltaTimeCodeFixTitle" xml:space="preserve">
     <value>Use Time.deltaTime</value>

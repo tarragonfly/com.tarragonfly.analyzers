@@ -45,21 +45,6 @@ namespace TarragonFly.Analyzers.Rules.Unity
 			return method.TypeArguments.Length == 1;
 		}
 
-		protected static bool IsNonGenericGetComponent(InvocationExpressionSyntax invocation, SemanticModel model, [NotNullWhen(true)] out IMethodSymbol? method)
-		{
-			method = null;
-
-			var symbol = ModelExtensions.GetSymbolInfo(model, invocation);
-			if (symbol.Symbol is not IMethodSymbol methodSymbol)
-				return false;
-
-			method = methodSymbol;
-			if (!KnownMethods.IsGetComponent(method))
-				return false;
-
-			return method.Parameters.Length != 0 && method.Parameters[0].Type.Matches(typeof(Type));
-		}
-
 		protected static bool HasInvalidTypeArgument(IMethodSymbol method, out string? identifier)
 		{
 			identifier = null;

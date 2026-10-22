@@ -145,7 +145,7 @@ TF3500 | Culture | Warning | CultureSensitiveTextAnalyzer
 TF3501 | Culture | Warning | DateParsedWithoutCultureAnalyzer
 TF4001 | Performance | Warning | EmptyUnityMessageAnalyzer
 TF4002 | Performance | Warning | TagComparisonAnalyzer
-TF4003 | TypeSafety | Warning | NonGenericGetComponentAnalyzer
+TF4003 | TypeSafety | Warning | PreferGenericOverloadAnalyzer
 TF4004 | Correctness | Warning | UpdateDeltaTimeAnalyzer
 TF4005 | Correctness | Disabled | UpdateDeltaTimeAnalyzer
 TF4006 | TypeSafety | Warning | MessageSignatureAnalyzer
@@ -209,6 +209,9 @@ TF5104 | Async | Warning | AsyncLambdaAsVoidDelegateAnalyzer
 TF5105 | Async | Warning | RedundantCancellationCheckAnalyzer
 TF6000 | Odin | Warning | UnknownOdinMemberAnalyzer
 TF6001 | Odin | Warning | WrongOdinMemberTypeAnalyzer
+TF6002 | Odin | Warning | OdinGroupPathAnalyzer
+TF6003 | Odin | Warning | OdinGroupPathAnalyzer
+TF6004 | Odin | Warning | OdinGroupPathAnalyzer
 TF6500 | InitArgs | Warning | ServiceLosesInspectorValuesAnalyzer
 TF6501 | InitArgs | Warning | SceneServiceDontDestroyOnLoadAnalyzer
 TF6502 | InitArgs | Info | LazySceneServiceAnalyzer

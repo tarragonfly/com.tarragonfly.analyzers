@@ -449,16 +449,19 @@ TF3100 takes its tag shape from the `log_prefix` setting.
 
 TF4001 to TF4046 are the rules of
 [Microsoft.Unity.Analyzers](https://github.com/microsoft/Microsoft.Unity.Analyzers) 1.28.0 with new
-IDs: UNT0008 is TF4008, and so on. They behave the same, with one change: TF4039 counts a
-`[RequireComponent]` inherited from a base class, which UNT0039 missed. Microsoft's code fixes and
-suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4105 are new rules
-for Unity API mistakes.
+IDs: UNT0008 is TF4008, and so on. They behave the same, with two changes: TF4039 counts a
+`[RequireComponent]` inherited from a base class, which UNT0039 missed, and TF4003 also reports
+`GetComponent(typeof(T))` on another object, `AddComponent(typeof(T))`, `CreateInstance(typeof(T))`
+and type names passed as constant strings, saying when a name matches no type, since the call then
+returns null. UNT0003 only reported `GetComponent(typeof(T))` with no receiver. Microsoft's code
+fixes and suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4105 are
+new rules for Unity API mistakes.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
 | TF4001 | Empty Unity message | all | UNT0001 |
 | TF4002 | Inefficient tag comparison | all | UNT0002 |
-| TF4003 | Usage of non generic GetComponent | all | UNT0003 |
+| TF4003 | Non-generic GetComponent, AddComponent or CreateInstance | all | UNT0003 |
 | TF4004 | Time.fixedDeltaTime used with Update | all | UNT0004 |
 | TF4005 | Time.deltaTime used with FixedUpdate (off by default) | all | UNT0005 |
 | TF4006 | Incorrect message signature | all | UNT0006 |
@@ -567,13 +570,18 @@ tokens that stop halfway, and the UniTask naming and parameter conventions.
 ### Odin Inspector and Init(args) (TF6000s)
 
 Odin attributes take member names as strings, which the compiler cannot check; TF6000 and TF6001
-do. The TF6500 rules cover the ways an Init(args) `[Service]` ends up wired differently from what
-the Inspector shows.
+do. Group attributes take their paths as strings too, and a broken path only shows up once someone
+opens the object in the Inspector. TF6002 to TF6004 catch the three ways it breaks: a parent group
+nothing declares, one group with two group attribute types, and a member in two groups that don't
+nest. The TF6500 rules cover the ways an Init(args) `[Service]` ends up wired differently from what the Inspector shows.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
 | TF6000 | Odin attribute names a member that doesn't exist | all | |
 | TF6001 | Odin attribute names a member of the wrong type | all | |
+| TF6002 | Odin group nested in a group nothing declares | all | |
+| TF6003 | Odin group declared with different group attributes | all | |
+| TF6004 | Member placed in Odin groups that don't nest | all | |
 | TF6500 | Service creates a new instance without its Inspector values | all | |
 | TF6501 | Scene-loaded service without DontDestroyOnLoad = false | all | |
 | TF6502 | Scene service created lazily or asynchronously (info) | all | |
