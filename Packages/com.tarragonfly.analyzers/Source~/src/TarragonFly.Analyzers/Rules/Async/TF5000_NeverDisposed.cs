@@ -25,7 +25,8 @@ namespace TarragonFly.Analyzers.Rules.Async
     // token source to an owner such as AudioManager.StoreMusicFadeCts(cts) counts. A lambda that only
     // uses it doesn't. MemoryStream, StringReader, StringWriter, tasks, the render pipelines'
     // PropertyFetcher and ShaderGraph's ShaderStringBuilder hold nothing that needs disposing (the last
-    // two are IDisposable only for using blocks) and aren't checked. Nor are objects whose Dispose() is
+    // two are IDisposable only for using blocks) and aren't checked. Neither is SemaphoreSlim, whose
+    // Dispose only frees the wait handle that reading AvailableWaitHandle creates. Nor are objects whose Dispose() is
     // empty in source; an UnsafeList<T> made from a pointer, which only views memory the caller owns,
     // such as stackalloc memory; native collections made with Allocator.Temp, which Unity frees at the
     // end of the frame; and [DeallocateOnJobCompletion] fields, which the job system frees. Any other
@@ -47,7 +48,7 @@ namespace TarragonFly.Analyzers.Rules.Async
         private static readonly string[] NothingToDispose =
         {
             "System.IO.MemoryStream", "System.IO.StringReader", "System.IO.StringWriter",
-            "System.Threading.Tasks.Task", "System.Threading.Tasks.Task`1", "System.Threading.Tasks.ValueTask", "System.Threading.Tasks.ValueTask`1",
+            "System.Threading.SemaphoreSlim", "System.Threading.Tasks.Task", "System.Threading.Tasks.Task`1", "System.Threading.Tasks.ValueTask", "System.Threading.Tasks.ValueTask`1",
             "UnityEditor.Rendering.PropertyFetcher`1", "UnityEditor.ShaderGraph.ShaderStringBuilder"
         };
 

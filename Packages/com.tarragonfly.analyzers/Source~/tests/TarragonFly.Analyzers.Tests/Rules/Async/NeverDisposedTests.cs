@@ -22,6 +22,7 @@ class Fader : IDisposable
     private CancellationTokenSource fade;
     private CancellationTokenSource handedOver;
     private MemoryStream memory = new MemoryStream();
+    private SemaphoreSlim transitionLock = new SemaphoreSlim(1, 1);
 
     public void Start()
     {
