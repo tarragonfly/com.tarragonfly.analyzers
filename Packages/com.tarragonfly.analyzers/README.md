@@ -10,7 +10,7 @@ looks like this:
 Assets/Game/Player.cs(42,13): warning TF4008: Unity objects should not use null propagation.
 ```
 
-The 240 rules fall into two groups:
+The 238 rules fall into two groups:
 
 - **General C# checks that understand Unity.** Likely bugs, dead code, swallowed exceptions,
   hard-to-read methods, allocation-heavy LINQ and weak tests. Where a general-purpose analyzer
@@ -226,7 +226,6 @@ and the setting keeps its default.
 | `non_ascii_allowed_in` | none | Project-relative path globs TF1027 leaves alone, such as `Assets/Game/Dialogue/*` |
 | `discouraged_members` | none | Members TF1029 reports direct calls to, as `Namespace.Type.Member -> Replacement`, one per comma. Every overload counts; a parameter list after the member, `UnityEngine.Debug.Log(object, UnityEngine.Object) -> Log.Info`, picks one, with the types short or with their namespace |
 | `discouraged_members_allowed_in` | none | Types, with or without their namespace, whose code may still call those members directly; the helpers themselves go here |
-| `test_support_assemblies` | none | Test assemblies that hold the shared fakes and helpers, where TF9008 lets reflection into private fields through; `*` matches anything |
 
 Some Unity 6000.0 patches have a bug that drops additional files. On those, add a `csc.rsp` next
 to an `.asmdef` with the line `-additionalfile:Assets/Settings.TarragonFly.Analyzers.additionalfile`.
@@ -645,13 +644,6 @@ forgotten.
 | TF9004 | Thread.Sleep in a test | tests | |
 | TF9005 | Expected and actual swapped in an assertion | tests | |
 | TF9006 | Test method the runner can't run | tests | |
-| TF9007 | TestBench started but never disposed | tests | |
-| TF9008 | Reflection into a private field in a test | tests | |
-
-TF9007 and TF9008 are for projects on TestBench (`com.tarragonfly.testbench`). TF9007 finds
-`TestBench.Start` by name, so it's silent without the package. TF9008 skips types named `*Fakes`
-and the assemblies `test_support_assemblies` lists, which is where the one shared
-`PrivateField.Set` lives.
 
 ## Working on the rules
 

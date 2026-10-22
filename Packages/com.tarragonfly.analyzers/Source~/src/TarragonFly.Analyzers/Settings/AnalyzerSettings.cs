@@ -70,9 +70,6 @@ namespace TarragonFly.Analyzers.Settings
         public ImmutableArray<DiscouragedMember> DiscouragedMembers { get; private set; } = ImmutableArray<DiscouragedMember>.Empty;
         public ImmutableArray<string> DiscouragedMembersAllowedIn { get; private set; } = ImmutableArray<string>.Empty;
 
-        // Test assemblies that hold the shared fakes and helpers, where TF9008 lets reflection through.
-        public ImmutableArray<string> TestSupportAssemblies { get; private set; } = ImmutableArray<string>.Empty;
-
         public static bool IsSettingsFile(AdditionalText file)
         {
             return Path.GetFileName(file.Path).EndsWith(FileNameSuffix, StringComparison.OrdinalIgnoreCase);
@@ -159,7 +156,6 @@ namespace TarragonFly.Analyzers.Settings
                 case "non_ascii_allowed_in": NonAsciiAllowedIn = SplitList(value); return null;
                 case "discouraged_members": return ApplyDiscouragedMembers(value);
                 case "discouraged_members_allowed_in": DiscouragedMembersAllowedIn = SplitList(value); return null;
-                case "test_support_assemblies": TestSupportAssemblies = SplitList(value); return null;
                 default: return $"Unknown setting '{key}'. The package README lists the keys.";
             }
         }

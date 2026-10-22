@@ -30,7 +30,6 @@ namespace TarragonFly.Analyzers.Tests
             Assert.That(settings.NonAsciiAllowedIn, Is.Empty);
             Assert.That(settings.DiscouragedMembers, Is.Empty);
             Assert.That(settings.DiscouragedMembersAllowedIn, Is.Empty);
-            Assert.That(settings.TestSupportAssemblies, Is.Empty);
         }
 
         [Test]
@@ -79,8 +78,7 @@ namespace TarragonFly.Analyzers.Tests
         {
             AnalyzerSettings settings = Parse(
                 "discouraged_members = UnityEngine.UIElements.UQueryExtensions.Q -> UIViewBase.Element, UnityEngine.Debug.Log(object , UnityEngine.Object) -> Log.Info, System.Collections.Generic.List<T>.Add -> Bag.Put\n" +
-                "discouraged_members_allowed_in = UIViewBase, Game.Logging.Log\n" +
-                "test_support_assemblies = *.Tests.Shared\n");
+                "discouraged_members_allowed_in = UIViewBase, Game.Logging.Log\n");
 
             Assert.That(settings.Problems, Is.Empty);
             Assert.That(settings.DiscouragedMembers.Select(m => (m.TypeName, m.MemberName, m.ParameterTypes, m.Replacement)), Is.EqualTo(new[]
@@ -90,7 +88,6 @@ namespace TarragonFly.Analyzers.Tests
                 ("System.Collections.Generic.List", "Add", (string)null, "Bag.Put")
             }));
             Assert.That(settings.DiscouragedMembersAllowedIn, Is.EqualTo(new[] { "UIViewBase", "Game.Logging.Log" }));
-            Assert.That(settings.TestSupportAssemblies, Is.EqualTo(new[] { "*.Tests.Shared" }));
         }
 
         [TestCase("discouraged_members = UnityEngine.Debug.Log")]

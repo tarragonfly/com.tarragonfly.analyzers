@@ -251,5 +251,3 @@ TF9003 | Tests | Warning | BoolLiteralInAssertionAnalyzer
 TF9004 | Tests | Warning | ThreadSleepInTestAnalyzer
 TF9005 | Tests | Warning | SwappedExpectedAndActualAnalyzer
 TF9006 | Tests | Warning | UnrunnableTestAnalyzer
-TF9007 | Tests | Warning | TestBenchNeverDisposedAnalyzer
-TF9008 | Tests | Warning | PrivateFieldReflectionInTestAnalyzer
