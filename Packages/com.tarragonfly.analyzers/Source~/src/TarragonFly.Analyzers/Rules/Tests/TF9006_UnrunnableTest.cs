@@ -14,6 +14,8 @@ namespace TarragonFly.Analyzers.Rules.Tests
     //
     // Reported:
     //   - async void tests (return Task, or use [UnityTest] with UniTask.ToCoroutine());
+    //   - UniTaskVoid tests: no GetAwaiter(), so the runner can't await them any more than async
+    //     void (return Task);
     //   - tests that aren't public;
     //   - generic tests with no [TestCase] or [TestCaseSource] to work out the type from;
     //   - [UnityTest] methods that don't return IEnumerator;
@@ -64,7 +66,8 @@ namespace TarragonFly.Analyzers.Rules.Tests
             bool returnsEnumerator = SymbolNames.IsNamed(method.ReturnType, "System.Collections.IEnumerator");
             if (Frameworks.NUnit.IsUnityTest(method)) return returnsEnumerator ? null : "A [UnityTest] must return IEnumerator";
             if (returnsEnumerator) return "Only [UnityTest] steps through an IEnumerator; use [UnityTest] instead of [Test]";
-            if (method.ReturnsVoid || UniTask.IsTask(method.ReturnType) || UniTask.IsUniTaskVoid(method.ReturnType) || HasExpectedResult(method)) return null;
+            if (UniTask.IsUniTaskVoid(method.ReturnType)) return "The runner can't await a UniTaskVoid, so it can't tell when this test finishes; return Task instead";
+            if (method.ReturnsVoid || UniTask.IsTask(method.ReturnType) || HasExpectedResult(method)) return null;
             if (SymbolNames.HasAttribute(method, "NUnit.Framework.TestCaseSourceAttribute")) return null;
             return "NUnit refuses a test that returns a value without ExpectedResult; return void or set ExpectedResult";
         }

@@ -126,6 +126,7 @@ record RecordTests
             AnalyzerVerifier.Verify(new UnrunnableTestAnalyzer(), @"
 using System.Collections;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -134,6 +135,9 @@ class SaveTests
 {
     [Test]
     public async void {|TF9006:AsyncVoid|}() { await Task.Delay(1); }
+
+    [Test]
+    public async UniTaskVoid {|TF9006:AsyncUniTaskVoid|}() { await UniTask.Yield(); }
 
     [Test]
     void {|TF9006:Private|}() { }
