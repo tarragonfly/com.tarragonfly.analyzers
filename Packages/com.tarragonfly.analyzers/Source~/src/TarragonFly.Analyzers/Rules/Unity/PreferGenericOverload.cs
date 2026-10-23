@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
- *  Changed for tarragon.fly Analyzers: TF rule IDs, analyzed-folder scoping, no code fixes, any
+ *  Changed for Tarragon.Fly() Unity Analyzers: TF rule IDs, analyzed-folder scoping, no code fixes, any
  *  receiver, AddComponent and CreateInstance, and type names passed as strings.
  *-------------------------------------------------------------------------------------------*/
 

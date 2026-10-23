@@ -1,7 +1,7 @@
 /*--------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See LICENSE in the project root for license information.
- *  Changed for tarragon.fly Analyzers: NUnit, plain compilations instead of Workspaces, test files
+ *  Changed for Tarragon.Fly() Unity Analyzers: NUnit, plain compilations instead of Workspaces, test files
  *  under Assets/ so TF scoping analyzes them, no code fix verification.
  *-------------------------------------------------------------------------------------------*/
 

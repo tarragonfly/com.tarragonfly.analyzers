@@ -1,4 +1,4 @@
-# Tarragon.Fly() Analyzers
+# Tarragon.Fly() Unity Analyzers
 
 The package is a Roslyn analyzer: a set of checks that Unity's C# compiler runs over your scripts
 every time it compiles them. Findings appear where compiler warnings already appear, in the Unity

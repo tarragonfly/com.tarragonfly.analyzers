@@ -1,4 +1,4 @@
-# tarragon.fly Analyzers
+# Tarragon.Fly() Unity Analyzers
 
 Roslyn analyzers for Unity games. The package itself is `Packages/com.tarragonfly.analyzers`, and its
 [README](Packages/com.tarragonfly.analyzers/README.md) has the install steps, the rule list and the
