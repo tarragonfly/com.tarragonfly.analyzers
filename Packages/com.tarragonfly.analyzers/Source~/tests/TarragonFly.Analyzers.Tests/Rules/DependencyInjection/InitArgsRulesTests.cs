@@ -170,10 +170,12 @@ class Intro : MonoBehaviour<IAudioService>
         {|TF6505:StartCoroutine|}(Fade());
         {|TF6505:SceneManager.LoadSceneAsync|}(""Menu"");
         {|TF6505:UniTask.Void|}(async () => await UniTask.Yield());
+        {|TF6505:ShakeCamera|}();
         System.Action later = () => PlayIntroAsync().Forget();
     }
 
     UniTask PlayIntroAsync() => UniTask.CompletedTask;
+    async UniTaskVoid ShakeCamera() { await UniTask.Yield(); }
     IEnumerator Fade() { yield break; }
 
     void Init(int notInitArgs)

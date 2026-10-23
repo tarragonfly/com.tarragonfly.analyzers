@@ -64,7 +64,7 @@ namespace TarragonFly.Analyzers.Rules.Tests
             bool returnsEnumerator = SymbolNames.IsNamed(method.ReturnType, "System.Collections.IEnumerator");
             if (Frameworks.NUnit.IsUnityTest(method)) return returnsEnumerator ? null : "A [UnityTest] must return IEnumerator";
             if (returnsEnumerator) return "Only [UnityTest] steps through an IEnumerator; use [UnityTest] instead of [Test]";
-            if (method.ReturnsVoid || UniTask.IsAwaitable(method.ReturnType) || HasExpectedResult(method)) return null;
+            if (method.ReturnsVoid || UniTask.IsTask(method.ReturnType) || UniTask.IsUniTaskVoid(method.ReturnType) || HasExpectedResult(method)) return null;
             if (SymbolNames.HasAttribute(method, "NUnit.Framework.TestCaseSourceAttribute")) return null;
             return "NUnit refuses a test that returns a value without ExpectedResult; return void or set ExpectedResult";
         }

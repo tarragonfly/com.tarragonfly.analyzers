@@ -129,12 +129,12 @@ namespace TarragonFly.Analyzers.Rules.Tests
         }
 
         // NUnit compares what the test returns with its ExpectedResult, set on [Test] or [TestCase] or
-        // in the [TestCaseSource] data. For the source data, awaitable tasks and [UnityTest]
+        // in the [TestCaseSource] data. For the source data, tasks, UniTaskVoid and [UnityTest]
         // enumerators don't count as returned values.
         private static bool ReturnsExpectedResult(IMethodSymbol test)
         {
             if (test.GetAttributes().Any(attribute => attribute.NamedArguments.Any(argument => argument.Key == "ExpectedResult"))) return true;
-            if (test.ReturnsVoid || Frameworks.NUnit.IsUnityTest(test) || UniTask.IsAwaitable(test.ReturnType)) return false;
+            if (test.ReturnsVoid || Frameworks.NUnit.IsUnityTest(test) || UniTask.IsTask(test.ReturnType) || UniTask.IsUniTaskVoid(test.ReturnType)) return false;
             return !SymbolNames.IsNamed(test.ReturnType, "System.Collections.IEnumerator") && SymbolNames.HasAttribute(test, "NUnit.Framework.TestCaseSourceAttribute");
         }
 

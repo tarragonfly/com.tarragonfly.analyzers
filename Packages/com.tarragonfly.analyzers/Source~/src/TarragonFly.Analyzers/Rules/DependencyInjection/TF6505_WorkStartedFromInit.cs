@@ -60,7 +60,7 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
 
         private static bool StartsWork(IMethodSymbol method)
         {
-            if (UniTask.IsAwaitable(method.ReturnType)) return true;
+            if (UniTask.IsTask(method.ReturnType) || UniTask.IsUniTaskVoid(method.ReturnType)) return true;
             if (method.Name == "StartCoroutine" && SymbolNames.IsOrDerivesFrom(method.ContainingType, "UnityEngine.MonoBehaviour")) return true;
             if (method.Name == "Void" && SymbolNames.IsNamed(method.ContainingType, "Cysharp.Threading.Tasks.UniTask")) return true;
             return SceneLoads.Contains(method.Name) && SymbolNames.IsNamed(method.ContainingType, "UnityEngine.SceneManagement.SceneManager");

@@ -7,26 +7,32 @@ namespace TarragonFly.Analyzers.Frameworks
     {
         private const string UniTaskNamespace = "Cysharp.Threading.Tasks";
 
-        private static readonly string[] AwaitableTypes =
+        private static readonly string[] TaskTypes =
         {
             "Cysharp.Threading.Tasks.UniTask",
             "Cysharp.Threading.Tasks.UniTask`1",
-            "Cysharp.Threading.Tasks.UniTaskVoid",
             "System.Threading.Tasks.Task",
             "System.Threading.Tasks.Task`1",
             "System.Threading.Tasks.ValueTask",
             "System.Threading.Tasks.ValueTask`1"
         };
 
-        // Types an async method returns and its caller is expected to await or Forget().
-        public static bool IsAwaitable(ITypeSymbol type)
+        // UniTask, Task or ValueTask, with or without a result. The caller awaits these or calls
+        // Forget(). UniTaskVoid isn't on the list: no GetAwaiter(), it just runs to the end by itself.
+        public static bool IsTask(ITypeSymbol type)
         {
             if (type == null) return false;
-            foreach (string name in AwaitableTypes)
+            foreach (string name in TaskTypes)
             {
                 if (SymbolNames.IsNamed(type.OriginalDefinition, name)) return true;
             }
             return false;
+        }
+
+        // The return type of a fire-and-forget async method, UniTask's version of async void.
+        public static bool IsUniTaskVoid(ITypeSymbol type)
+        {
+            return SymbolNames.IsNamed(type, "Cysharp.Threading.Tasks.UniTaskVoid");
         }
 
         public static bool IsCancellationToken(ITypeSymbol type)

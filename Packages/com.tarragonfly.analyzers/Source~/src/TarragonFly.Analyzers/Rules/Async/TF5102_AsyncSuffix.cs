@@ -19,11 +19,13 @@ namespace TarragonFly.Analyzers.Rules.Async
     // isn't there.
     //
     // UniTask, UniTask<T>, Task, Task<T>, ValueTask and ValueTask<T> need the suffix. UniTaskVoid,
-    // any return type with a GetAwaiter() method, and IAsyncEnumerable<T> may carry it without needing
-    // it: a UniTaskVoid method can't be awaited and runs to the end without a Forget(). Fine without the suffix: overrides and interface implementations, whose name is set
-    // elsewhere; Unity messages on MonoBehaviour, ScriptableObject, editor and other Unity types, such
-    // as "async UniTaskVoid Start()"; test and setup methods; and Main. Local functions and lambdas
-    // aren't checked. Reported on the method name.
+    // any return type with a GetAwaiter() method, and IAsyncEnumerable<T> may carry it without
+    // needing it; a UniTaskVoid method can't be awaited and runs to the end without a Forget(), but
+    // the suffix still says it finishes later. Fine without the suffix: overrides and interface
+    // implementations, whose name is set elsewhere; Unity messages on MonoBehaviour,
+    // ScriptableObject, editor and other Unity types, such as "async UniTaskVoid Start()"; test and
+    // setup methods; and Main. Local functions and lambdas aren't checked. Reported on the method
+    // name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class AsyncSuffixAnalyzer : ScopedAnalyzer
     {
@@ -57,14 +59,13 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (BaseMembers.IsOverrideOrImplementation(method)) return;
 
                 bool named = method.Name.EndsWith(Suffix, StringComparison.Ordinal) && method.Name.Length > Suffix.Length;
-                if (SymbolNames.IsNamed(method.ReturnType, "Cysharp.Threading.Tasks.UniTaskVoid")) return;
-                if (UniTask.IsAwaitable(method.ReturnType))
+                if (UniTask.IsTask(method.ReturnType))
                 {
                     if (named || IsNameFixedElsewhere(method)) return;
                     context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(),
                         $"'{method.Name}' returns {method.ReturnType.Name}; name it '{method.Name}{Suffix}' so callers know to await it or call Forget()"));
                 }
-                else if (named && !CanBeAwaited(method.ReturnType))
+                else if (named && !MayCarrySuffix(method.ReturnType))
                 {
                     string plain = method.Name.Substring(0, method.Name.Length - Suffix.Length);
                     context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(),
@@ -81,9 +82,10 @@ namespace TarragonFly.Analyzers.Rules.Async
             return Frameworks.Unity.IsMessage(method);
         }
 
-        private static bool CanBeAwaited(ITypeSymbol type)
+        private static bool MayCarrySuffix(ITypeSymbol type)
         {
             if (type == null || type.SpecialType == SpecialType.System_Void) return false;
+            if (UniTask.IsUniTaskVoid(type)) return true;
             if (SymbolNames.IsNamed(type.OriginalDefinition, "System.Collections.Generic.IAsyncEnumerable`1")) return true;
             for (ITypeSymbol current = type; current != null; current = current.BaseType)
             {

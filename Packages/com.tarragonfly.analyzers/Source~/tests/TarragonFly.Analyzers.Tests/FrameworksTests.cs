@@ -77,17 +77,17 @@ namespace TarragonFly.Analyzers.Tests
 
         [TestCase("UniTask", true)]
         [TestCase("UniTask<int>", true)]
-        [TestCase("UniTaskVoid", true)]
+        [TestCase("UniTaskVoid", false)]
         [TestCase("Task", true)]
         [TestCase("Task<int>", true)]
         [TestCase("ValueTask<int>", true)]
         [TestCase("int", false)]
         [TestCase("System.Collections.IEnumerator", false)]
-        public void UniTask_IsAwaitable(string returnType, bool expected)
+        public void UniTask_IsTask(string returnType, bool expected)
         {
             Compilation compilation = Compile("abstract class Loader { public abstract " + returnType + " Load(); }");
 
-            Assert.That(UniTask.IsAwaitable(Method(compilation, "Loader", "Load").ReturnType), Is.EqualTo(expected));
+            Assert.That(UniTask.IsTask(Method(compilation, "Loader", "Load").ReturnType), Is.EqualTo(expected));
         }
 
         [Test]

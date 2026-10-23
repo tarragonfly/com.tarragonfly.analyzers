@@ -69,7 +69,7 @@ namespace TarragonFly.Analyzers.Rules.Async
 
         private static bool IsFireAndForget(IMethodSymbol method)
         {
-            return method.ReturnsVoid || SymbolNames.IsNamed(method.ReturnType, "Cysharp.Threading.Tasks.UniTaskVoid") || Frameworks.Unity.IsMessage(method);
+            return method.ReturnsVoid || UniTask.IsUniTaskVoid(method.ReturnType) || Frameworks.Unity.IsMessage(method);
         }
 
         // Whether the method can run more of its own code once the await finishes: a later statement in

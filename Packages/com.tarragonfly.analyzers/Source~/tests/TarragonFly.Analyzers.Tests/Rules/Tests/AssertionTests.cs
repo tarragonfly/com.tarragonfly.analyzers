@@ -119,6 +119,7 @@ class PlayerTests
             AnalyzerVerifier.Verify(new TestWithoutAssertionAnalyzer(), @"
 using System;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 
 class ScoreTests
@@ -138,6 +139,9 @@ class ScoreTests
 
     [TestCaseSource(nameof(Cases))]
     public int FromSource(int value) => value * 2;
+
+    [TestCaseSource(nameof(Cases))]
+    public async UniTaskVoid {|TF9002:FromSourceWithoutChecking|}(int value) { await UniTask.Yield(); }
 
     [Test]
     public int {|TF9002:ReturnsWithoutExpectedResult|}() => 1;
