@@ -63,6 +63,15 @@ namespace UnityEngine
         public static T CreateInstance<T>() where T : ScriptableObject => null;
     }
 
+    public class Material : Object
+    {
+        public Material(Material source) { }
+    }
+
+    public sealed class Mesh : Object
+    {
+    }
+
     public static class Resources
     {
         public static T Load<T>(string path) where T : Object => null;

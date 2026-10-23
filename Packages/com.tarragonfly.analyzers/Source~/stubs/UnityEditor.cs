@@ -60,5 +60,11 @@ namespace UnityEditor
     {
         public static void RecordObject(UnityEngine.Object target, string name) { }
         public static void DestroyObjectImmediate(UnityEngine.Object target) { }
+        public static T AddComponent<T>(UnityEngine.GameObject target) where T : UnityEngine.Component => null;
+    }
+
+    public static class PrefabUtility
+    {
+        public static UnityEngine.Object InstantiatePrefab(UnityEngine.Object prefab) => null;
     }
 }

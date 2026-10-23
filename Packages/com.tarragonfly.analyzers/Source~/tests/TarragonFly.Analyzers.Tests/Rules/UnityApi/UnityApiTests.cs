@@ -13,6 +13,7 @@ namespace TarragonFly.Analyzers.Tests.Rules.UnityApi
         public void OnValidateFindingOrAssigningAReference_IsReported()
         {
             AnalyzerVerifier.Verify(new OnValidateReachesOtherObjectsAnalyzer(), @"
+using System.Collections.Generic;
 using UnityEngine;
 
 class Hud : MonoBehaviour { }
@@ -24,6 +25,7 @@ class Channel
 {
     public float volume;
     public Clip clip;
+    public List<Clip> clips;
 }
 
 class Player : MonoBehaviour
@@ -34,8 +36,48 @@ class Player : MonoBehaviour
     [SerializeField] Channel music;
     [SerializeField] int poolSize;
     [SerializeField] string id;
+    [SerializeField] Hud[] huds;
+    [SerializeField] List<Hud> hudList;
+    [SerializeField] List<int> counts;
     Transform cachedRoot;
+    Skeleton cachedSkeleton;
     public Hud Owner { get; set; }
+    Skeleton CachedSkeleton => {|TF4103:cachedSkeleton ??= GetComponent<Skeleton>()|};
+    Transform Target => GetComponent<Transform>();
+
+    int PoolSize
+    {
+        get => poolSize;
+        set
+        {
+            poolSize = value;
+            {|TF4103:skeleton = GetComponent<Skeleton>()|};
+        }
+    }
+
+    int Size
+    {
+        get => poolSize;
+        set => skeleton = GetComponent<Skeleton>();
+    }
+
+    int Spawned
+    {
+        get => 0;
+        set => {|TF4103:hud = GetComponent<Hud>()|};
+    }
+
+    int Wave
+    {
+        get => 0;
+        set => {|TF4103:clip = Resources.Load<Clip>(""Clips/Wave"")|};
+    }
+
+    int Level
+    {
+        get { skeleton = null; return 0; }
+        set => {|TF4103:cachedRoot = transform.parent|};
+    }
 
     void OnValidate()
     {
@@ -53,14 +95,38 @@ class Player : MonoBehaviour
         Skeleton other = {|TF4103:FindAnyObjectByType<Skeleton>|}();
         SanitizePool();
         LookUpSkeleton();
+        {|TF4103:huds[0] = hud|};
+        {|TF4103:hudList[0] = null|};
+        {|TF4103:hudList.Add|}(hud);
+        {|TF4103:hudList.Add|}(GetComponent<Hud>());
+        {|TF4103:hudList.RemoveAll|}(entry => entry == null);
+        {|TF4103:music.clips.Clear|}();
+        hudList?{|TF4103:.RemoveAll|}(entry => entry == null);
+        music.clips?{|TF4103:.Clear|}();
+        {|TF4104:name = id|};
+        Debug.Log(nameof(Target), this);
+        bool hasSkeleton = CachedSkeleton != null;
+        PoolSize = 2;
+        Spawned += 1;
+        Wave++;
+        (Level, poolSize) = (1, 2);
+        {|TF4103:huds = null|};
+        {|TF4103:hudList = new List<Hud>()|};
+        {|TF4103:huds = GetComponents<Hud>()|};
 
         poolSize = (int)Mathf.Max(1, poolSize);
+        counts = new List<int>();
         id = id.Trim();
         music.volume = Mathf.Clamp(music.volume, 0f, 1f);
         enabled = poolSize > 0;
-        name = id;
         if (skeleton == null) Debug.LogError(""[Player] Skeleton is not assigned."", this);
         Hud read = hud;
+        int size = Size;
+        counts.Add(1);
+        bool listed = hudList.Contains(hud);
+        List<Hud> scratch = new List<Hud>();
+        scratch.Add(hud);
+        scratch[0] = hud;
     }
 
     void SanitizePool()
@@ -94,6 +160,7 @@ class Settings : ScriptableObject
     {
         id = id.ToUpperInvariant();
         {|TF4103:hud = FindFirstObjectByType<Hud>()|};
+        {|TF4105:name = id|};
     }
 }
 
@@ -121,17 +188,41 @@ class Label : MonoBehaviour
     public bool Has(string value) => false;
 }
 
+[System.Serializable]
+class Bucket
+{
+    public System.Collections.Generic.List<GameObject> prefabs;
+}
+
+class Catalog : ScriptableObject
+{
+    public System.Collections.Generic.List<GameObject> prefabs;
+    public int[] counts;
+    public Bucket data;
+    public void Clear() { }
+}
+
 class VersionSetter : MonoBehaviour
 {
     [SerializeField] Label versionText;
+    [SerializeField] Catalog catalog;
 
     void OnValidate()
     {
         SetVersionText();
         {|TF4104:versionText.SetText|}(""v1"");
+        versionText?{|TF4104:.SetText|}(""v2"");
         {|TF4104:transform.position = new Vector3()|};
         {|TF4104:gameObject.SetActive|}(false);
         {|TF4104:transform.parent.localScale = new Vector3()|};
+        {|TF4104:catalog.prefabs[0] = null|};
+        {|TF4104:catalog.counts[0] = 1|};
+        {|TF4104:catalog.data.prefabs.Add|}(null);
+        {|TF4104:catalog.prefabs.Clear|}();
+        {|TF4104:catalog.Clear|}();
+        catalog?{|TF4104:.prefabs.Clear|}();
+        catalog?{|TF4104:.data.prefabs.Add|}(null);
+        bool listed = catalog.prefabs.Contains(null);
 
         bool has = versionText.Has(""v"");
         string read = versionText.text;
@@ -164,11 +255,16 @@ class Preset : ScriptableObject { }
 class Spawner : MonoBehaviour
 {
     [SerializeField] Hud hudPrefab;
+    [SerializeField] Material material;
     Hud spawned;
 
     void OnValidate()
     {
         {|TF4105:Instantiate|}(hudPrefab);
+        {|TF4105:PrefabUtility.InstantiatePrefab|}(hudPrefab);
+        {|TF4105:Undo.AddComponent<Hud>|}(gameObject);
+        Material preview = {|TF4105:new Material(material)|};
+        Mesh shape = {|TF4105:new Mesh()|};
         {|TF4103:spawned = {|TF4105:Instantiate|}(hudPrefab)|};
         {|TF4105:Destroy|}(spawned);
         {|TF4105:DestroyImmediate|}(spawned);
@@ -202,15 +298,28 @@ class Label : MonoBehaviour
     public string text;
 }
 
+class Catalog : ScriptableObject
+{
+    public System.Collections.Generic.List<GameObject> prefabs;
+}
+
 class VersionSetter : MonoBehaviour
 {
     [SerializeField] Label versionText;
     [SerializeField] Hud hud;
+    [SerializeField] System.Collections.Generic.List<Hud> huds;
+    [SerializeField] Catalog catalog;
+    Hud CachedHud => hud ??= GetComponent<Hud>();
 
     void OnValidate()
     {
         SetVersionText();
         hud = GetComponent<Hud>();
+        huds.Add(GetComponent<Hud>());
+        name = ""Version"";
+        Hud first = CachedHud;
+        huds = null;
+        catalog?.prefabs.Clear();
     }
 
     void SetVersionText()
@@ -219,11 +328,27 @@ class VersionSetter : MonoBehaviour
     }
 }
 
+class Preset : ScriptableObject
+{
+    void OnValidate()
+    {
+        name = ""Preset"";
+        Material preview = new Material(null);
+    }
+}
+
 class Hud : MonoBehaviour { }"),
                 Is.EqualTo(new[]
                 {
+                    "OnValidate sets 'hud' from 'GetComponent' through 'CachedHud'; assign references in the Inspector or look them up in Awake",
                     "OnValidate sets 'hud' from 'GetComponent'; assign references in the Inspector or look them up in Awake",
-                    "OnValidate changes 'versionText.text' through 'SetVersionText'; change other objects from an editor command or at runtime"
+                    "OnValidate changes the reference list 'huds' with 'Add' from 'GetComponent'; assign references in the Inspector or look them up in Awake",
+                    "OnValidate renames the GameObject with 'name'; change other objects from an editor command or at runtime",
+                    "OnValidate assigns the reference list 'huds'; assign references in the Inspector or look them up in Awake",
+                    "OnValidate changes 'catalog?.prefabs' with 'Clear'; change other objects from an editor command or at runtime",
+                    "OnValidate changes 'versionText.text' through 'SetVersionText'; change other objects from an editor command or at runtime",
+                    "OnValidate renames the asset with 'name'; do that from an editor command",
+                    "OnValidate creates a new Material; do that from an editor command"
                 }));
         }
 
