@@ -46,7 +46,7 @@ From the Package Manager:
 3. Paste the URL with a release tag after the `#` and click **Install**:
 
    ```
-   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v1.1.1
+   https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v1.1.2
    ```
 
 4. Add `TarragonFly.Analyzers.Scope` to the Assembly Definition References of each of your
@@ -56,7 +56,7 @@ From the Package Manager:
 Or add the same line to `Packages/manifest.json` yourself:
 
 ```json
-"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v1.1.1"
+"com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v1.1.2"
 ```
 
 Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
