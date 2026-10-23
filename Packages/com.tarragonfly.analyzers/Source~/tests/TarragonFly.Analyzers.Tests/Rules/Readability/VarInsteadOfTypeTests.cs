@@ -64,6 +64,71 @@ class Spawner
             AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), Code, SnippetAssembly.Tests("report_var = all"));
         }
 
+        // Writing these types on the left would just say them twice. new T() still gets reported,
+        // because T x = new() says it once.
+        [Test]
+        public void TypeNamedOnTheLine_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new VarInsteadOfTypeAnalyzer(), @"
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+enum Side { Left, Right }
+class Part { }
+class Wheel : Part { public static Wheel Spare { get; } = new Wheel(); }
+class Garage<T> { public static T Instance { get; } }
+
+class Car
+{
+    T Get<T>() where T : Part => null;
+    T[] GetAll<T>() where T : Part => new T[0];
+    Task<T> LoadAsync<T>() where T : Part => null;
+    TValue Find<TKey, TValue>(TKey key) => default;
+    int Count<T>() => 0;
+    static Part Spare() => null;
+
+    async Task Build(object item, Part part, List<Part> parts, Car other, CancellationToken token)
+    {
+        var wheel = (Wheel)part;
+        var maybeWheel = item as Wheel;
+        var wrapped = ((Wheel)part);
+        var grid = new int[3, 4];
+        var names = new string[2];
+        var empty = default(Wheel);
+        var found = Get<Wheel>();
+        var foundHere = this.Get<Wheel>();
+        var foundOther = other?.Get<Wheel>();
+        var loaded = await LoadAsync<Wheel>();
+        var size = Find<string, int>(""a"");
+        var delay = TimeSpan.FromSeconds(1);
+        var none = TimeSpan.Zero;
+        var spareWheel = Wheel.Spare;
+        var side = Side.Left;
+        var parked = Garage<Wheel>.Instance;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token);
+        for (var next = Side.Left; next <= Side.Right; next++) { }
+        foreach (var each in GetAll<Wheel>()) { }
+        foreach (var each in parts.OfType<Wheel>()) { }
+        var forgiven = Get<Wheel>()!;
+        var grouped = (Get<Wheel>());
+        var loadedGrouped = await (LoadAsync<Wheel>());
+        var spareForgiven = Wheel.Spare!;
+        foreach (var each in (GetAll<Wheel>())) { }
+
+        {|TF1025:var|} built = new Wheel();
+        {|TF1025:var|} all = GetAll<Wheel>();
+        {|TF1025:var|} count = Count<int>();
+        {|TF1025:var|} spare = Spare();
+        {|TF1025:var|} numbers = new[] { 1, 2 };
+        {|TF1025:var|} seconds = TimeSpan.FromSeconds(1).TotalSeconds;
+        foreach ({|TF1025:var|} each in all) { }
+    }
+}", SnippetAssembly.WithSettings("report_var = all"));
+        }
+
         // With a type named var in scope, var always means that type, so there's nothing hidden.
         [Test]
         public void TypeNamedVar_IsNotReported()

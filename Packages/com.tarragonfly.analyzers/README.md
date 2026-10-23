@@ -282,7 +282,10 @@ hide what the code does, such as a statement indented as if it belonged to an un
 | TF1029 | Direct call where the project has a helper (needs `discouraged_members`) | all | |
 
 TF1025 is off until `report_var` is set: `game` reports runtime and editor code, `all` reports tests
-too. TF1026 reports nothing until `banned_name_words` or `banned_method_prefixes` lists words, and
+too. It leaves `var` alone when the line names the type already, as in a cast, an `as`,
+`default(T)`, `new int[4]`, `GetComponent<T>()`, `await LoadAssetAsync<T>()` or
+`CancellationTokenSource.CreateLinkedTokenSource`; `new T()`
+is still reported, since `T x = new()` names it once. TF1026 reports nothing until `banned_name_words` or `banned_method_prefixes` lists words, and
 leaves fields Unity saves alone while `banned_name_words_skip_serialized` is `true`. TF1027 is off
 until `ascii_only = true`; `non_ascii_allowed_in` lists path globs it skips. TF1028 wants a comment
 on the line of a `#pragma warning disable` or `[UsedImplicitly]`, or on the line above it, and a
