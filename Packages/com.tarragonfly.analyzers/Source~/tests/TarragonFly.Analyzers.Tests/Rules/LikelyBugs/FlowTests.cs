@@ -18,8 +18,23 @@ using System;
 class Target
 {
     int Overwritten(int x) { {|TF2002:x|} = 5; return x; }
-    int Conditional(int x, bool b) { if (b) {|TF2002:x|} = 3; return x; }
+    int Conditional(int x, bool b) { if (b) x = 3; return x; }
+    int BothBranches(int x, bool b) { if (b) {|TF2002:x|} = 3; else x = 4; return x; }
     int Self(int x) { {|TF2002:x|} = x; return x; }
+    int Arrow(int x) => {|TF2002:x|} = 5;
+    int InLoop(int[] values, int x) { foreach (int v in values) x = v; return x; }
+    void LoopOnly(int[] values, int x) { foreach (int v in values) { {|TF2002:x|} = v; Console.WriteLine(x); } }
+
+    int FewestCells(int best, int lowest, int[] counts)
+    {
+        for (int i = 0; i < counts.Length; i++)
+        {
+            if (counts[i] >= lowest) continue;
+            lowest = counts[i];
+            best = i;
+        }
+        return best;
+    }
     int Reads(int x) { x = x + 1; return x; }
     int Compound(int x) { x += 1; return x; }
     int AfterUse(int x) { Console.WriteLine(x); x = 9; return x; }
@@ -33,10 +48,25 @@ class Target
         catch (Exception e) { {|TF2002:e|} = new Exception(); Console.WriteLine(e); }
     }
 
+    void CatchConditional(bool b)
+    {
+        try { }
+        catch (Exception e) { if (b) e = new Exception(); Console.WriteLine(e); }
+    }
+
     void Lambda()
     {
         Func<int, int> f = y => { {|TF2002:y|} = 2; return y; };
         Func<int, int> g = y => y + 1;
+        Func<int, int> h = y => {|TF2002:y|} = 3;
+        Func<int, bool, int> k = (y, b) => { if (b) y = 2; return y; };
+    }
+
+    int LocalFunctions(bool b)
+    {
+        int Overwrite(int z) { {|TF2002:z|} = 1; return z; }
+        int OverwriteSometimes(int z) { if (b) z = 1; return z; }
+        return Overwrite(1) + OverwriteSometimes(2);
     }
 
     int Captured(int x)
@@ -45,6 +75,19 @@ class Target
         x = 2;
         return read();
     }
+}
+
+class Spawner
+{
+    public Spawner(int count) { }
+}
+
+class WaveSpawner : Spawner
+{
+    public WaveSpawner(int count) : base({|TF2002:count|} = 5) { }
+    public WaveSpawner(int count, string name) : this({|TF2002:count|} = 2) { Console.WriteLine(count); }
+    public WaveSpawner(int count, bool b) : base(b ? (count = 1) : 0) { Console.WriteLine(count); }
+    public WaveSpawner(int count, int extra, bool b) : base(b ? (count = 1) : count) { }
 }");
         }
 
