@@ -525,16 +525,21 @@ it often, while loading and on a loading thread, and the other objects might not
 yet. Three rules, one per kind of fix:
 
 - **TF4103, a reference found or set there.** A Unity object field or property set in `OnValidate`,
-  including to null, and `GetComponent`, scene searches and `Resources` or `AssetDatabase` loads. A
-  `GetComponent` there finds whatever happens to be loaded, and a field set there hides a missing
-  Inspector assignment until a build. Assign the reference in the Inspector or look it up in
-  `Awake`.
-- **TF4104, a change to another Unity object.** An assignment to one of its members, or a void call
-  on it, such as `transform.position = ...` or `gameObject.SetActive(false)`. Change other objects
-  from an editor command or at runtime.
-- **TF4105, objects made, destroyed or saved.** `Instantiate`, `Destroy`, `AddComponent`,
-  `CreateInstance`, `new GameObject`, `SetDirty`, `Undo` and asset or scene saves. That's a job for
-  an editor command you run on purpose.
+  including to null; an array or list of Unity objects replaced, as in `huds = null`, or changed
+  with `huds[0] = ...`, `Add`, `Remove`, `RemoveAll` or `Clear`; and `GetComponent`, scene searches and `Resources` or
+  `AssetDatabase` loads. A `GetComponent` there finds whatever happens to be loaded, and a field set
+  there, or a missing reference quietly removed from a list, hides a broken Inspector assignment
+  until a build. Assign the reference in the Inspector or look it up in `Awake`.
+- **TF4104, a change to another Unity object.** An assignment to one of its members, a change to one
+  of its arrays or lists, or a void call on it, such as `transform.position = ...`,
+  `catalog.prefabs[0] = null` or `gameObject.SetActive(false)`. A component's own
+  `name = ...` counts too, since that renames the GameObject. Change other objects from an editor
+  command or at runtime.
+- **TF4105, objects made, destroyed or saved.** `Instantiate`, `PrefabUtility.InstantiatePrefab`,
+  `Destroy`, `AddComponent`, `Undo.AddComponent`, `CreateInstance`, `new` of any Unity object such
+  as `new Material(...)`, `SetDirty`, `Undo` and asset or scene saves. A ScriptableObject's own
+  `name = ...` counts too, since the asset stops matching its file name. That's a job for an editor
+  command you run on purpose.
 
 ```csharp
 void OnValidate()
@@ -547,10 +552,21 @@ void OnValidate()
 }
 ```
 
-Ints, strings and `[Serializable]` classes are the object's own values and are never reported. All
+Ints, strings and `[Serializable]` classes are the object's own values and are never reported, and
+neither are the object's own `enabled` and `hideFlags`, or a local list used as scratch space. All
 three rules also follow the same-file private helpers that `OnValidate` calls or hands to a callback
-such as `EditorApplication.delayCall`, and they look inside lambdas, since deferred work is still
-`OnValidate`'s work.
+such as `EditorApplication.delayCall`, and the getters and setters of this type's properties it
+reads or writes, such as `Renderer Body => _body ??= GetComponent<Renderer>();`, but not one only
+named in `nameof`. `Size += 1` and `Size++` run both the getter and the setter. They look inside
+lambdas, since deferred work is still `OnValidate`'s work, and a `?.` call such as
+`huds?.RemoveAll(...)` or `catalog?.prefabs.Clear()` counts the same as a plain one.
+
+What they don't report: reading other objects, such as `if (_target == null)` or
+`transform.parent`, since checking a reference is what `OnValidate` is for. Subscribing to
+`EditorApplication.delayCall` on its own, since a delayed call that checks the object is still
+alive is the accepted way to update an editor preview; what the callback does is still checked.
+Helpers in another file, a base class or a static utility class aren't followed, since a report
+has to land in the file being checked.
 
 ### Async code, disposables and UniTask (TF5000s)
 
