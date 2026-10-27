@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using TarragonFly.Analyzers.Rules.Readability;
 using TarragonFly.Analyzers.Tests.Harness;
@@ -31,10 +32,19 @@ class Target
         [TestCase("if (a && (b || c)) y++;", 3)]
         [TestCase("if (a && !(b && c)) y++;", 3)]
         [TestCase("if ((a && b) && c) y++;", 2)]
-        [TestCase("if (a || b && c || a) y++;", 3)]
-        [TestCase("if (a && b && !c && (a || (a && b) || (b && c))) y++;", 5)]
+        [TestCase("if (a || b && c || a) y++;", 4)]
+        [TestCase("if (a && b && !c && (a || (a && b) || (b && c))) y++;", 6)]
+        [TestCase("if (a && (b || c) && a) y++;", 4)]
+        [TestCase("if (a && (b && c)) y++;", 2)]
+        [TestCase("if (a && !(b && c) && a) y++;", 3)]
+        [TestCase("if (a && b && c || a || b && c) y++;", 4)]
+        [TestCase("bool r = (a && b) == (b && c);", 2)]
+        [TestCase("bool r = a || b && c || a;", 3)]
         [TestCase("bool r = a || b; if (c) y++;", 2)]
         [TestCase("y = a ? 1 : b ? 2 : 3;", 3)]
+        [TestCase("y = (a ? b : c) ? 1 : 0;", 3)]
+        [TestCase("y = a ? (b ? 1 : 2) : 3;", 3)]
+        [TestCase("if (a) y = (a ? b : c) ? 1 : 0;", 6)]
         [TestCase("switch (y) { case 1: if (a) y++; break; }", 3)]
         [TestCase("y = y switch { 1 => a ? 1 : 2, _ => 3 };", 3)]
         [TestCase("foreach (int v in list) { while (a) { y++; } }", 3)]
@@ -44,7 +54,17 @@ class Target
         [TestCase("void Local() { if (a) y++; } Local();", 2)]
         [TestCase("goto done; done: y++; if (a) y--;", 2)]
         [TestCase("if (y > 9) y = MARK(a, b, c, y - 1, list, s);", 2)]
+        [TestCase("y = y < 2 ? y : MARK(a, b, c, y - 1, list, s) + MARK(a, b, c, y - 2, list, s);", 2)]
+        [TestCase("int Local(int n) => n < 2 ? n : Local(n - 1) + Local(n - 2); y = Local(y);", 3)]
+        [TestCase("int Local(int n) { if (n < 2) return n; return Local(n - 1) + Local(n - 2); } y = Local(y);", 3)]
+        [TestCase("MARK(a, b, c, y, list, s); void Local() { Local(); Local(); } MARK(a, b, c, y, list, s);", 2)]
+        [TestCase("void Local() { void Inner() { Inner(); Inner(); } Local(); Local(); } MARK(a, b, c, y, list, s);", 3)]
+        [TestCase("void Local() { MARK(a, b, c, y, list, s); } Local(); if (a) y++; if (b) y--;", 2)]
         [TestCase("if (s is not null && y is > 1 and < 5) y++;", 3)]
+        [TestCase("if (y is 1 or > 2 and < 5 or 9) y++;", 4)]
+        [TestCase("if (y is > 0 and (< 5 or > 9) and < 20) y++;", 4)]
+        [TestCase("if (y is > 0 and (> 1 and < 5)) y++;", 2)]
+        [TestCase("if (y is > 0 and not (> 1 and < 5) and < 20) y++;", 3)]
         [TestCase("foreach (int v in list) { if (v > 1) break; continue; }", 3)]
         public void Score_IsReportedAboveTheLimit(string body, int score)
         {
@@ -108,7 +128,7 @@ class Target
         [Test]
         public void DefaultLimit_Is15()
         {
-            string fifteen = string.Concat(System.Linq.Enumerable.Repeat("if (a) y++; ", 15));
+            string fifteen = string.Concat(Enumerable.Repeat("if (a) y++; ", 15));
             AnalyzerVerifier.Verify(new CognitiveComplexityAnalyzer(), Template.Replace("MARK", "Run").Replace("BODY", fifteen));
             AnalyzerVerifier.Verify(new CognitiveComplexityAnalyzer(), Template.Replace("int MARK(", "int {|TF1019:Run|}(").Replace("BODY", fifteen + "if (a) y++;"));
         }

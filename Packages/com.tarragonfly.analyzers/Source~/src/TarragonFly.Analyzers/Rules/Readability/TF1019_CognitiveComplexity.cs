@@ -18,18 +18,21 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // Scoring:
     //   - +1, plus 1 per enclosing nesting level: if, ?:, switch statements and expressions, for,
     //     foreach, while, do and catch.
-    //   - +1 flat: else if, else, goto, a call back into the method itself, and each && or || (and
-    //     each "and" or "or" pattern combinator) whose parent, ignoring parentheses, isn't the same
-    //     operator: "a && b && c" is +1, "a && b || c" is +2 and "a || b && c || d" is +2. An operator
-    //     under a "!" or "not" counts again.
-    //   - One nesting level is added inside the bodies of if, else, ?:, switch sections, loops, catch
-    //     blocks, lambdas and local functions. Conditions sit at the level of their statement, and an
-    //     else if body at the level of the if body.
+    //   - +1 flat: else if, else, goto, and each sequence of the same logical operator, read from
+    //     left to right through parentheses. This includes &&, || and "and" or "or" patterns:
+    //     "a && b && c" is +1, "a && b || c" is +2 and "a || b && c || d" is +3. An operator under
+    //     a "!" or "not" starts a separate sequence.
+    //   - +1 once per method or local function that calls itself directly.
+    //   - One nesting level is added inside the bodies of if, else, switch sections, loops, catch
+    //     blocks, lambdas and local functions, and throughout a ?: expression. Statement conditions
+    //     sit at the level of their statement, and an else if body at the level of the if body.
     //   - Nothing for try, finally, break, continue, ??, ?. or "is not".
     // Methods, constructors, destructors, operators and property, indexer and event accessors are
     // scored separately, and so is a field declaration with initializers, such as a lambda kept in a
     // field; local functions and lambdas count toward the member around them. Reported on the member
     // name, the accessor keyword, the operator token or the field's first variable.
+    // Indirect recursion and preprocessor conditionals are not counted. Revisit if either causes
+    // complex methods to pass project checks.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class CognitiveComplexityAnalyzer : ScopedAnalyzer
     {
@@ -111,14 +114,15 @@ namespace TarragonFly.Analyzers.Rules.Readability
         private sealed class ComplexityWalker : CSharpSyntaxWalker
         {
             private readonly SemanticModel model;
-            private readonly IMethodSymbol self;
+            private IMethodSymbol currentMethod;
+            private bool hasRecursiveCall;
             private readonly CancellationToken ct;
             private int nesting;
 
             public ComplexityWalker(SemanticModel model, IMethodSymbol self, CancellationToken ct)
             {
                 this.model = model;
-                this.self = self;
+                currentMethod = self;
                 this.ct = ct;
             }
 
@@ -142,7 +146,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
             public override void VisitConditionalExpression(ConditionalExpressionSyntax node)
             {
                 Score += 1 + nesting;
-                Visit(node.Condition);
+                Nested(node.Condition);
                 Nested(node.WhenTrue);
                 Nested(node.WhenFalse);
             }
@@ -220,32 +224,73 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
             public override void VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
             {
+                IMethodSymbol enclosingMethod = currentMethod;
+                bool enclosingMethodHasRecursiveCall = hasRecursiveCall;
+                currentMethod = model.GetDeclaredSymbol(node, ct) as IMethodSymbol;
+                hasRecursiveCall = false;
                 if (node.Body != null) Nested(node.Body);
                 if (node.ExpressionBody != null) Nested(node.ExpressionBody);
+                currentMethod = enclosingMethod;
+                hasRecursiveCall = enclosingMethodHasRecursiveCall;
             }
 
             public override void VisitBinaryExpression(BinaryExpressionSyntax node)
             {
-                SyntaxNode parent = node.Parent;
-                while (parent is ParenthesizedExpressionSyntax) parent = parent.Parent;
-                if (IsLogical(node) && !parent.IsKind(node.Kind())) Score += 1;
-                base.VisitBinaryExpression(node);
+                if (IsLogical(node))
+                {
+                    SyntaxKind previousOperator = SyntaxKind.None;
+                    VisitLogicalSequence(node, ref previousOperator);
+                }
+                else
+                {
+                    base.VisitBinaryExpression(node);
+                }
             }
 
             public override void VisitBinaryPattern(BinaryPatternSyntax node)
             {
-                SyntaxNode parent = node.Parent;
-                while (parent is ParenthesizedPatternSyntax) parent = parent.Parent;
-                if (!parent.IsKind(node.Kind())) Score += 1;
-                base.VisitBinaryPattern(node);
+                SyntaxKind previousOperator = SyntaxKind.None;
+                VisitLogicalSequence(node, ref previousOperator);
+            }
+
+            private void VisitLogicalSequence(SyntaxNode node, ref SyntaxKind previousOperator)
+            {
+                SyntaxNode left;
+                SyntaxNode right;
+                switch (node)
+                {
+                    case ParenthesizedExpressionSyntax expression:
+                        VisitLogicalSequence(expression.Expression, ref previousOperator);
+                        return;
+                    case ParenthesizedPatternSyntax pattern:
+                        VisitLogicalSequence(pattern.Pattern, ref previousOperator);
+                        return;
+                    case BinaryExpressionSyntax binary when IsLogical(binary):
+                        left = binary.Left;
+                        right = binary.Right;
+                        break;
+                    case BinaryPatternSyntax binaryPattern:
+                        left = binaryPattern.Left;
+                        right = binaryPattern.Right;
+                        break;
+                    default:
+                        Visit(node);
+                        return;
+                }
+
+                VisitLogicalSequence(left, ref previousOperator);
+                if (!node.IsKind(previousOperator)) Score += 1;
+                previousOperator = node.Kind();
+                VisitLogicalSequence(right, ref previousOperator);
             }
 
             public override void VisitInvocationExpression(InvocationExpressionSyntax node)
             {
-                if (self != null && model.GetSymbolInfo(node, ct).Symbol is IMethodSymbol called
-                    && SymbolEqualityComparer.Default.Equals(called.OriginalDefinition, self.OriginalDefinition))
+                if (!hasRecursiveCall && currentMethod != null && model.GetSymbolInfo(node, ct).Symbol is IMethodSymbol called
+                    && SymbolEqualityComparer.Default.Equals(called.OriginalDefinition, currentMethod.OriginalDefinition))
                 {
                     Score += 1;
+                    hasRecursiveCall = true;
                 }
                 base.VisitInvocationExpression(node);
             }
