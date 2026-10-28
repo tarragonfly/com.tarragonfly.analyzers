@@ -16,6 +16,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TarragonFly.Analyzers.Rules.Unity.Resources;
+using UnityEngine;
 
 namespace TarragonFly.Analyzers.Rules.Unity;
 
@@ -79,10 +80,10 @@ public class UpdateDeltaTimeAnalyzer : ScopedAnalyzer
 		if (context.Node is not MethodDeclarationSyntax method)
 			return;
 
-		if (IsMessage(context, method, typeof(UnityEngine.MonoBehaviour), "Update"))
+		if (IsMessage(context, method, typeof(MonoBehaviour), "Update"))
 			AnalyzeMemberAccess(context, method, "Time.fixedDeltaTime", UpdateRule);
 
-		if (IsMessage(context, method, typeof(UnityEngine.MonoBehaviour), "FixedUpdate"))
+		if (IsMessage(context, method, typeof(MonoBehaviour), "FixedUpdate"))
 			AnalyzeMemberAccess(context, method, "Time.deltaTime", FixedUpdateRule);
 	}
 

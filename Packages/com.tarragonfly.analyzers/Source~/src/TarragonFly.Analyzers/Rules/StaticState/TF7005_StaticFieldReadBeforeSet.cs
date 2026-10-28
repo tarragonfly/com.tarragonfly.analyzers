@@ -80,16 +80,11 @@ namespace TarragonFly.Analyzers.Rules.StaticState
                     foreach (IdentifierNameSyntax name in NamesReadAtOnce(body.Continuation.Body)) yield return name;
                     yield break;
             }
-            if (IsNameOf(node)) yield break;
+            if (NameOfExpressions.IsNameOf(node)) yield break;
             foreach (SyntaxNode child in node.ChildNodes())
             {
                 foreach (IdentifierNameSyntax name in NamesReadAtOnce(child)) yield return name;
             }
-        }
-
-        private static bool IsNameOf(SyntaxNode node)
-        {
-            return node is InvocationExpressionSyntax invocation && invocation.Expression is IdentifierNameSyntax name && name.Identifier.ValueText == "nameof";
         }
     }
 }

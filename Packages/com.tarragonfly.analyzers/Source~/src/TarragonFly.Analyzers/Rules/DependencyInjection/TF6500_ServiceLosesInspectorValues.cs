@@ -36,24 +36,24 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
             {
                 INamedTypeSymbol type = (INamedTypeSymbol)context.Symbol;
                 if (!SymbolNames.IsOrDerivesFrom(type, "UnityEngine.Component") && !Frameworks.Unity.IsScriptableObject(type)) return;
-                IFieldSymbol saved = FirstSavedField(type);
-                if (saved == null) return;
+                IFieldSymbol serializedField = FirstSerializedField(type);
+                if (serializedField == null) return;
                 foreach (AttributeData attribute in ServiceAttributes.On(type))
                 {
                     if (!Frameworks.InitArgs.CreatesNewInstance(attribute)) continue;
                     Location location = attribute.ApplicationSyntaxReference.GetSyntax(context.CancellationToken).GetLocation();
                     if (!scope.IsAnalyzed(location.SourceTree)) continue;
-                    context.ReportDiagnostic(Diagnostic.Create(Rule, location, type.Name, saved.AssociatedSymbol?.Name ?? saved.Name));
+                    context.ReportDiagnostic(Diagnostic.Create(Rule, location, type.Name, serializedField.AssociatedSymbol?.Name ?? serializedField.Name));
                 }
             }, SymbolKind.NamedType);
         }
 
-        private static IFieldSymbol FirstSavedField(INamedTypeSymbol type)
+        private static IFieldSymbol FirstSerializedField(INamedTypeSymbol type)
         {
             for (INamedTypeSymbol current = type; current != null && !SymbolNames.IsInNamespace(current, "UnityEngine"); current = current.BaseType)
             {
-                IFieldSymbol saved = current.GetMembers().OfType<IFieldSymbol>().FirstOrDefault(Frameworks.Unity.IsSavedByUnity);
-                if (saved != null) return saved;
+                IFieldSymbol serialized = current.GetMembers().OfType<IFieldSymbol>().FirstOrDefault(Frameworks.Unity.IsSerializedByUnity);
+                if (serialized != null) return serialized;
             }
             return null;
         }

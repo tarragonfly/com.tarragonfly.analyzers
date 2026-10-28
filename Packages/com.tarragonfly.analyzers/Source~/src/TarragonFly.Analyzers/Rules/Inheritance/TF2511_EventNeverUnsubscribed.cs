@@ -149,7 +149,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 unsubscribed[key] = true;
                 return;
             }
-            if (IsOwnEvent(member, instance, type) || RunsOncePerDomain(context.ContainingSymbol)) return;
+            if (IsOwnEvent(member, instance, type) || IsStartupMethod(context.ContainingSymbol)) return;
             if (IsOneShotCallback(member) || IsUiToolkitButtonClick(member)) return;
 
             List<IFieldSymbol> sourceFields = new List<IFieldSymbol>();
@@ -223,7 +223,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             return false;
         }
 
-        private static bool RunsOncePerDomain(ISymbol containing)
+        private static bool IsStartupMethod(ISymbol containing)
         {
             if (!(containing is IMethodSymbol method)) return false;
             if (method.MethodKind == MethodKind.StaticConstructor) return true;
@@ -478,7 +478,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             // fieldsInProgress stops "child = child.GetChild(0)" from looping; such a field doesn't qualify.
             private bool HoldsOwnHierarchy(IFieldSymbol field, HashSet<IFieldSymbol> fieldsInProgress)
             {
-                if (otherAssignments.ContainsKey(field) || Frameworks.Unity.IsSavedByUnity(field)) return false;
+                if (otherAssignments.ContainsKey(field) || Frameworks.Unity.IsSerializedByUnity(field)) return false;
                 if (createdAssignments.ContainsKey(field) && passedOn.ContainsKey(field)) return false;
                 if (!ownHierarchyAssignments.TryGetValue(field, out ConcurrentBag<List<IFieldSymbol>> assignments)) return false;
                 if (!fieldsInProgress.Add(field)) return false;

@@ -12,7 +12,7 @@ using TarragonFly.Analyzers.Rules.Unity;
 
 namespace TarragonFly.Analyzers.Tests.UnityRules;
 
-public class CacheYieldInstructionAnalyzerTests : BaseDiagnosticVerifierTest<CacheYieldInstructionAnalyzerAnalyzer>
+public class CacheYieldInstructionAnalyzerTests : BaseDiagnosticVerifierTest<CacheYieldInstructionAnalyzer>
 {
 	[Test]
 	public async Task WaitForSecondsStatic()

@@ -109,7 +109,7 @@ namespace TarragonFly.Analyzers.Rules.Unity
 			return conditionIdentifier.HasValue;
 		}
 
-		protected internal static bool TryGetTargetdentifier(SyntaxNode invocationParent, [NotNullWhen(true)] out SyntaxToken? targetIdentifier)
+		protected internal static bool TryGetTargetIdentifier(SyntaxNode invocationParent, [NotNullWhen(true)] out SyntaxToken? targetIdentifier)
 		{
 			targetIdentifier = null;
 

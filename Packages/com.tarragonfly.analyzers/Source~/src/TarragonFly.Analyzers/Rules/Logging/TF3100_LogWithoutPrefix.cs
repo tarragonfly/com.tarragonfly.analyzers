@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -119,7 +120,7 @@ namespace TarragonFly.Analyzers.Rules.Logging
         // is only known at run time.
         private static (string, bool)? LeadingText(SemanticModel model, InterpolatedStringExpressionSyntax interpolated, CancellationToken ct)
         {
-            System.Text.StringBuilder start = new System.Text.StringBuilder();
+            StringBuilder start = new StringBuilder();
             foreach (InterpolatedStringContentSyntax content in interpolated.Contents)
             {
                 if (content is InterpolatedStringTextSyntax text)

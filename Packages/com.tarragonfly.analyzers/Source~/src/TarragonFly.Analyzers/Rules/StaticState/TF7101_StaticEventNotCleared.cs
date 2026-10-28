@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -93,7 +94,7 @@ namespace TarragonFly.Analyzers.Rules.StaticState
             }
         }
 
-        private static bool IsCandidate(ISymbol member, System.Threading.CancellationToken ct)
+        private static bool IsCandidate(ISymbol member, CancellationToken ct)
         {
             if (!member.IsStatic || member.IsImplicitlyDeclared) return false;
             switch (member)

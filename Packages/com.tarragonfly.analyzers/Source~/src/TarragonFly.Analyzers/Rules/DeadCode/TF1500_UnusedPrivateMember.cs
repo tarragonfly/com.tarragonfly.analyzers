@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -257,7 +258,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                     writes = true;
                     reads = false;
                     break;
-                case ArgumentSyntax argument when argument.Parent?.Parent is InvocationExpressionSyntax call && call.Expression is IdentifierNameSyntax callee && callee.Identifier.ValueText == "nameof":
+                case ArgumentSyntax argument when NameOfExpressions.IsNameOf(argument.Parent?.Parent):
                     writes = true;
                     break;
             }
@@ -369,7 +370,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
             }
         }
 
-        private static SyntaxNode FieldDeclaration(ISymbol symbol, System.Threading.CancellationToken ct)
+        private static SyntaxNode FieldDeclaration(ISymbol symbol, CancellationToken ct)
         {
             if (!(symbol is IFieldSymbol) && !(symbol is IEventSymbol)) return null;
             SyntaxNode declarator = symbol.DeclaringSyntaxReferences[0].GetSyntax(ct);

@@ -19,7 +19,7 @@ using TarragonFly.Analyzers.Rules.Unity.Resources;
 namespace TarragonFly.Analyzers.Rules.Unity;
 
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public class CacheYieldInstructionAnalyzerAnalyzer : ScopedAnalyzer
+public class CacheYieldInstructionAnalyzer : ScopedAnalyzer
 {
 	private const string RuleId = "TF4038";
 

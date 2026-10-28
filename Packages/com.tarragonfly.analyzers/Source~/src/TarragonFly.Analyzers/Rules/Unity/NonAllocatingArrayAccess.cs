@@ -98,7 +98,7 @@ public class NonAllocatingArrayAccessAnalyzer : ScopedAnalyzer
 			|| !Candidates.TryGetValue(memberAccess.Name.Identifier.ValueText, out var entry))
 			return false;
 
-		if (node.ContainsDirectives || IsInsideNameOf(node))
+		if (node.ContainsDirectives || NameOfExpressions.IsInsideNameOf(node))
 			return false;
 
 		if (node is ElementAccessExpressionSyntax indexer)
@@ -147,17 +147,6 @@ public class NonAllocatingArrayAccessAnalyzer : ScopedAnalyzer
 				&& method.Parameters[0].RefKind == RefKind.None
 				&& method.Parameters[0].Type.SpecialType == SpecialType.System_Int32
 				&& SymbolEqualityComparer.Default.Equals(method.ReturnType, elementType))
-				return true;
-		}
-
-		return false;
-	}
-
-	private static bool IsInsideNameOf(SyntaxNode node)
-	{
-		for (var parent = node.Parent; parent != null; parent = parent.Parent)
-		{
-			if (parent is InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } })
 				return true;
 		}
 

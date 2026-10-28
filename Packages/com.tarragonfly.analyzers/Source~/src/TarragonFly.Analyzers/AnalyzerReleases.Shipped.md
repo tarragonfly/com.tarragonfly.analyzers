@@ -182,7 +182,7 @@ TF4034 | Readability | Info | Vector3ConversionAnalyzer
 TF4035 | Readability | Info | Vector2ConversionAnalyzer
 TF4036 | Performance | Warning | GetPositionAndRotationAnalyzer
 TF4037 | Performance | Warning | GetLocalPositionAndRotationAnalyzer
-TF4038 | Performance | Warning | CacheYieldInstructionAnalyzerAnalyzer
+TF4038 | Performance | Warning | CacheYieldInstructionAnalyzer
 TF4039 | TypeSafety | Info | RequireComponentAnalyzer
 TF4040 | Correctness | Warning | GameObjectIsStaticAnalyzer
 TF4041 | Performance | Warning | AnimatorStringToHashAnalyzer
@@ -250,7 +250,7 @@ TF8017 | Performance | Warning | LinqFirstOnLinkedListAnalyzer
 TF8018 | Performance | Warning | AnyInsteadOfContainsAnalyzer
 TF8100 | Performance | Warning | ConstantArrayArgumentAnalyzer
 TF9000 | Tests | Warning | IgnoredTestAnalyzer
-TF9001 | Tests | Warning | FixtureWithoutTestsAnalyzer
+TF9001 | Tests | Warning | TestClassWithoutTestsAnalyzer
 TF9002 | Tests | Warning | TestWithoutAssertionAnalyzer
 TF9003 | Tests | Warning | BoolLiteralInAssertionAnalyzer
 TF9004 | Tests | Warning | ThreadSleepInTestAnalyzer

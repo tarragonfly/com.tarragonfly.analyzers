@@ -54,21 +54,12 @@ namespace TarragonFly.Analyzers.Rules.Async
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 MemberAccessExpressionSyntax access = (MemberAccessExpressionSyntax)context.Node;
-                if (access.Name.Identifier.ValueText != "Result" || InMain(access) || InNameOf(access)) return;
+                if (access.Name.Identifier.ValueText != "Result" || InMain(access) || NameOfExpressions.IsInsideNameOf(access)) return;
                 if (!(context.SemanticModel.GetSymbolInfo(access, context.CancellationToken).Symbol is IPropertySymbol property) || !IsTask(property.ContainingType)) return;
                 ISymbol task = context.SemanticModel.GetSymbolInfo(access.Expression, context.CancellationToken).Symbol;
                 if (task != null && (IsContinuationArgument(context, access, task) || WaitedBefore(context, access, task) || InThenBranchOfWait(context, access, task))) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, access.GetLocation(), "Result"));
             }), SyntaxKind.SimpleMemberAccessExpression);
-        }
-
-        private static bool InNameOf(SyntaxNode node)
-        {
-            foreach (InvocationExpressionSyntax call in node.Ancestors().OfType<InvocationExpressionSyntax>())
-            {
-                if (call.Expression is IdentifierNameSyntax name && name.Identifier.ValueText == "nameof") return true;
-            }
-            return false;
         }
 
         // The parameter of a lambda passed to ContinueWith: the task that just finished, unless the

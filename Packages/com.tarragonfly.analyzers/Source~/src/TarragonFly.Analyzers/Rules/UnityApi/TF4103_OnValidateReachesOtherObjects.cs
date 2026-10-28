@@ -181,7 +181,7 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
                 {
                     ISymbol named = context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol;
                     if (!(named is IMethodSymbol) && !(named is IPropertySymbol)) continue;
-                    if (name.Ancestors().TakeWhile(node => node != body).Any(IsNameOf)) continue;
+                    if (name.Ancestors().TakeWhile(node => node != body).Any(NameOfExpressions.IsNameOf)) continue;
                     if (named is IMethodSymbol method) FollowHelper(method, method.Name);
                     else FollowProperty(name, (IPropertySymbol)named);
                 }
@@ -393,11 +393,6 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
                     if (node.Parent is ConditionalAccessExpressionSyntax conditional && conditional.WhenNotNull == node) return conditional.Expression;
                 }
                 return null;
-            }
-
-            private static bool IsNameOf(SyntaxNode node)
-            {
-                return node is InvocationExpressionSyntax invocation && invocation.Expression is IdentifierNameSyntax name && name.Identifier.ValueText == "nameof";
             }
 
             // Whether the member access is on a Unity object other than this one. No receiver, this

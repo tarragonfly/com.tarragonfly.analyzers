@@ -9,7 +9,9 @@
 using System;
 using System.Collections;
 using System.Reflection;
+using Cysharp.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using UnityEngine;
 
 namespace TarragonFly.Analyzers.Rules.Unity;
 
@@ -47,7 +49,7 @@ internal static class TypeSymbolExtensions
 
 	public static bool Matches(this ITypeSymbol symbol, Type type)
 	{
-		if (type == typeof(UnityEngine.IEnumeratorOrVoid))
+		if (type == typeof(IEnumeratorOrVoid))
 		{
 			return (symbol.SpecialType is SpecialType.System_Void or SpecialType.System_Collections_IEnumerator)
 				   || symbol.IsAwaitableOf(typeof(void))
@@ -103,12 +105,12 @@ internal static class TypeSymbolExtensions
 
 	private static bool IsBuiltinAwaitableOf(INamedTypeSymbol typeSymbol, Type type)
 	{
-		return IsAwaitableOf(typeSymbol, type, typeof(UnityEngine.Awaitable));
+		return IsAwaitableOf(typeSymbol, type, typeof(Awaitable));
 	}
 
 	private static bool IsUniTaskAwaitableOf(INamedTypeSymbol typeSymbol, Type type)
 	{
-		return IsAwaitableOf(typeSymbol, type, type == typeof(void) ? typeof(Cysharp.Threading.Tasks.UniTaskVoid) : typeof(Cysharp.Threading.Tasks.UniTask));
+		return IsAwaitableOf(typeSymbol, type, type == typeof(void) ? typeof(UniTaskVoid) : typeof(UniTask));
 	}
 
 	private static bool IsAwaitableOf(INamedTypeSymbol typeSymbol, Type _, Type awaiter)

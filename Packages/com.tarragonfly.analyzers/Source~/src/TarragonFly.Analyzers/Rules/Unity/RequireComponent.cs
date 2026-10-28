@@ -83,7 +83,7 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 		if (invocationParent == null)
 			return;
 
-		if (TryGetTargetdentifier(invocationParent, out var targetIdentifier)
+		if (TryGetTargetIdentifier(invocationParent, out var targetIdentifier)
 			&& TryGetNextTopNode(invocationParent, out var ifNode)
 			&& TryGetConditionIdentifier(ifNode, out var conditionIdentifier, out _, out _)
 			&& conditionIdentifier.Value.Text != targetIdentifier.Value.Text)

@@ -60,7 +60,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
             List<BannedEntry> words = BannedEntry.Parse(scope.Settings.BannedNameWords);
             List<BannedEntry> prefixes = BannedEntry.Parse(scope.Settings.BannedMethodPrefixes);
             if (words.Count == 0 && prefixes.Count == 0) return;
-            bool skipSaved = scope.Settings.BannedNameWordsSkipSerialized;
+            bool skipSerialized = scope.Settings.BannedNameWordsSkipSerialized;
 
             start.RegisterSemanticModelAction(context =>
             {
@@ -76,7 +76,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
                     if (!identifier.IsKind(SyntaxKind.IdentifierToken)) continue;
                     Declaration declaration = Classify(identifier);
                     if (declaration == Declaration.None) continue;
-                    if (skipSaved && IsSavedByUnity(declaration, identifier.Parent, context.SemanticModel, context.CancellationToken)) continue;
+                    if (skipSerialized && IsSerializedByUnity(declaration, identifier.Parent, context.SemanticModel, context.CancellationToken)) continue;
 
                     List<string> tokens = Tokens(identifier.ValueText);
                     string word = FirstMatch(tokens, words, false) ?? (declaration == Declaration.Method ? FirstMatch(tokens, prefixes, true) : null);
@@ -151,26 +151,26 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
         // A field Unity writes into scenes, prefabs and assets, or a property whose backing field it
         // writes through [field: SerializeField]. The name is part of the saved data.
-        private static bool IsSavedByUnity(Declaration declaration, SyntaxNode node, SemanticModel model, CancellationToken ct)
+        private static bool IsSerializedByUnity(Declaration declaration, SyntaxNode node, SemanticModel model, CancellationToken ct)
         {
             switch (declaration)
             {
                 case Declaration.Field:
-                    return IsSavedByUnity(model.GetDeclaredSymbol(node, ct) as IFieldSymbol);
+                    return IsSerializedByUnity(model.GetDeclaredSymbol(node, ct) as IFieldSymbol);
                 case Declaration.Property:
                     IPropertySymbol property = model.GetDeclaredSymbol(node, ct) as IPropertySymbol;
                     if (property == null) return false;
                     IFieldSymbol backingField = property.ContainingType.GetMembers().OfType<IFieldSymbol>()
                         .FirstOrDefault(field => SymbolEqualityComparer.Default.Equals(field.AssociatedSymbol, property));
-                    return IsSavedByUnity(backingField);
+                    return IsSerializedByUnity(backingField);
                 default:
                     return false;
             }
         }
 
-        private static bool IsSavedByUnity(IFieldSymbol field)
+        private static bool IsSerializedByUnity(IFieldSymbol field)
         {
-            if (field == null || !Frameworks.Unity.IsSavedByUnity(field)) return false;
+            if (field == null || !Frameworks.Unity.IsSerializedByUnity(field)) return false;
             if (SymbolNames.HasAttribute(field, "UnityEngine.SerializeField") || SymbolNames.HasAttribute(field, "UnityEngine.SerializeReference")) return true;
             return Frameworks.Unity.IsUnityObject(field.ContainingType) || SymbolNames.HasAttribute(field.ContainingType, "System.SerializableAttribute");
         }

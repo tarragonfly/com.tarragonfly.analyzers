@@ -15,7 +15,7 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // fixtures count too. Abstract fixtures are base classes and aren't checked. Reported on the class
     // name. Test code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
-    public sealed class FixtureWithoutTestsAnalyzer : ScopedAnalyzer
+    public sealed class TestClassWithoutTestsAnalyzer : ScopedAnalyzer
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF9001",
@@ -32,7 +32,7 @@ namespace TarragonFly.Analyzers.Rules.Tests
             {
                 TypeDeclarationSyntax declaration = (TypeDeclarationSyntax)context.Node;
                 if (!(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is INamedTypeSymbol type) || type.IsAbstract) return;
-                if (!Frameworks.NUnit.IsFixture(type) || Frameworks.NUnit.HasTests(type)) return;
+                if (!Frameworks.NUnit.HasTestClassAttribute(type) || Frameworks.NUnit.HasTests(type)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), type.Name));
             }), SyntaxKind.ClassDeclaration, SyntaxKind.RecordDeclaration);
         }

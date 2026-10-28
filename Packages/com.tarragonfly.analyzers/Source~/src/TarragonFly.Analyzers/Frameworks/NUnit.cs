@@ -31,7 +31,7 @@ namespace TarragonFly.Analyzers.Frameworks
             return SymbolNames.HasAttribute(method, UnityTestAttribute);
         }
 
-        public static bool IsFixture(INamedTypeSymbol type)
+        public static bool HasTestClassAttribute(INamedTypeSymbol type)
         {
             return SymbolNames.HasAttribute(type, "NUnit.Framework.TestFixtureAttribute");
         }

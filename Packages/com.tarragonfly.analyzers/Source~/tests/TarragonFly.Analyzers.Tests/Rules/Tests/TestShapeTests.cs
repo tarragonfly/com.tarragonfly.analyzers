@@ -4,7 +4,7 @@ using TarragonFly.Analyzers.Tests.Harness;
 
 namespace TarragonFly.Analyzers.Tests.Rules.Tests
 {
-    // TF9000 ignored tests, TF9001 fixtures without tests, TF9006 tests the runner can't run.
+    // TF9000 ignored tests, TF9001 test classes without tests, TF9006 tests the runner can't run.
     public class TestShapeTests
     {
         [Test]
@@ -58,9 +58,9 @@ class Tools
         }
 
         [Test]
-        public void FixtureWithoutTests_IsReported()
+        public void TestClassWithoutTests_IsReported()
         {
-            AnalyzerVerifier.Verify(new FixtureWithoutTestsAnalyzer(), @"
+            AnalyzerVerifier.Verify(new TestClassWithoutTestsAnalyzer(), @"
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine.TestTools;

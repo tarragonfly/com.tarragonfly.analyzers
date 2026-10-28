@@ -54,8 +54,8 @@ namespace TarragonFly.Analyzers.Rules.Tests
                 case MethodDeclarationSyntax method:
                     return context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is IMethodSymbol test && Frameworks.NUnit.IsTest(test);
                 case TypeDeclarationSyntax type:
-                    return context.SemanticModel.GetDeclaredSymbol(type, context.CancellationToken) is INamedTypeSymbol fixture
-                        && (Frameworks.NUnit.IsFixture(fixture) || Frameworks.NUnit.HasTests(fixture));
+                    return context.SemanticModel.GetDeclaredSymbol(type, context.CancellationToken) is INamedTypeSymbol testClass
+                        && (Frameworks.NUnit.HasTestClassAttribute(testClass) || Frameworks.NUnit.HasTests(testClass));
                 default:
                     return false;
             }

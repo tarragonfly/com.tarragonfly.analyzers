@@ -34,11 +34,11 @@ namespace TarragonFly.Analyzers.Frameworks
             return SymbolNames.IsOrDerivesFrom(type, "UnityEngine.ScriptableObject");
         }
 
-        // Whether Unity saves this field along with the object that holds it. For now this only reads
-        // the field's own declaration, not whether Unity can save its type; that check comes with the
-        // first rule that needs it. Auto-properties count through [field: SerializeField], which
-        // Roslyn puts on the backing field.
-        public static bool IsSavedByUnity(IFieldSymbol field)
+        // Whether Unity serializes this field along with the object that holds it. For now this only
+        // reads the field's own declaration, not whether Unity can serialize its type; that check comes
+        // with the first rule that needs it. Auto-properties count through [field: SerializeField],
+        // which Roslyn puts on the backing field.
+        public static bool IsSerializedByUnity(IFieldSymbol field)
         {
             if (field.IsStatic || field.IsConst || field.IsReadOnly) return false;
             if (SymbolNames.HasAttribute(field, "System.NonSerializedAttribute")) return false;

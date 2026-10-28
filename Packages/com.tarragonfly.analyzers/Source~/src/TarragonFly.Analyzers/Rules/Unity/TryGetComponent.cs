@@ -73,7 +73,7 @@ internal class TryGetComponentContext(string targetIdentifier, IfStatementSyntax
 		if (invocationParent == null)
 			return null;
 
-		if (!BaseGetComponentAnalyzer.TryGetTargetdentifier(invocationParent, out var targetIdentifier))
+		if (!BaseGetComponentAnalyzer.TryGetTargetIdentifier(invocationParent, out var targetIdentifier))
 			return null;
 
 		// We want the next line to be an if statement

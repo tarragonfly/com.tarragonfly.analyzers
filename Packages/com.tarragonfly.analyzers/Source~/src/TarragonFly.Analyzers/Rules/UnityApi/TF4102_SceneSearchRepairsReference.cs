@@ -112,7 +112,7 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
         // A serialized field of the component the code is in, or null.
         private static IFieldSymbol InspectorField(SemanticModel model, ExpressionSyntax target, CancellationToken ct)
         {
-            if (!(model.GetSymbolInfo(target, ct).Symbol is IFieldSymbol field) || !Frameworks.Unity.IsSavedByUnity(field)) return null;
+            if (!(model.GetSymbolInfo(target, ct).Symbol is IFieldSymbol field) || !Frameworks.Unity.IsSerializedByUnity(field)) return null;
             return SymbolNames.IsOrDerivesFrom(field.ContainingType, "UnityEngine.Component") ? field : null;
         }
 

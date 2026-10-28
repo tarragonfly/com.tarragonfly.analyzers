@@ -16,6 +16,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using UnityEngine;
+using UnityEngine.Jobs;
 
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
@@ -50,8 +52,8 @@ public abstract class BasePositionAndRotationContext(string positionPropertyName
 		if (expressionTypeInfo.Type == null)
 			return false;
 
-		return expressionTypeInfo.Type.Extends(typeof(UnityEngine.Transform))
-			|| expressionTypeInfo.Type.Extends(typeof(UnityEngine.Jobs.TransformAccess));
+		return expressionTypeInfo.Type.Extends(typeof(Transform))
+			|| expressionTypeInfo.Type.Extends(typeof(TransformAccess));
 	}
 
 	public virtual bool TryGetExpression(SyntaxNode node, [NotNullWhen(true)] out ExpressionSyntax? result)

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 using TarragonFly.Analyzers.Frameworks;
@@ -38,7 +39,7 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
                 {
                     case IPropertyReferenceOperation property when property.Property.Name == "Value" && !property.Property.IsStatic
                         && Frameworks.InitArgs.IsAny(property.Property.ContainingType):
-                        Location where = property.Syntax is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax access ? access.Name.GetLocation() : property.Syntax.GetLocation();
+                        Location where = property.Syntax is MemberAccessExpressionSyntax access ? access.Name.GetLocation() : property.Syntax.GetLocation();
                         context.ReportDiagnostic(Diagnostic.Create(Rule, where, Describe(property.Instance)));
                         break;
                     // Only Any<T> to T reads the value; T to Any<T> just wraps one.

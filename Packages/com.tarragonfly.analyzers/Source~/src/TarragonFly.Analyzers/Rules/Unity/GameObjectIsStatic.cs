@@ -13,6 +13,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TarragonFly.Analyzers.Rules.Unity.Resources;
+using UnityEngine;
 
 namespace TarragonFly.Analyzers.Rules.Unity;
 
@@ -53,7 +54,7 @@ public class GameObjectIsStaticAnalyzer : ScopedAnalyzer
 		if (typeInfo.Type == null)
 			return;
 
-		if (!typeInfo.Type.Matches(typeof(UnityEngine.GameObject)))
+		if (!typeInfo.Type.Matches(typeof(GameObject)))
 			return;
 
 		if (DirectiveHelper.IsInsideDirective(memberAccess, "UNITY_EDITOR"))

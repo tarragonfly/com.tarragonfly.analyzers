@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -97,7 +98,7 @@ namespace TarragonFly.Analyzers.Rules.Async
 
         // Any expression of type CancellationToken or CancellationTokenSource, lambdas included, since
         // a lambda that cancels the work counts too.
-        private static bool MentionsToken(SemanticModel model, SyntaxNode body, System.Threading.CancellationToken ct)
+        private static bool MentionsToken(SemanticModel model, SyntaxNode body, CancellationToken ct)
         {
             foreach (SyntaxNode node in body.DescendantNodes())
             {

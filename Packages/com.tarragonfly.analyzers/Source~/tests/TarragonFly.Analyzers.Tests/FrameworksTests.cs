@@ -33,20 +33,20 @@ namespace TarragonFly.Analyzers.Tests
         [TestCase("public static int speed;", false)]
         [TestCase("public readonly int speed;", false)]
         [TestCase("public const int speed = 1;", false)]
-        public void Unity_IsSavedByUnity_FollowsFieldDeclaration(string field, bool expected)
+        public void Unity_IsSerializedByUnity_FollowsFieldDeclaration(string field, bool expected)
         {
             Compilation compilation = Compile("class Player : MonoBehaviour { " + field + " }");
 
-            Assert.That(Frameworks.Unity.IsSavedByUnity(Field(compilation, "Player", "speed")), Is.EqualTo(expected));
+            Assert.That(Frameworks.Unity.IsSerializedByUnity(Field(compilation, "Player", "speed")), Is.EqualTo(expected));
         }
 
         [Test]
-        public void Unity_IsSavedByUnity_CountsSerializedAutoPropertyBackingField()
+        public void Unity_IsSerializedByUnity_CountsSerializedAutoPropertyBackingField()
         {
             Compilation compilation = Compile("class Player : MonoBehaviour { [field: SerializeField] public int Speed { get; private set; } }");
             IFieldSymbol backingField = Type(compilation, "Player").GetMembers().OfType<IFieldSymbol>().Single();
 
-            Assert.That(Frameworks.Unity.IsSavedByUnity(backingField), Is.True);
+            Assert.That(Frameworks.Unity.IsSerializedByUnity(backingField), Is.True);
         }
 
         [TestCase("[Preserve]", true)]

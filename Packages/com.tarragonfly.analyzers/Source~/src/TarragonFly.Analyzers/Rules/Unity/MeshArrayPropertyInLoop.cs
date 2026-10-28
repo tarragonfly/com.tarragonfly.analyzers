@@ -17,6 +17,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TarragonFly.Analyzers.Rules.Unity.Resources;
+using UnityEngine;
 
 namespace TarragonFly.Analyzers.Rules.Unity;
 
@@ -40,7 +41,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 
 	private static readonly Type[] AllocatingArrayElementTypes =
 	[
-		typeof(UnityEngine.Vector2), typeof(UnityEngine.Vector3), typeof(UnityEngine.Vector4), typeof(UnityEngine.Color), typeof(UnityEngine.Color32)
+		typeof(Vector2), typeof(Vector3), typeof(Vector4), typeof(Color), typeof(Color32)
 	];
 
 	protected override void OnCompilationStart(CompilationStartAnalysisContext context, CompilationScope scope)
@@ -186,7 +187,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 			return false;
 
 		var containingType = propertySymbol.ContainingType;
-		if (!containingType.Matches(typeof(UnityEngine.Mesh)))
+		if (!containingType.Matches(typeof(Mesh)))
 			return false;
 
 		if (propertySymbol.Type is not IArrayTypeSymbol arrayType)
