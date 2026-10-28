@@ -61,6 +61,8 @@ public class ShaderPropertyToIDAnalyzer : ScopedAnalyzer
 
 		for (var parent = invocation.Parent; parent != null; parent = parent.Parent)
 		{
+			if (parent is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax) break;
+			if (parent is ConstructorDeclarationSyntax constructor && constructor.Modifiers.Any(SyntaxKind.StaticKeyword)) return;
 			// Initializers already cache the computed ID.
 			if (parent is BaseFieldDeclarationSyntax or EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax })
 				return;

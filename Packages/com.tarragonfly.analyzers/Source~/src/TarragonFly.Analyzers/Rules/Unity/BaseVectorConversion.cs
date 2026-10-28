@@ -83,8 +83,9 @@ public abstract class BaseVectorConversionAnalyzer : ScopedAnalyzer
 		if (ocOperation.Arguments.Length < 2)
 			return false;
 
-		var first = ocOperation.Arguments[0];
-		var second = ocOperation.Arguments[1];
+		var first = ocOperation.Arguments.FirstOrDefault(argument => argument.Parameter?.Name == "x");
+		var second = ocOperation.Arguments.FirstOrDefault(argument => argument.Parameter?.Name == "y");
+		if (first == null || second == null) return false;
 
 		if (!ArgumentMatches(first, "x"))
 			return false;

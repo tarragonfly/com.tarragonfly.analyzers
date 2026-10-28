@@ -70,26 +70,64 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 			return;
 
 		var componentType = method.TypeArguments.First(); // Checked by IsGenericGetComponent
-		if (componentType.TypeKind == TypeKind.TypeParameter)
+		if (!componentType.Extends(typeof(Component)))
 			return;
 
 		if (IsTypeAlreadyRequired(containerType, componentType))
 			return;
 
-		if (IsInvocationNullChecked(invocation))
-			return;
-
-		var invocationParent = invocation.Parent;
-		if (invocationParent == null)
-			return;
-
-		if (TryGetTargetIdentifier(invocationParent, out var targetIdentifier)
-			&& TryGetNextTopNode(invocationParent, out var ifNode)
-			&& TryGetConditionIdentifier(ifNode, out var conditionIdentifier, out _, out _)
-			&& conditionIdentifier.Value.Text != targetIdentifier.Value.Text)
+		if (IsInvocationNullChecked(invocation) || IsNullCheckedLater(model, invocation, context.CancellationToken))
 			return;
 
 		context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation()));
+	}
+
+	// The result goes into a local, field or property that the method checks for null later on, so
+	// the component is optional. Only the method holding the call is read; a field set in Awake and
+	// checked in Update is still reported.
+	private static bool IsNullCheckedLater(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken ct)
+	{
+		SyntaxNode stored = invocation;
+		while (stored.Parent is ParenthesizedExpressionSyntax or CastExpressionSyntax)
+			stored = stored.Parent;
+
+		ISymbol? target = stored.Parent switch
+		{
+			EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator } => model.GetDeclaredSymbol(declarator, ct),
+			AssignmentExpressionSyntax assignment when assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && assignment.Right == stored => model.GetSymbolInfo(assignment.Left, ct).Symbol,
+			_ => null,
+		};
+		if (target == null || invocation.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
+			return false;
+
+		foreach (var name in member.DescendantNodes().OfType<IdentifierNameSyntax>())
+		{
+			if (name.SpanStart <= invocation.SpanStart || name.Identifier.ValueText != target.Name)
+				continue;
+			if (IsNullCheck(name) && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(name, ct).Symbol, target))
+				return true;
+		}
+
+		return false;
+	}
+
+	// "x == null", "x != null", "x is null", "x?.", "x ?? ...", and Unity's "if (x)" or "!x".
+	private static bool IsNullCheck(IdentifierNameSyntax name)
+	{
+		SyntaxNode checkedNode = name.Parent is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } access && access.Name == name ? access : name;
+		return checkedNode.Parent switch
+		{
+			BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression)
+				=> binary.Left.IsKind(SyntaxKind.NullLiteralExpression) || binary.Right.IsKind(SyntaxKind.NullLiteralExpression),
+			BinaryExpressionSyntax coalesce when coalesce.IsKind(SyntaxKind.CoalesceExpression) => coalesce.Left == checkedNode,
+			BinaryExpressionSyntax logical => logical.IsKind(SyntaxKind.LogicalAndExpression) || logical.IsKind(SyntaxKind.LogicalOrExpression),
+			IsPatternExpressionSyntax => true,
+			ConditionalAccessExpressionSyntax conditional => conditional.Expression == checkedNode,
+			PrefixUnaryExpressionSyntax not => not.IsKind(SyntaxKind.LogicalNotExpression),
+			IfStatementSyntax ifStatement => ifStatement.Condition == checkedNode,
+			ConditionalExpressionSyntax conditional => conditional.Condition == checkedNode,
+			_ => false,
+		};
 	}
 
 	// [RequireComponent] is inherited, so a base class's attribute counts too. Upstream only read the

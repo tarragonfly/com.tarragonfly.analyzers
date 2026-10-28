@@ -7,7 +7,6 @@
 #nullable enable
 
 using System.Collections.Immutable;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
@@ -41,12 +40,6 @@ public class CacheYieldInstructionAnalyzer : ScopedAnalyzer
 		context.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(AnalyzeYieldReturn), SyntaxKind.YieldReturnStatement);
 	}
 
-	private static readonly string[] _cachableTypes =
-	[
-		"UnityEngine.WaitForSeconds",
-		"UnityEngine.WaitForSecondsRealtime"
-	];
-
 	private static void AnalyzeYieldReturn(SyntaxNodeAnalysisContext context)
 	{
 		if (context.Node is not YieldStatementSyntax yieldStatement)
@@ -66,8 +59,9 @@ public class CacheYieldInstructionAnalyzer : ScopedAnalyzer
 		if (typeSymbol == null)
 			return;
 
+		// Realtime waits keep per-wait state, so concurrent coroutines can't safely share them.
 		var typeName = typeSymbol.ToDisplayString();
-		if (!_cachableTypes.Contains(typeName))
+		if (typeName != "UnityEngine.WaitForSeconds")
 			return;
 
 		context.ReportDiagnostic(Diagnostic.Create(

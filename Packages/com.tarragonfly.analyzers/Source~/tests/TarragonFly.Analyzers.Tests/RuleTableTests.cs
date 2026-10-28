@@ -66,6 +66,7 @@ namespace TarragonFly.Analyzers.Tests
                 case CodeKind.Game: return "game";
                 case CodeKind.Runtime: return "runtime";
                 case CodeKind.Tests: return "tests";
+                case CodeKind.Runtime | CodeKind.Tests: return "runtime and tests";
                 default: return $"(no README word for {checks} yet; add one to ChecksWord)";
             }
         }
@@ -73,7 +74,7 @@ namespace TarragonFly.Analyzers.Tests
         private static Dictionary<string, string> ReadmeRows()
         {
             string readme = Path.Combine(TestContext.CurrentContext.TestDirectory, "README.md");
-            Regex row = new Regex(@"^\| (TF\d{4}) \| (.*) \| (\w+) \|\s*(\w*)\s*\|$");
+            Regex row = new Regex(@"^\| (TF\d{4}) \| (.*) \| (\w+(?: and \w+)?) \|\s*(\w*)\s*\|$");
             Dictionary<string, string> rows = new Dictionary<string, string>();
             foreach (string line in File.ReadAllLines(readme))
             {

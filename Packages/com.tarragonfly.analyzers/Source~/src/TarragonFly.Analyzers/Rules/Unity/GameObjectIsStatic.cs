@@ -7,7 +7,7 @@
 #nullable enable
 
 using System.Collections.Immutable;
-using System.Text.RegularExpressions;
+using System;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -29,13 +29,12 @@ public class GameObjectIsStaticAnalyzer : ScopedAnalyzer
 		area: DiagnosticCategory.Correctness,
 		severity: DiagnosticSeverity.Warning,
 		enabledByDefault: true,
-		checks: CodeKind.All,
+		// Editor code may read isStatic freely.
+		checks: CodeKind.Runtime | CodeKind.Tests,
 		sourceRule: "UNT0040",
 		description: Strings.GameObjectIsStaticDiagnosticDescription);
 
 	public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
-
-	private static readonly Regex EditorFolderRegex = new(@"[/\\]Assets[/\\].*[/\\]Editor[/\\]", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
 	protected override void OnCompilationStart(CompilationStartAnalysisContext context, CompilationScope scope)
 	{
@@ -47,7 +46,7 @@ public class GameObjectIsStaticAnalyzer : ScopedAnalyzer
 		if (context.Node is not MemberAccessExpressionSyntax memberAccess)
 			return;
 
-		if (memberAccess.Name.Identifier.Text != "isStatic")
+		if (memberAccess.Name.Identifier.Text != "isStatic" || NameOfExpressions.IsInsideNameOf(memberAccess))
 			return;
 
 		var typeInfo = context.SemanticModel.GetTypeInfo(memberAccess.Expression);
@@ -57,7 +56,7 @@ public class GameObjectIsStaticAnalyzer : ScopedAnalyzer
 		if (!typeInfo.Type.Matches(typeof(GameObject)))
 			return;
 
-		if (DirectiveHelper.IsInsideDirective(memberAccess, "UNITY_EDITOR"))
+		if (EditorDirectives.IsEditorOnly(memberAccess))
 			return;
 
 		if (memberAccess.IsInsideEditorOnlyMessage(context.SemanticModel))
@@ -71,7 +70,7 @@ public class GameObjectIsStaticAnalyzer : ScopedAnalyzer
 
 	private static bool IsInsideEditorFolder(SyntaxNodeAnalysisContext context)
 	{
-		var filePath = context.Node.SyntaxTree.FilePath;
-		return !string.IsNullOrWhiteSpace(filePath) && EditorFolderRegex.IsMatch(filePath);
+		string path = ProjectPaths.ToProjectRelative(context.Node.SyntaxTree.FilePath);
+		return path.IndexOf("/Editor/", StringComparison.OrdinalIgnoreCase) >= 0;
 	}
 }

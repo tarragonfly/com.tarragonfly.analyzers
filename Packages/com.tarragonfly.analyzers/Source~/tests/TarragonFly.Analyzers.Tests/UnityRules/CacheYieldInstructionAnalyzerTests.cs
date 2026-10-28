@@ -194,9 +194,6 @@ class Camera : MonoBehaviour
 		var diagnostic1 = ExpectDiagnostic()
 			.WithLocation(9, 22);
 
-		var diagnostic2 = ExpectDiagnostic()
-			.WithLocation(14, 22);
-
-		await VerifyCSharpDiagnosticAsync(test, diagnostic1, diagnostic2);
+		await VerifyCSharpDiagnosticAsync(test, diagnostic1);
 	}
 }

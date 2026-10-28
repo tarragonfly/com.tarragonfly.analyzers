@@ -62,7 +62,7 @@ class TestScript : MonoBehaviour
 	[Test]
 	public async Task IsStaticInsideUnityEditorDirective_NoDiagnostic()
 	{
-		const string test = @"
+		const string test = @"#define UNITY_EDITOR
 using UnityEngine;
 
 class TestScript : MonoBehaviour
@@ -85,7 +85,7 @@ class TestScript : MonoBehaviour
 	[Test]
 	public async Task IsStaticOutsideUnityEditorDirective()
 	{
-		const string test = @"
+		const string test = @"#define UNITY_EDITOR
 using UnityEngine;
 
 class TestScript : MonoBehaviour
@@ -156,7 +156,8 @@ class TestScriptableObject : ScriptableObject
 	[Test]
 	public async Task IsStaticWithNestedUnityEditorDirective_NoDiagnostic()
 	{
-		const string test = @"
+		const string test = @"#define UNITY_EDITOR
+#define DEBUG
 using UnityEngine;
 
 class TestScript : MonoBehaviour
@@ -178,9 +179,10 @@ class TestScript : MonoBehaviour
 	}
 
 	[Test]
-	public async Task IsStaticWithComplexDirective_NoDiagnostic()
+	public async Task IsStaticInsideEditorOrDebugDirective()
 	{
-		const string test = @"
+		const string test = @"#define UNITY_EDITOR
+#define DEBUG
 using UnityEngine;
 
 class TestScript : MonoBehaviour
@@ -196,7 +198,11 @@ class TestScript : MonoBehaviour
     }
 }
 ";
-		await VerifyCSharpDiagnosticAsync(test);
+		// DEBUG builds outside the editor compile this too.
+		var diagnostic = ExpectDiagnostic()
+			.WithLocation(11, 16);
+
+		await VerifyCSharpDiagnosticAsync(test, diagnostic);
 	}
 
 	[Test]

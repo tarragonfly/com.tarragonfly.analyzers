@@ -8,6 +8,7 @@
 
 using System;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -48,7 +49,7 @@ public class Vector2ConversionAnalyzer : BaseVectorConversionAnalyzer
 		if (ocOperation.Arguments.Length != 3)
 			return false;
 
-		if (ocOperation.Arguments[2] is not { } third)
+		if (ocOperation.Arguments.FirstOrDefault(argument => argument.Parameter?.Name == "z") is not { } third)
 			return false;
 
 		if (!third.Value.ConstantValue.HasValue)

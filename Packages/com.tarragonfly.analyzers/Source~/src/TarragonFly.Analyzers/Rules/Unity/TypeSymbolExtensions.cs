@@ -96,9 +96,6 @@ internal static class TypeSymbolExtensions
 				   && originalDefinition.ContainingNamespace?.ToDisplayString() == type.Namespace;
 		}
 
-		if (symbol.IsAwaitableOf(type))
-			return true;
-
 		return named.Name == type.Name
 			   && named.ContainingNamespace?.ToDisplayString() == type.Namespace;
 	}

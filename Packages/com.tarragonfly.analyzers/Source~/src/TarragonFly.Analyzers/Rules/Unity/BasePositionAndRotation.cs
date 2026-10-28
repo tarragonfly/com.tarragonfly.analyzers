@@ -16,6 +16,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 using UnityEngine;
 using UnityEngine.Jobs;
 
@@ -140,6 +141,10 @@ public abstract class BasePositionAndRotationAnalyzer(BasePositionAndRotationCon
 		if (!ExpressionContext.TryGetPropertyExpression(model, nextExpression, out var nextSyntax))
 			return;
 
+		if (!IsStableReceiver(model, syntax.Expression) || !IsStableReceiver(model, nextSyntax.Expression)) return;
+		if (ExpressionContext is BaseSetPositionAndRotationContext
+			&& (HasSideEffects(model, ((AssignmentExpressionSyntax)expression).Right) || HasSideEffects(model, ((AssignmentExpressionSyntax)nextExpression).Right))) return;
+
 		if (!AreExpressionsEquivalent(model, syntax.Expression, nextSyntax.Expression))
 			return;
 
@@ -161,6 +166,40 @@ public abstract class BasePositionAndRotationAnalyzer(BasePositionAndRotationCon
 			return;
 
 		OnPatternFound(context, statement);
+	}
+
+	// Other properties, such as Camera.main or our own getters, can hand back a different object on
+	// each read, so only Unity's transform and gameObject count as the same object twice.
+	private static bool IsStableReceiver(SemanticModel model, ExpressionSyntax expression)
+	{
+		if (expression is ThisExpressionSyntax or BaseExpressionSyntax) return true;
+		ISymbol? symbol = model.GetSymbolInfo(expression).Symbol;
+		if (symbol is ILocalSymbol local) return !local.IsRef;
+		if (symbol is IParameterSymbol parameter) return parameter.RefKind == RefKind.None;
+		if (symbol is IPropertySymbol property && !(property.Name is "transform" or "gameObject"
+			&& (property.ContainingType.Matches(typeof(Component)) || property.ContainingType.Matches(typeof(GameObject))))) return false;
+		if (symbol is not IFieldSymbol && symbol is not IPropertySymbol) return false;
+		return expression is IdentifierNameSyntax || expression is MemberAccessExpressionSyntax access && IsStableReceiver(model, access.Expression);
+	}
+
+	// Property getters count as plain reads, so "speed * Time.deltaTime" doesn't block the merge.
+	// Random.Range does change the random state, but it can't see the transform, so it's fine too.
+	private static bool HasSideEffects(SemanticModel model, ExpressionSyntax expression)
+	{
+		IOperation? operation = model.GetOperation(expression);
+		return operation == null || operation.DescendantsAndSelf().Any(child => child is IAssignmentOperation or IIncrementOrDecrementOperation or IAwaitOperation
+			|| child is IInvocationOperation call && !IsUnityValueType(call.TargetMethod.ContainingType) && !IsUnityRandom(call.TargetMethod)
+			|| child is IObjectCreationOperation creation && !IsUnityValueType(creation.Type));
+	}
+
+	private static bool IsUnityRandom(IMethodSymbol method)
+	{
+		return method.IsStatic && method.ContainingType.ToDisplayString() == "UnityEngine.Random";
+	}
+
+	private static bool IsUnityValueType(ITypeSymbol? type)
+	{
+		return type?.IsValueType == true && type.ContainingNamespace.ToDisplayString() == "UnityEngine";
 	}
 
 	private static bool AreExpressionsEquivalent(SemanticModel model, ExpressionSyntax expr1, ExpressionSyntax expr2)

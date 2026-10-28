@@ -18,7 +18,7 @@ internal static class MethodSymbolExtensions
 		if (method.Name != symbol.Name)
 			return false;
 
-		if (!symbol.ReturnType.Matches(method.ReturnType))
+		if (!symbol.ReturnType.Matches(method.ReturnType) && !symbol.ReturnType.IsAwaitableOf(method.ReturnType))
 			return false;
 
 		var parameters = method.GetParameters();

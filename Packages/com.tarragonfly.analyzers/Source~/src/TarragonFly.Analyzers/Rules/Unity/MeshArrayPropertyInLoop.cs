@@ -41,7 +41,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 
 	private static readonly Type[] AllocatingArrayElementTypes =
 	[
-		typeof(Vector2), typeof(Vector3), typeof(Vector4), typeof(Color), typeof(Color32)
+		typeof(Vector2), typeof(Vector3), typeof(Vector4), typeof(Color), typeof(Color32), typeof(int)
 	];
 
 	protected override void OnCompilationStart(CompilationStartAnalysisContext context, CompilationScope scope)
@@ -55,7 +55,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 			return;
 
 		var loop = FindContainingLoop(memberAccess);
-		if (loop == null)
+		if (loop == null || NameOfExpressions.IsInsideNameOf(memberAccess))
 			return;
 
 		if (!IsAllocatingMeshProperty(context, memberAccess, out var propertyName))
@@ -102,7 +102,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 	{
 		var allOccurrences = loop.DescendantNodes()
 			.OfType<MemberAccessExpressionSyntax>()
-			.Where(m => IsInLoopConditionOrBody(m, loop) && IsSameMeshPropertyAccess(model, m, memberAccess))
+			.Where(m => IsInLoopConditionOrBody(m, loop) && IsAllocatingMeshProperty(model, m, out _) && IsSameMeshPropertyAccess(model, m, memberAccess))
 			.OrderBy(m => m.SpanStart)
 			.ToList();
 
@@ -181,6 +181,7 @@ public class MeshArrayPropertyInLoopAnalyzer : ScopedAnalyzer
 	internal static bool IsAllocatingMeshProperty(SemanticModel model, MemberAccessExpressionSyntax memberAccess, out string? propertyName)
 	{
 		propertyName = null;
+		if (memberAccess.Parent is AssignmentExpressionSyntax assignment && assignment.Left == memberAccess && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)) return false;
 
 		var symbol = model.GetSymbolInfo(memberAccess).Symbol;
 		if (symbol is not IPropertySymbol propertySymbol)

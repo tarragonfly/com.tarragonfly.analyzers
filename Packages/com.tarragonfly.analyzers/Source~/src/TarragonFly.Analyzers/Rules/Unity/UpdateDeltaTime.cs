@@ -15,6 +15,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using TarragonFly.Analyzers.Frameworks;
 using TarragonFly.Analyzers.Rules.Unity.Resources;
 using UnityEngine;
 
@@ -81,20 +82,23 @@ public class UpdateDeltaTimeAnalyzer : ScopedAnalyzer
 			return;
 
 		if (IsMessage(context, method, typeof(MonoBehaviour), "Update"))
-			AnalyzeMemberAccess(context, method, "Time.fixedDeltaTime", UpdateRule);
+			AnalyzeTimeProperty(context, method, "fixedDeltaTime", UpdateRule);
 
 		if (IsMessage(context, method, typeof(MonoBehaviour), "FixedUpdate"))
-			AnalyzeMemberAccess(context, method, "Time.deltaTime", FixedUpdateRule);
+			AnalyzeTimeProperty(context, method, "deltaTime", FixedUpdateRule);
 	}
 
-	private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, string memberName, DiagnosticDescriptor descriptor)
+	private static void AnalyzeTimeProperty(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, string memberName, DiagnosticDescriptor descriptor)
 	{
 		var usages = method
 			.DescendantNodes()
-			.OfType<MemberAccessExpressionSyntax>()
-			.Where(expression => expression.ToString() == memberName);
+			.OfType<IdentifierNameSyntax>()
+			.Where(expression => expression.Identifier.ValueText == memberName
+				&& !NameOfExpressions.IsInsideNameOf(expression)
+				&& context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IPropertySymbol property
+				&& SymbolNames.IsNamed(property.ContainingType, "UnityEngine.Time"));
 
 		foreach (var usage in usages)
-			context.ReportDiagnostic(Diagnostic.Create(descriptor, usage.Name.GetLocation()));
+			context.ReportDiagnostic(Diagnostic.Create(descriptor, usage.GetLocation()));
 	}
 }

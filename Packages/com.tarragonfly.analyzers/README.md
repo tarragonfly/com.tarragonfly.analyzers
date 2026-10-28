@@ -170,6 +170,7 @@ Each rule declares which kind of code it looks at, shown in the Checks column of
 | game | Runtime and editor assemblies, not tests |
 | runtime | Runtime assemblies only |
 | tests | Test assemblies only |
+| runtime and tests | Runtime and test assemblies, not editor |
 
 An assembly's kind is decided by name, because Unity gives editor and test assemblies the same
 references and defines. An assembly whose name matches `test_assemblies` holds tests. Otherwise it
@@ -474,15 +475,26 @@ TF3100 takes its tag shape from the `log_prefix` setting.
 
 TF4001 to TF4046 are the rules of
 [Microsoft.Unity.Analyzers](https://github.com/microsoft/Microsoft.Unity.Analyzers) 1.28.0 with new
-IDs: UNT0008 is TF4008, and so on. They behave the same, with two changes: TF4039 counts a
-`[RequireComponent]` inherited from a base class, which UNT0039 missed, and TF4003 also reports
-`GetComponent(typeof(T))` on another object, `AddComponent(typeof(T))`, `CreateInstance(typeof(T))`
-and type names passed as constant strings, saying when a name matches no type, since the call then
-returns null. UNT0003 only reported `GetComponent(typeof(T))` with no receiver. The rules that are
-only about speed, such as TF4038's cached WaitForSeconds, check game code only, like the TF8000s: a
-test that waits once or sets a position once doesn't need the faster form. Microsoft's code fixes and
-suppressors are not included, since Unity's compiler never runs them. TF4100 to TF4105 are new rules
-for Unity API mistakes.
+IDs: UNT0008 is TF4008, and so on. They behave the same, apart from these changes:
+
+- TF4003 also reports `GetComponent(typeof(T))` on another object, `AddComponent(typeof(T))`,
+  `CreateInstance(typeof(T))` and type names passed as constant strings, and says when a name matches
+  no type, because the call then returns null. UNT0003 only reported `GetComponent(typeof(T))` with
+  no receiver.
+- TF4022, TF4032, TF4036 and TF4037 skip a transform that may be a different object on each read,
+  such as one returned by a method. TF4022 and TF4032 also skip values whose calls could behave
+  differently once merged into one call.
+- TF4038 doesn't report `WaitForSecondsRealtime`, which keeps per-wait state and can't be shared.
+- TF4039 counts a `[RequireComponent]` inherited from a base class, which UNT0039 missed. It skips
+  `GetComponent` calls for interfaces, which `[RequireComponent]` can't name, and a result the method
+  checks for null anywhere later, not just on the next line.
+- TF4040 doesn't run in editor assemblies, where `isStatic` is fine.
+- TF4042 also covers the `int[]` triangles array and skips setters.
+- The rules that are only about speed, such as TF4038's cached WaitForSeconds, check game code only,
+  like the TF8000s. A test that waits once or sets a position once doesn't need the faster form.
+
+Microsoft's code fixes and suppressors are not included, because Unity's compiler never runs them.
+TF4100 to TF4105 are new rules for Unity API mistakes.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
@@ -525,7 +537,7 @@ for Unity API mistakes.
 | TF4037 | Inefficient localPosition/localRotation read | game | UNT0037 |
 | TF4038 | WaitForSeconds caching | game | UNT0038 |
 | TF4039 | Use RequireComponent attribute when self-invoking GetComponent | all | UNT0039 |
-| TF4040 | GameObject.isStatic is editor-only | all | UNT0040 |
+| TF4040 | GameObject.isStatic is editor-only | runtime and tests | UNT0040 |
 | TF4041 | Use Animator.StringToHash instead of strings | game | UNT0041 |
 | TF4042 | Mesh array property accessed in loop | game | UNT0042 |
 | TF4043 | Possible typo in conditional compilation symbol | all | UNT0043 |
