@@ -74,11 +74,19 @@ namespace TarragonFly.Analyzers.Rules.Async
         }
 
         // Whether the method can run more of its own code once the await finishes: a later statement in
-        // any block around it, a loop around it, or a finally. A bare "return;" doesn't count.
+        // any block around it, a loop around it, a finally, or an expression that uses the result, such
+        // as an if or switch condition. A bare "return;" doesn't count.
         private static bool HasCodeAfter(AwaitExpressionSyntax awaited, SyntaxNode body)
         {
             for (SyntaxNode node = awaited; node != null && node != body; node = node.Parent)
             {
+                if (node.Parent is AssignmentExpressionSyntax assignment && assignment.Right == node) return true;
+                if (node.Parent is ArgumentSyntax || node.Parent is BinaryExpressionSyntax || node.Parent is MemberAccessExpressionSyntax
+                    || node.Parent is ConditionalExpressionSyntax || node.Parent is PrefixUnaryExpressionSyntax || node.Parent is CastExpressionSyntax) return true;
+                if (node.Parent is IfStatementSyntax ifStatement && ifStatement.Condition == node
+                    || node.Parent is SwitchStatementSyntax switchStatement && switchStatement.Expression == node
+                    || node.Parent is SwitchExpressionSyntax switchExpression && switchExpression.GoverningExpression == node
+                    || node.Parent is ConditionalAccessExpressionSyntax access && access.Expression == node) return true;
                 if (node.Parent is BlockSyntax block)
                 {
                     int index = block.Statements.IndexOf((StatementSyntax)node);

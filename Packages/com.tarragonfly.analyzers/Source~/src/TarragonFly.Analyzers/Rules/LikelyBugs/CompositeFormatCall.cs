@@ -107,7 +107,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                     SkipSpaces(format, ref position);
                     if (position < format.Length && format[position] == '-') position++;
                     if (!IsDigitAt(format, position)) return false;
-                    while (IsDigitAt(format, position)) position++;
+                    int width = 0;
+                    while (IsDigitAt(format, position) && width < 1000000) width = width * 10 + (format[position++] - '0');
                     SkipSpaces(format, ref position);
                 }
                 if (position < format.Length && format[position] == ':' && !SkipItemFormat(format, ref position)) return false;

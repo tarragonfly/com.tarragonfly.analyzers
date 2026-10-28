@@ -79,7 +79,8 @@ namespace TarragonFly.Analyzers.Rules.Exceptions
 
         private static string MethodKind(IMethodSymbol method)
         {
-            switch (method.Name)
+            string name = method.ExplicitInterfaceImplementations.Length > 0 ? method.ExplicitInterfaceImplementations[0].Name : method.Name;
+            switch (name)
             {
                 case "GetHashCode" when method.IsOverride && method.Parameters.Length == 0:
                 case "ToString" when method.IsOverride && method.Parameters.Length == 0:

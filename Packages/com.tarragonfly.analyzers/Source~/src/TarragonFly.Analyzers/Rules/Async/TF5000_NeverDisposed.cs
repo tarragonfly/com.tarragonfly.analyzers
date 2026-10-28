@@ -33,7 +33,8 @@ namespace TarragonFly.Analyzers.Rules.Async
     // object made from a pointer is checked, since its Dispose may free that memory. Reported on each
     // creation.
     //
-    // System.Threading.Timer is checked too; an undisposed Timer keeps firing.
+    // System.Threading.Timer is checked too; an undisposed Timer keeps firing. A static readonly field
+    // is a singleton kept for the whole run, such as a shared HttpClient or pool, and isn't checked.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class NeverDisposedAnalyzer : ScopedAnalyzer
     {
@@ -70,7 +71,7 @@ namespace TarragonFly.Analyzers.Rules.Async
             {
                 IFieldReferenceOperation reference = (IFieldReferenceOperation)context.Operation;
                 IFieldSymbol field = reference.Field.OriginalDefinition;
-                if (field.DeclaredAccessibility != Accessibility.Private || field.IsStatic) return;
+                if (field.DeclaredAccessibility != Accessibility.Private || IsAppLifetimeSingleton(field)) return;
                 if (SymbolNames.HasAttribute(field, "Unity.Collections.DeallocateOnJobCompletionAttribute")) return;
                 if (reference.Parent is ISimpleAssignmentOperation assignment && assignment.Target == reference)
                 {
@@ -86,7 +87,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (!IsCreation(initializer.Value)) return;
                 foreach (IFieldSymbol field in initializer.InitializedFields)
                 {
-                    if (field.DeclaredAccessibility != Accessibility.Private || field.IsStatic) continue;
+                    if (field.DeclaredAccessibility != Accessibility.Private || IsAppLifetimeSingleton(field)) continue;
                     if (SymbolNames.HasAttribute(field, "Unity.Collections.DeallocateOnJobCompletionAttribute")) continue;
                     SyntaxNode declarator = field.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken);
                     fieldCreations.GetOrAdd(field, _ => new ConcurrentBag<SyntaxNode>()).Add(declarator);
@@ -158,6 +159,11 @@ namespace TarragonFly.Analyzers.Rules.Async
         }
 
         // "new X(...)" of a type that needs disposing, or CancellationTokenSource.CreateLinkedTokenSource(...).
+        private static bool IsAppLifetimeSingleton(IFieldSymbol field)
+        {
+            return field.IsStatic && field.IsReadOnly;
+        }
+
         private static bool IsCreation(IOperation value)
         {
             while (value is IConversionOperation conversion) value = conversion.Operand;

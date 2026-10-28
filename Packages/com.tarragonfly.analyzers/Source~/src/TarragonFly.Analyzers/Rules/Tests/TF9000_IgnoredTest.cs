@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -40,7 +42,9 @@ namespace TarragonFly.Analyzers.Rules.Tests
                 {
                     foreach (AttributeArgumentSyntax argument in attribute.ArgumentList.Arguments)
                     {
-                        if (argument.NameEquals?.Name.Identifier.ValueText == "Until") return;
+                        if (argument.NameEquals?.Name.Identifier.ValueText == "Until"
+                            && context.SemanticModel.GetConstantValue(argument.Expression, context.CancellationToken).Value is string until
+                            && DateTimeOffset.TryParse(until, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out _)) return;
                     }
                 }
                 context.ReportDiagnostic(Diagnostic.Create(Rule, attribute.GetLocation()));

@@ -71,6 +71,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
         // Any use of the event's delegate other than subscribing, assigning null or a null check.
         private static bool IsRaise(IEventReferenceOperation reference)
         {
+            if (NameOfExpressions.IsInsideNameOf(reference)) return false;
             IOperation current = reference;
             IOperation parent = reference.Parent;
             while (parent is IConversionOperation || parent is IParenthesizedOperation)

@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.CodeAnalysis;
 
 namespace TarragonFly.Analyzers.Frameworks
@@ -29,6 +30,19 @@ namespace TarragonFly.Analyzers.Frameworks
         public static bool IsUnityTest(IMethodSymbol method)
         {
             return SymbolNames.HasAttribute(method, UnityTestAttribute);
+        }
+
+        // Set on [Test] or [TestCase]; NUnit compares it with what the test returns.
+        public static bool HasExpectedResult(IMethodSymbol method)
+        {
+            return method.GetAttributes().Any(attribute => attribute.NamedArguments.Any(argument => argument.Key == "ExpectedResult"));
+        }
+
+        // The test hands NUnit a value: anything but void or a task without a result.
+        public static bool ReturnsValue(IMethodSymbol method)
+        {
+            if (method.ReturnsVoid) return false;
+            return !UniTask.IsTask(method.ReturnType) || method.ReturnType is INamedTypeSymbol named && named.TypeArguments.Length == 1;
         }
 
         public static bool HasTestClassAttribute(INamedTypeSymbol type)

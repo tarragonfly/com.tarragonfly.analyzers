@@ -67,21 +67,11 @@ namespace TarragonFly.Analyzers.Rules.Tests
             if (Frameworks.NUnit.IsUnityTest(method)) return returnsEnumerator ? null : "A [UnityTest] must return IEnumerator";
             if (returnsEnumerator) return "Only [UnityTest] steps through an IEnumerator; use [UnityTest] instead of [Test]";
             if (UniTask.IsUniTaskVoid(method.ReturnType)) return "The runner can't await a UniTaskVoid, so it can't tell when this test finishes; return Task instead";
-            if (method.ReturnsVoid || UniTask.IsTask(method.ReturnType) || HasExpectedResult(method)) return null;
+            bool expected = Frameworks.NUnit.HasExpectedResult(method);
+            if (!Frameworks.NUnit.ReturnsValue(method)) return expected ? "This test has no result to compare with ExpectedResult; return a value or remove ExpectedResult" : null;
+            if (expected) return null;
             if (SymbolNames.HasAttribute(method, "NUnit.Framework.TestCaseSourceAttribute")) return null;
             return "NUnit refuses a test that returns a value without ExpectedResult; return void or set ExpectedResult";
-        }
-
-        private static bool HasExpectedResult(IMethodSymbol method)
-        {
-            foreach (AttributeData attribute in method.GetAttributes())
-            {
-                foreach (System.Collections.Generic.KeyValuePair<string, TypedConstant> argument in attribute.NamedArguments)
-                {
-                    if (argument.Key == "ExpectedResult") return true;
-                }
-            }
-            return false;
         }
     }
 }
