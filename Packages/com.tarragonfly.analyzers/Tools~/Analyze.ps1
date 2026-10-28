@@ -39,6 +39,9 @@ isn't. Other ways Unity's response files can go stale are known limits, listed b
 doubt, let Unity compile once (open the editor, or a batch run with -quit) and run again.
 
 Known limits:
+  - Removed compiler response files are found through git history and folder timestamps. A deleted
+    untracked csc.rsp, one removed while git was unavailable, or an uncommitted removal in a folder
+    where a file was saved since, needs a Unity compile first.
   - Not detected: Packages/manifest.json changes, Scripting Define Symbols or other
     ProjectSettings edits, and a different editor version than the one that last compiled.
   - In a "file:" package outside the project, only deleted .cs files are detected; added
@@ -73,7 +76,7 @@ param(
     [switch] $Changed,
     # Also report assemblies whose sources all live outside Assets/ (packages).
     [switch] $IncludePackages,
-    # Extra analyzer DLLs to load, for trying an analyzer before Unity knows about it.
+    # Extra analyzer DLLs to load. An existing analyzer with the same filename is replaced for this run.
     [string[]] $Analyzer = @(),
     # Extra Roslyn additional files, for example an analyzer settings file.
     [string[]] $AdditionalFile = @(),
@@ -93,6 +96,44 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 # AD0001 analyzer threw; CS8032 could not create it; CS8034 could not load the DLL; CS8784 and
 # CS8785 source generator failed; CS9057 the DLL needs a newer compiler than this editor's.
 $analyzerFailureIds = @('AD0001', 'CS8032', 'CS8034', 'CS8784', 'CS8785', 'CS9057')
+
+function Test-ReportedDiagnostic([string] $Level, [string] $File, $ChangedFiles) {
+    if ($Level -eq 'error' -or $Level -eq 'note' -or $Level -eq 'none') { return $false }
+    return $null -eq $ChangedFiles -or $ChangedFiles.Contains($File)
+}
+
+# -AfterCompile is for deletions git dates after Unity's last compile. Any other deletion counts
+# when its folder changed since then, unless a file saved there since could explain that change.
+function Get-MissingAssemblySettings([string[]] $Paths, [string] $Project, [datetime] $Since, [switch] $AfterCompile) {
+    foreach ($path in @($Paths | Sort-Object -Unique)) {
+        if ($path -notmatch '^(Assets|Packages)/' -or $path -notmatch '(\.asmdef|\.asmref|(^|/)csc\.rsp)$' -or -not (Test-ImportedPath $path)) { continue }
+        $fullPath = Join-Path $Project $path
+        if (Test-Path -LiteralPath $fullPath) { continue }
+        if ($AfterCompile) {
+            [pscustomobject]@{ File = $path; Change = 'removed' }
+            continue
+        }
+        $folder = Split-Path -Parent $fullPath
+        while ($folder -and -not (Test-Path -LiteralPath $folder)) { $folder = Split-Path -Parent $folder }
+        if (-not $folder -or (Get-Item -LiteralPath $folder).LastWriteTimeUtc -le $Since) { continue }
+        if (@(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.LastWriteTimeUtc -gt $Since }).Count -gt 0) { continue }
+        [pscustomobject]@{ File = $path; Change = 'removed' }
+    }
+}
+
+# Runs git in the project folder and returns its output lines, or throws with git's own message.
+function Get-GitLines([string[]] $Arguments) {
+    $ErrorActionPreference = 'Continue'
+    $output = [string[]]@(& git -C $project @Arguments 2>&1 | ForEach-Object { "$_" })
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = 'Stop'
+    if ($exitCode -ne 0) {
+        $reason = @($output | Where-Object { $_ -match '^(fatal|error):' } | Select-Object -First 1)
+        if ($reason.Count -eq 0) { $reason = @($output | Select-Object -First 1) }
+        throw "git $($Arguments -join ' ') failed (exit $exitCode): $($reason -join '')"
+    }
+    return $output
+}
 
 function Test-UnityProject([string] $Path) {
     return $Path -and (Test-Path -LiteralPath (Join-Path $Path 'ProjectSettings/ProjectVersion.txt'))
@@ -368,6 +409,27 @@ $compileMarkers = @(
 ) + @(Get-ChildItem -LiteralPath $dag.FullName -Filter *.rsp)
 $lastUnityCompile = ($compileMarkers | Sort-Object LastWriteTimeUtc | Select-Object -Last 1).LastWriteTimeUtc
 $changedAssemblySettings = New-Object System.Collections.Generic.List[object]
+try {
+    # HEAD as it was at Unity's last compile, from the reflog, so pulled commits count whatever their
+    # dates. Without that entry, commit dates are the fallback.
+    $compiledHead = @()
+    try { $compiledHead = @(Get-GitLines @('rev-parse', '--verify', '--quiet', "HEAD@{$($lastUnityCompile.ToString('o'))}") | Where-Object { $_ -match '^[0-9a-f]{40,64}$' }) }
+    catch { }
+    if ($compiledHead.Count -gt 0) {
+        $committed = @(Get-GitLines @('diff', '--name-only', '--relative', '--diff-filter=D', $compiledHead[-1], 'HEAD', '--', 'Assets', 'Packages'))
+        foreach ($setting in @(Get-MissingAssemblySettings $committed $project $lastUnityCompile -AfterCompile)) { $changedAssemblySettings.Add($setting) }
+        $undated = @()
+    }
+    else {
+        $undated = @(Get-GitLines @('log', '--relative', "--since=$($lastUnityCompile.ToString('o'))", '--format=', '--name-only', '--diff-filter=D', '--', 'Assets', 'Packages'))
+    }
+    # Staged and unstaged deletions, which git can't date.
+    $undated += @(Get-GitLines @('diff', '--name-only', '--relative', '--diff-filter=D', 'HEAD', '--', 'Assets', 'Packages'))
+    foreach ($setting in @(Get-MissingAssemblySettings $undated $project $lastUnityCompile)) { $changedAssemblySettings.Add($setting) }
+}
+catch {
+    Write-Warning 'Deleted compiler response files cannot be checked without git history. Let Unity compile after removing one.'
+}
 foreach ($file in $assemblySettingFiles) {
     if ($file.LastWriteTimeUtc -gt $lastUnityCompile) {
         $changedAssemblySettings.Add([pscustomobject]@{ File = (Get-RelativePath $project $file.FullName); Change = 'changed' })
@@ -385,12 +447,25 @@ function Get-OwningAssembly([string] $File) {
         $folder = $folder.Substring(0, $folder.LastIndexOf('/'))
         if ($assemblyByFolder.ContainsKey($folder)) { return $assemblyByFolder[$folder] }
     }
-    $firstpass = $File -like 'Assets/Plugins/*' -or $File -like 'Assets/Standard Assets/*'
+    $firstpass = $File -like 'Assets/Plugins/*' -or $File -like 'Assets/Standard Assets/*' -or $File -like 'Assets/Pro Standard Assets/*'
     $editor = $File -match '/Editor/'
     if ($editor -and $firstpass) { return 'Assembly-CSharp-Editor-firstpass' }
     if ($editor) { return 'Assembly-CSharp-Editor' }
     if ($firstpass) { return 'Assembly-CSharp-firstpass' }
     return 'Assembly-CSharp'
+}
+
+# Only assemblies the folder guess can produce are compared. A source Unity put in a package's
+# asmdef through an asmref, which the scan above can't resolve, would otherwise always read as moved.
+$changedOwners = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+foreach ($source in $compiledSourceOwner.Keys) {
+    if ($source -notmatch '^(Assets|Packages)/' -or -not (Test-Path -LiteralPath (Get-SourceFullPath $source))) { continue }
+    $previous = $compiledSourceOwner[$source]
+    if (-not $asmdefNames.Contains($previous) -and $previous -notlike 'Assembly-CSharp*') { continue }
+    $owner = Get-OwningAssembly $source
+    if ($owner -ne $previous -and $changedOwners.Add("$previous/$owner")) {
+        $changedAssemblySettings.Add([pscustomobject]@{ File = $source; Change = "assembly changed from $previous to $owner" })
+    }
 }
 
 # Out-of-date files count against the analysis when they belong to an assembly this run builds,
@@ -443,6 +518,10 @@ try {
             if ($line -match '^-refout:') { $lines.Add("-refout:`"$buildDir/$name.ref.dll`""); continue }
             if ($line -match '^-errorlog:') { continue }
             if ($RuleSet -and $line -match '^-ruleset:') { continue }
+            if ($Analyzer.Count -gt 0 -and $line -match '^-analyzer:(.+)$') {
+                $existing = $Matches[1].Trim('"')
+                if (@($Analyzer | Where-Object { [IO.Path]::GetFileName($_) -eq [IO.Path]::GetFileName($existing) }).Count -gt 0) { continue }
+            }
             if ($line -match '^-r:"(.*)"$') {
                 $refPath = $Matches[1] -replace '\\', '/'
                 $refName = [IO.Path]::GetFileName($refPath) -replace '\.ref\.dll$', ''
@@ -479,20 +558,6 @@ finally {
 }
 $elapsed = (Get-Date) - $started
 $dependencyOnlyAssemblies = @($buildOrder | Where-Object { -not $reportedAssemblies.Contains($_) })
-
-# Runs git in the project folder and returns its output lines, or throws with git's own message.
-function Get-GitLines([string[]] $Arguments) {
-    $ErrorActionPreference = 'Continue'
-    $output = [string[]]@(& git -C $project @Arguments 2>&1 | ForEach-Object { "$_" })
-    $exitCode = $LASTEXITCODE
-    $ErrorActionPreference = 'Stop'
-    if ($exitCode -ne 0) {
-        $reason = @($output | Where-Object { $_ -match '^(fatal|error):' } | Select-Object -First 1)
-        if ($reason.Count -eq 0) { $reason = @($output | Select-Object -First 1) }
-        throw "git $($Arguments -join ' ') failed (exit $exitCode): $($reason -join '')"
-    }
-    return $output
-}
 
 $changedFiles = $null
 $changedFilesError = $null
@@ -540,11 +605,9 @@ foreach ($name in $buildOrder) {
             }
             $level = 'warning'
             if ($result.PSObject.Properties['level']) { $level = $result.level }
-            # Errors are listed from the compiler's own output under compile errors, not as findings.
-            if ($level -eq 'error' -or $level -eq 'note' -or $level -eq 'none') { continue }
             if (-not (Test-MatchesAnyPattern $result.ruleId $Rule)) { continue }
             $location = Get-SarifLocation $result
-            if ($changedFiles -and -not $changedFiles.Contains($location.File)) { continue }
+            if (-not (Test-ReportedDiagnostic $level $location.File $changedFiles)) { continue }
             if ($result.PSObject.Properties['suppressions'] -and @($result.suppressions).Count -gt 0) { $suppressedCount++; continue }
             $findings.Add([pscustomobject]@{
                 Rule = $result.ruleId; Level = $level; Assembly = $name
