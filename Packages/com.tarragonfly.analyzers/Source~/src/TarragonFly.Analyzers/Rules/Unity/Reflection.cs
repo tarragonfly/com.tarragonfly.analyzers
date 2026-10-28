@@ -75,11 +75,8 @@ public class ReflectionAnalyzer : ScopedAnalyzer
 	{
 		var srns = typeof(Assembly).Namespace;
 
-		var body = method.Body;
-		if (body?.Statements == null)
-			return;
-
-		if (body.Statements.Count <= 0)
+		SyntaxNode? body = method.Body ?? (SyntaxNode?)method.ExpressionBody;
+		if (body == null)
 			return;
 
 		foreach (var node in body.DescendantNodesAndSelf().OfType<ExpressionSyntax>())

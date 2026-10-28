@@ -353,6 +353,30 @@ class Hud : MonoBehaviour { }"),
         }
 
         [Test]
+        public void TupleReferenceMessages_DescribeEachAssignedValue()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new OnValidateReachesOtherObjectsAnalyzer(), @"
+using UnityEngine;
+
+class Hud : MonoBehaviour { }
+
+class HudLink : MonoBehaviour
+{
+    Hud hud;
+    GameObject target;
+
+    void OnValidate()
+    {
+        (hud, target) = (GetComponent<Hud>(), (GameObject)null);
+    }
+}"), Is.EqualTo(new[]
+            {
+                "OnValidate sets 'hud' from 'GetComponent'; assign references in the Inspector or look them up in Awake",
+                "OnValidate assigns the reference 'target'; assign references in the Inspector or look them up in Awake"
+            }));
+        }
+
+        [Test]
         public void NewLambdaUnregistered_IsReported()
         {
             AnalyzerVerifier.Verify(new UnregisterNewLambdaAnalyzer(), @"

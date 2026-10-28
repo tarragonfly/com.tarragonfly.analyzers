@@ -168,7 +168,14 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
 
                 foreach (AssignmentExpressionSyntax assignment in body.DescendantNodes().OfType<AssignmentExpressionSyntax>())
                 {
-                    CheckAssignment(assignment, helper);
+                    CheckWrite(assignment.Left, assignment.Right, assignment, helper);
+                }
+                foreach (ExpressionSyntax step in body.DescendantNodes().OfType<ExpressionSyntax>())
+                {
+                    if (step.IsKind(SyntaxKind.PreIncrementExpression) || step.IsKind(SyntaxKind.PreDecrementExpression))
+                        CheckWrite(((PrefixUnaryExpressionSyntax)step).Operand, null, step, helper);
+                    else if (step.IsKind(SyntaxKind.PostIncrementExpression) || step.IsKind(SyntaxKind.PostDecrementExpression))
+                        CheckWrite(((PostfixUnaryExpressionSyntax)step).Operand, null, step, helper);
                 }
                 foreach (InvocationExpressionSyntax invocation in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
                 {
@@ -232,33 +239,44 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
                 if (written) FollowHelper(property.SetMethod, property.Name);
             }
 
-            private void CheckAssignment(AssignmentExpressionSyntax assignment, string helper)
+            private void CheckWrite(ExpressionSyntax targetExpression, ExpressionSyntax value, SyntaxNode write, string helper)
             {
-                if (assignment.Left is ElementAccessExpressionSyntax element)
+                if (targetExpression is TupleExpressionSyntax tuple)
                 {
-                    CheckElementAssignment(assignment, element, helper);
+                    while (value is ParenthesizedExpressionSyntax parenthesized) value = parenthesized.Expression;
+                    TupleExpressionSyntax assignedTuple = value as TupleExpressionSyntax;
+                    for (int i = 0; i < tuple.Arguments.Count; i++)
+                    {
+                        ExpressionSyntax item = tuple.Arguments[i].Expression;
+                        ExpressionSyntax assignedValue = assignedTuple?.Arguments.Count == tuple.Arguments.Count ? assignedTuple.Arguments[i].Expression : null;
+                        CheckWrite(item, assignedValue, item, helper);
+                    }
+                    return;
+                }
+                if (targetExpression is ElementAccessExpressionSyntax element)
+                {
+                    CheckElementWrite(write, value, element, helper);
                     return;
                 }
 
-                ISymbol target = context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol;
+                ISymbol target = context.SemanticModel.GetSymbolInfo(targetExpression, context.CancellationToken).Symbol;
                 if (!(target is IFieldSymbol) && !(target is IPropertySymbol)) return;
 
-                ExpressionSyntax receiver = (assignment.Left as MemberAccessExpressionSyntax)?.Expression;
-                if (IsAnotherUnityObject(receiver))
+                if (GoesThroughAnotherUnityObject(targetExpression))
                 {
-                    Report(ChangesAnotherObject, assignment, $"changes '{assignment.Left}'", helper);
+                    Report(ChangesAnotherObject, write, $"changes '{targetExpression}'", helper);
                     return;
                 }
                 if (target is IPropertySymbol { Name: "name" } && SymbolNames.IsNamed(target.ContainingType, "UnityEngine.Object"))
                 {
-                    if (SymbolNames.IsOrDerivesFrom(owner, "UnityEngine.Component")) Report(ChangesAnotherObject, assignment, "renames the GameObject with 'name'", helper);
-                    else Report(CreatesDestroysOrSaves, assignment, "renames the asset with 'name'", helper);
+                    if (SymbolNames.IsOrDerivesFrom(owner, "UnityEngine.Component")) Report(ChangesAnotherObject, write, "renames the GameObject with 'name'", helper);
+                    else Report(CreatesDestroysOrSaves, write, "renames the asset with 'name'", helper);
                     return;
                 }
 
                 ITypeSymbol valueType = target is IFieldSymbol field ? field.Type : ((IPropertySymbol)target).Type;
-                if (Frameworks.Unity.IsUnityObject(valueType)) ReportReference(assignment, "reference", helper);
-                else if (IsListOfUnityObjects(valueType)) ReportReference(assignment, "reference list", helper);
+                if (Frameworks.Unity.IsUnityObject(valueType)) ReportReference(write, targetExpression, value, "reference", helper);
+                else if (IsListOfUnityObjects(valueType)) ReportReference(write, targetExpression, value, "reference list", helper);
             }
 
             // A whole array or list swapped out, as in "huds = huds.Where(...).ToArray()", drops
@@ -270,25 +288,25 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
                     && named.AllInterfaces.Any(implemented => implemented.SpecialType == SpecialType.System_Collections_IEnumerable);
             }
 
-            private void ReportReference(AssignmentExpressionSyntax assignment, string noun, string helper)
+            private void ReportReference(SyntaxNode write, ExpressionSyntax target, ExpressionSyntax value, string noun, string helper)
             {
-                string lookup = FindingCallIn(assignment.Right);
-                Report(FindsOrAssignsReference, assignment, lookup == null ? $"assigns the {noun} '{assignment.Left}'" : $"sets '{assignment.Left}' from '{lookup}'", helper);
+                string lookup = value == null ? null : FindingCallIn(value);
+                Report(FindsOrAssignsReference, write, lookup == null ? $"assigns the {noun} '{target}'" : $"sets '{target}' from '{lookup}'", helper);
             }
 
             // "targets[0] = ..." on this object's array or list of Unity objects, and any element
             // written into another Unity object's array or list, as in "catalog.prefabs[0] = null".
             // A local list is scratch space and isn't reported.
-            private void CheckElementAssignment(AssignmentExpressionSyntax assignment, ElementAccessExpressionSyntax element, string helper)
+            private void CheckElementWrite(SyntaxNode write, ExpressionSyntax value, ElementAccessExpressionSyntax element, string helper)
             {
                 if (GoesThroughAnotherUnityObject(element.Expression))
                 {
-                    Report(ChangesAnotherObject, assignment, $"changes '{assignment.Left}'", helper);
+                    Report(ChangesAnotherObject, write, $"changes '{element}'", helper);
                     return;
                 }
                 if (!IsHeldByThisObject(element.Expression)) return;
                 if (!Frameworks.Unity.IsUnityObject(context.SemanticModel.GetTypeInfo(element, context.CancellationToken).Type)) return;
-                ReportReference(assignment, "reference", helper);
+                ReportReference(write, element, value, "reference", helper);
             }
 
             // The name of the outermost finding call in the assigned value or the list call's arguments,
@@ -397,9 +415,11 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
 
             // Whether the member access is on a Unity object other than this one. No receiver, this
             // and base are this object; a [Serializable] class or struct held by this object is its own data.
+            // A type name, as in "Spawner.count", reaches static state, not an object.
             private bool IsAnotherUnityObject(ExpressionSyntax receiver)
             {
                 if (receiver == null || receiver.IsKind(SyntaxKind.ThisExpression) || receiver.IsKind(SyntaxKind.BaseExpression)) return false;
+                if (context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol is ITypeSymbol) return false;
                 return Frameworks.Unity.IsUnityObject(context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type);
             }
 

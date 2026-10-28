@@ -53,12 +53,12 @@ public class CreateInstanceAnalyzer : ScopedAnalyzer
 
 	protected override void OnCompilationStart(CompilationStartAnalysisContext context, CompilationScope scope)
 	{
-		context.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(AnalyzeObjectCreation), SyntaxKind.ObjectCreationExpression);
+		context.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(AnalyzeObjectCreation), SyntaxKind.ObjectCreationExpression, SyntaxKind.ImplicitObjectCreationExpression);
 	}
 
 	private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context)
 	{
-		if (context.Node is not ObjectCreationExpressionSyntax creation)
+		if (context.Node is not BaseObjectCreationExpressionSyntax creation)
 			return;
 
 		var typeInfo = context.SemanticModel.GetTypeInfo(creation);
