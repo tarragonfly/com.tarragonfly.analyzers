@@ -154,5 +154,318 @@ class Target
                     SnippetAssembly.WithSettings("max_cognitive_complexity = 5")),
                 Is.EqualTo(new[] { "'Run' has a cognitive complexity of 6, above the 5 allowed; split it or flatten its nesting" }));
         }
+
+        // Worked examples from the Cognitive Complexity whitepaper (v1.7, August 2023), ported to C#
+        // with the paper's increments on each line. GetWords scores 1, which no limit reports, so it's
+        // missing from the expected list.
+        private const string WhitepaperExamples = @"
+using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Threading;
+
+class Entry { public long Version; public Entry Previous; }
+class RetryException : Exception { public long Version; public RetryException(long version) { Version = version; } }
+class Symbol { public static readonly Symbol Unknown = new Symbol(); public bool IsMethod; public bool IsStatic; }
+
+class Target
+{
+    const string SpecialChars = ""$^+.()[]{}|"";
+    const long TimedOut = -1, Aborted = -2;
+    Entry first;
+    bool saveEvent;
+
+    // 'An illustration of the problem'. C# has no labeled continue; continue OUT becomes a goto.
+    int SumOfPrimes(int max)
+    {
+        int total = 0;
+        for (int i = 1; i <= max; ++i)                  // +1
+        {
+            for (int j = 2; j < i; ++j)                 // +2 (nesting = 1)
+            {
+                if (i % j == 0)                         // +3 (nesting = 2)
+                {
+                    goto next;                          // +1
+                }
+            }
+            total += i;
+        next:;
+        }
+        return total;
+    }                                                   // 7
+
+    string GetWords(int number)
+    {
+        switch (number)                                 // +1
+        {
+            case 1: return ""one"";
+            case 2: return ""a couple"";
+            case 3: return ""a few"";
+            default: return ""lots"";
+        }
+    }                                                   // 1
+
+    // 'Increment for nested flow-break structures'.
+    void MyMethod(bool condition1, bool condition2)
+    {
+        try
+        {
+            if (condition1)                             // +1
+            {
+                for (int i = 0; i < 10; i++)            // +2 (nesting = 1)
+                {
+                    while (condition2) { }              // +3 (nesting = 2)
+                }
+            }
+        }
+        catch (Exception)                               // +1
+        {
+            if (condition2) { }                         // +2 (nesting = 1)
+        }
+    }                                                   // 9
+
+    void MyMethod2(bool condition1)
+    {
+        Action r = () =>                                // +0 (nesting is now 1)
+        {
+            if (condition1) { }                         // +2 (nesting = 1)
+        };
+    }                                                   // 2
+
+    // 'Sequences of logical operators'.
+    bool MixedOperators(bool a, bool b, bool c, bool d, bool e, bool f)
+    {
+        if (a                                           // +1 for if
+            && b && c                                   // +1
+            || d || e                                   // +1
+            && f)                                       // +1
+            return true;
+        return false;
+    }                                                   // 4
+
+    bool NegatedSequence(bool a, bool b, bool c)
+    {
+        if (a                                           // +1 for if
+            &&                                          // +1
+            !(b && c))                                  // +1
+            return true;
+        return false;
+    }                                                   // 3
+
+    // Appendix C, JavaSymbol.overriddenSymbolFrom.
+    Symbol OverriddenSymbolFrom(List<Symbol> classType)
+    {
+        if (classType == null)                          // +1
+        {
+            return Symbol.Unknown;
+        }
+        bool unknownFound = false;
+        foreach (Symbol overrideSymbol in classType)    // +1
+        {
+            if (overrideSymbol.IsMethod                 // +2 (nesting = 1)
+                && !overrideSymbol.IsStatic)            // +1
+            {
+                if (CanOverride(overrideSymbol))        // +3 (nesting = 2)
+                {
+                    bool? overriding = CheckOverridingParameters(overrideSymbol);
+                    if (overriding == null)             // +4 (nesting = 3)
+                    {
+                        if (!unknownFound)              // +5 (nesting = 4)
+                        {
+                            unknownFound = true;
+                        }
+                    }
+                    else if (overriding.Value)          // +1
+                    {
+                        return overrideSymbol;
+                    }
+                }
+            }
+        }
+        if (unknownFound)                               // +1
+        {
+            return Symbol.Unknown;
+        }
+        return null;
+    }                                                   // 19
+
+    bool CanOverride(Symbol symbol) => true;
+    bool? CheckOverridingParameters(Symbol symbol) => null;
+
+    // Appendix C, TimelyResource.addVersion. lock stands in for synchronized.
+    void AddVersion(Entry entry, bool active, Func<long, long> dependency)
+    {
+        while (true)                                    // +1
+        {
+            try
+            {
+                lock (this)
+                {
+                    if (first != null)                  // +2 (nesting = 1)
+                    {
+                        if (first.Version > entry.Version)                  // +3 (nesting = 2)
+                        {
+                            throw new InvalidOperationException();
+                        }
+                        if (active)                     // +3 (nesting = 2)
+                        {
+                            for (Entry e = first; e != null; e = e.Previous) // +4 (nesting = 3)
+                            {
+                                long depends = dependency(e.Version);
+                                if (depends == TimedOut)                    // +5 (nesting = 4)
+                                {
+                                    throw new RetryException(e.Version);
+                                }
+                                if (depends != 0                            // +5 (nesting = 4)
+                                    && depends != Aborted)                  // +1
+                                {
+                                    throw new InvalidOperationException();
+                                }
+                            }
+                        }
+                    }
+                    entry.Previous = first;
+                    first = entry;
+                    break;
+                }
+            }
+            catch (RetryException retry)                // +2 (nesting = 1)
+            {
+                try
+                {
+                    long depends = dependency(retry.Version);
+                    if (depends != 0                    // +3 (nesting = 2)
+                        && depends != Aborted)          // +1
+                    {
+                        throw new InvalidOperationException();
+                    }
+                }
+                catch (ThreadInterruptedException interrupted)              // +3 (nesting = 2)
+                {
+                    throw new OperationCanceledException(null, interrupted);
+                }
+            }
+            catch (ThreadInterruptedException interrupted)                  // +2 (nesting = 1)
+            {
+                throw new OperationCanceledException(null, interrupted);
+            }
+        }
+    }                                                   // 35
+
+    // Appendix C, WildcardPattern.toRegexp.
+    static string ToRegexp(string antPattern, string directorySeparator)
+    {
+        string escapedDirectorySeparator = ""\\"" + directorySeparator;
+        StringBuilder sb = new StringBuilder(antPattern.Length);
+        sb.Append('^');
+        int i = antPattern.StartsWith(""/"") ||         // +1
+            antPattern.StartsWith(""\\"") ? 1 : 0;      // +1
+        while (i < antPattern.Length)                   // +1
+        {
+            char ch = antPattern[i];
+            if (SpecialChars.IndexOf(ch) != -1)         // +2 (nesting = 1)
+            {
+                sb.Append('\\').Append(ch);
+            }
+            else if (ch == '*')                         // +1
+            {
+                if (i + 1 < antPattern.Length           // +3 (nesting = 2)
+                    && antPattern[i + 1] == '*')        // +1
+                {
+                    if (i + 2 < antPattern.Length       // +4 (nesting = 3)
+                        && IsSlash(antPattern[i + 2]))  // +1
+                    {
+                        sb.Append(""(?:.*"").Append(escapedDirectorySeparator).Append(""|)"");
+                        i += 2;
+                    }
+                    else                                // +1
+                    {
+                        sb.Append("".*"");
+                        i += 1;
+                    }
+                }
+                else                                    // +1
+                {
+                    sb.Append(""[^"").Append(escapedDirectorySeparator).Append(""]*?"");
+                }
+            }
+            else if (ch == '?')                         // +1
+            {
+                sb.Append(""[^"").Append(escapedDirectorySeparator).Append(""]"");
+            }
+            else if (IsSlash(ch))                       // +1
+            {
+                sb.Append(escapedDirectorySeparator);
+            }
+            else                                        // +1
+            {
+                sb.Append(ch);
+            }
+            i++;
+        }
+        sb.Append('$');
+        return sb.ToString();
+    }                                                   // 20
+
+    static bool IsSlash(char c) => c == '/' || c == '\\';
+
+    // Appendix C, YUI model.js save. The JS idioms 'x || (x = {})' and 'cb && cb()' keep their || and &&.
+    Target Save(object options, Func<object, bool> callback)
+    {
+        Target self = this;
+        if (options is Func<object, bool> function)     // +1
+        {
+            callback = function;
+            options = new object();
+        }
+        _ = options != null || (options = new object()) != null;            // +1
+        Validate(error =>
+        {
+            if (error != null)                          // +2 (nesting = 1)
+            {
+                _ = callback != null && callback(error);                    // +1
+                return;
+            }
+            Sync(IsNew() ? ""create"" : ""update"", (syncError, response) => // +2 (nesting = 1)
+            {
+                if (syncError != null)                  // +3 (nesting = 2)
+                {
+                    Fire(""error"");
+                }
+                else                                    // +1
+                {
+                    if (!saveEvent)                     // +4 (nesting = 3)
+                    {
+                        saveEvent = true;
+                    }
+                    if (response != null)               // +4 (nesting = 3)
+                    {
+                        options = response;
+                    }
+                    Fire(""save"");
+                }
+                _ = callback != null && callback(response);                 // +1
+            });
+        });
+        return self;
+    }                                                   // 20
+
+    void Validate(Action<object> done) { }
+    bool IsNew() => false;
+    void Sync(string mode, Action<object, object> done) { }
+    void Fire(string name) { }
+}";
+
+        [Test]
+        public void WhitepaperExamples_ScoreAsInThePaper()
+        {
+            (string Name, int Score)[] expected =
+            {
+                ("SumOfPrimes", 7), ("MyMethod", 9), ("MyMethod2", 2), ("MixedOperators", 4), ("NegatedSequence", 3),
+                ("OverriddenSymbolFrom", 19), ("AddVersion", 35), ("ToRegexp", 20), ("Save", 20),
+            };
+            Assert.That(AnalyzerVerifier.Messages(new CognitiveComplexityAnalyzer(), WhitepaperExamples, SnippetAssembly.WithSettings("max_cognitive_complexity = 1")),
+                Is.EqualTo(expected.Select(e => $"'{e.Name}' has a cognitive complexity of {e.Score}, above the 1 allowed; split it or flatten its nesting")));
+        }
     }
 }
