@@ -22,7 +22,8 @@ namespace TarragonFly.Analyzers.Rules.StaticState
     // readonly. They count as getting handlers when code in this assembly adds one with +=, or when
     // they aren't private, so other assemblies can. A clear is an assignment in a reset method, as
     // TF7100 describes. Unity 6000.6's [AutoStaticsCleanup] and [NoAutoStaticsCleanup] work as in
-    // TF7100. Reported on the name. Runtime code only.
+    // TF7100. A write that reads the same member's existing handlers is not a clear. Tuple elements
+    // are checked against their corresponding values. Reported on the name. Runtime code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class StaticEventNotClearedAnalyzer : ScopedAnalyzer
     {
@@ -66,9 +67,15 @@ namespace TarragonFly.Analyzers.Rules.StaticState
             start.RegisterOperationAction(context =>
             {
                 ISimpleAssignmentOperation assignment = (ISimpleAssignmentOperation)context.Operation;
-                ISymbol member = AssignedMember(assignment.Target);
-                if (member != null && member.IsStatic && PlayModeResets.IsResetMethod(context.ContainingSymbol)) cleared[member] = true;
+                if (PlayModeResets.IsResetMethod(context.ContainingSymbol)) RecordClear(assignment.Target, assignment.Value, cleared);
             }, OperationKind.SimpleAssignment);
+
+            start.RegisterOperationAction(context =>
+            {
+                if (!PlayModeResets.IsResetMethod(context.ContainingSymbol)) return;
+                IDeconstructionAssignmentOperation assignment = (IDeconstructionAssignmentOperation)context.Operation;
+                RecordClear(assignment.Target, assignment.Value, cleared);
+            }, OperationKind.DeconstructionAssignment);
 
             start.RegisterCompilationEndAction(context =>
             {
@@ -79,6 +86,28 @@ namespace TarragonFly.Analyzers.Rules.StaticState
                     if (location != null && scope.IsAnalyzed(location.SourceTree)) context.ReportDiagnostic(Diagnostic.Create(Rule, location, member.Name));
                 }
             });
+        }
+
+        private static void RecordClear(IOperation target, IOperation value, ConcurrentDictionary<ISymbol, bool> cleared)
+        {
+            while (value is IConversionOperation conversion) value = conversion.Operand;
+            if (target is ITupleOperation targets)
+            {
+                ITupleOperation values = value as ITupleOperation;
+                for (int i = 0; i < targets.Elements.Length; i++)
+                    RecordClear(targets.Elements[i], values?.Elements.Length == targets.Elements.Length ? values.Elements[i] : value, cleared);
+                return;
+            }
+            ISymbol member = AssignedMember(target);
+            if (member?.IsStatic != true) return;
+            if (ReadsCurrentHandlers(value, member)) return;
+            cleared[member] = true;
+        }
+
+        private static bool ReadsCurrentHandlers(IOperation value, ISymbol member)
+        {
+            if (value is IAnonymousFunctionOperation) return false;
+            return SymbolEqualityComparer.Default.Equals(AssignedMember(value), member) || value.ChildOperations.Any(child => ReadsCurrentHandlers(child, member));
         }
 
         // The event, delegate field or property an assignment targets. Inside its own type a field-like

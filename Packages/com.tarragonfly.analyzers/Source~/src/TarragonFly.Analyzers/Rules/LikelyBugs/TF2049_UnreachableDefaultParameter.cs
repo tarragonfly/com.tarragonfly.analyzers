@@ -49,6 +49,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 foreach (ISymbol member in method.ContainingType.GetMembers(method.Name))
                 {
                     if (!(member is IMethodSymbol other) || SymbolEqualityComparer.Default.Equals(other, method) || other.IsImplicitlyDeclared) continue;
+                    if (!VisibleWherever(other.DeclaredAccessibility, method.DeclaredAccessibility) || other.IsStatic != method.IsStatic) continue;
                     int hidden = other.Parameters.Length;
                     if (hidden >= method.Parameters.Length || !method.Parameters[hidden].IsOptional) continue;
                     if (RequiredCount(other) > required || !MatchesFirstParameters(method, other) || HasOptionalAfter(method, hidden)) continue;
@@ -78,15 +79,42 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         }
 
         // Whether all of the other overload's parameters match this one's first parameters.
+        // Whether code that can call the method with the default can also call the other overload,
+        // so the shorter call always goes to the other one.
+        private static bool VisibleWherever(Accessibility other, Accessibility method)
+        {
+            if (other == method || other == Accessibility.Public) return true;
+            switch (other)
+            {
+                case Accessibility.ProtectedOrInternal:
+                    return method != Accessibility.Public;
+                case Accessibility.Protected:
+                case Accessibility.Internal:
+                    return method == Accessibility.ProtectedAndInternal || method == Accessibility.Private;
+                case Accessibility.ProtectedAndInternal:
+                    return method == Accessibility.Private;
+                default:
+                    return false;
+            }
+        }
+
         private static bool MatchesFirstParameters(IMethodSymbol method, IMethodSymbol other)
         {
             if (other.Arity != method.Arity) return false;
+            for (int i = 0; i < method.Arity; i++)
+            {
+                ITypeParameterSymbol mine = method.TypeParameters[i];
+                ITypeParameterSymbol theirs = other.TypeParameters[i];
+                if (mine.HasConstructorConstraint != theirs.HasConstructorConstraint || mine.HasReferenceTypeConstraint != theirs.HasReferenceTypeConstraint
+                    || mine.HasValueTypeConstraint != theirs.HasValueTypeConstraint || mine.HasUnmanagedTypeConstraint != theirs.HasUnmanagedTypeConstraint
+                    || mine.HasNotNullConstraint != theirs.HasNotNullConstraint || !mine.ConstraintTypes.Select(type => type.ToDisplayString()).SequenceEqual(theirs.ConstraintTypes.Select(type => type.ToDisplayString()))) return false;
+            }
             if (method.Arity > 0) other = other.Construct(method.TypeParameters.Cast<ITypeSymbol>().ToArray());
             for (int i = 0; i < other.Parameters.Length; i++)
             {
                 IParameterSymbol mine = method.Parameters[i];
                 IParameterSymbol theirs = other.Parameters[i];
-                if (mine.RefKind != theirs.RefKind || !SymbolEqualityComparer.Default.Equals(mine.Type, theirs.Type)) return false;
+                if (mine.Name != theirs.Name || mine.RefKind != theirs.RefKind || !SymbolEqualityComparer.Default.Equals(mine.Type, theirs.Type)) return false;
             }
             return true;
         }

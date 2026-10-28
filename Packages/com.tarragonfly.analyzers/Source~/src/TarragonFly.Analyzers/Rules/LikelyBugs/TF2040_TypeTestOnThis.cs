@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
@@ -30,8 +31,25 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 ExpressionSyntax tested = context.Node is BinaryExpressionSyntax binary ? binary.Left : ((IsPatternExpressionSyntax)context.Node).Expression;
+                if (context.Node is IsPatternExpressionSyntax pattern && !TestsType(context.SemanticModel, pattern.Pattern)) return;
                 if (tested is ThisExpressionSyntax) context.ReportDiagnostic(Diagnostic.Create(Rule, context.Node.GetLocation()));
             }), SyntaxKind.IsExpression, SyntaxKind.IsPatternExpression);
+        }
+
+        private static bool TestsType(SemanticModel model, PatternSyntax pattern)
+        {
+            switch (pattern)
+            {
+                case DeclarationPatternSyntax _:
+                case TypePatternSyntax _: return true;
+                // "this is not Boss" parses Boss as a constant pattern that binds to the type.
+                case ConstantPatternSyntax constant: return model.GetOperation(constant) is ITypePatternOperation;
+                case RecursivePatternSyntax recursive: return recursive.Type != null;
+                case ParenthesizedPatternSyntax parenthesized: return TestsType(model, parenthesized.Pattern);
+                case UnaryPatternSyntax unary: return TestsType(model, unary.Pattern);
+                case BinaryPatternSyntax binary: return TestsType(model, binary.Left) || TestsType(model, binary.Right);
+                default: return false;
+            }
         }
     }
 }

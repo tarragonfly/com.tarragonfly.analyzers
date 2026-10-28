@@ -8,10 +8,11 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace TarragonFly.Analyzers.Rules.LikelyBugs
 {
     // TF2018: a float or integer compared with a float or double constant outside its range, such as
-    // "distance > double.MaxValue" for a float or "ticks > 1e19" for a long, which is always false.
+    // "ticks > 1e19" for a long or "distance == double.MaxValue" for a float, which is always false.
     //
     // Usually float.MaxValue or float.PositiveInfinity was meant, or the constant has a typo.
     //
+    // A float only counts with == and !=, since it can be infinity, which gets past any constant.
     // Infinities, NaN and nullable values aren't checked. Integer constants that can never match, such
     // as "aByte > 300", are left to the C# compiler, which warns about them (CS0652). Reported on the
     // whole comparison. Game code only.
@@ -35,6 +36,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 ITypeSymbol type = TypeComparedPastItsRange(context.SemanticModel, comparison.Left, comparison.Right, context.CancellationToken)
                     ?? TypeComparedPastItsRange(context.SemanticModel, comparison.Right, comparison.Left, context.CancellationToken);
                 if (type == null) return;
+                if (type.SpecialType == SpecialType.System_Single && !comparison.IsKind(SyntaxKind.EqualsExpression) && !comparison.IsKind(SyntaxKind.NotEqualsExpression)) return;
                 string message = type.SpecialType == SpecialType.System_Single
                     ? "A float never reaches this value, so the comparison always gives the same result; was float.MaxValue meant?"
                     : $"A {type.ToDisplayString()} never reaches this value, so the comparison always gives the same result";

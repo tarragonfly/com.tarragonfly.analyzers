@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -63,7 +65,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         private static bool IsNonZeroConstant(SemanticModel model, ExpressionSyntax expression)
         {
             Optional<object> value = model.GetConstantValue(expression);
-            return value.HasValue && value.Value != null && System.Convert.ToInt64(value.Value, System.Globalization.CultureInfo.InvariantCulture) != 0;
+            if (!value.HasValue || value.Value == null) return false;
+            // Convert.ToDouble throws on a char, which can stand on the other side of the remainder.
+            return value.Value is char character ? character != 0 : Convert.ToDouble(value.Value, CultureInfo.InvariantCulture) != 0;
         }
     }
 }

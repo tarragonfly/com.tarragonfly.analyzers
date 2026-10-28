@@ -72,7 +72,14 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         {
             HashSet<string> names = new HashSet<string>(disposed.Select(symbol => symbol.Name));
             if (names.Count == 0) return;
-            foreach (StatementSyntax statement in scope)
+            StatementSyntax[] statements = scope.ToArray();
+            foreach (ISymbol variable in disposed.ToArray())
+            {
+                if (statements.SelectMany(statement => statement.DescendantNodesAndSelf()).OfType<IdentifierNameSyntax>().Any(name =>
+                    names.Contains(name.Identifier.ValueText) && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol, variable)
+                    && VariableWrites.IsWrite(context.SemanticModel.GetOperation(name, context.CancellationToken)))) disposed.Remove(variable);
+            }
+            foreach (StatementSyntax statement in statements)
             {
                 foreach (SyntaxNode node in statement.DescendantNodesAndSelf(child => !(child is AnonymousFunctionExpressionSyntax) && !(child is LocalFunctionStatementSyntax)))
                 {

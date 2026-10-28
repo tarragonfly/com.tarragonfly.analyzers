@@ -40,6 +40,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 foreach (ISymbol candidate in context.SemanticModel.GetMemberGroup(invocation.Expression, context.CancellationToken))
                 {
                     if (!(candidate is IMethodSymbol other) || SymbolEqualityComparer.Default.Equals(other, operation.TargetMethod)) continue;
+                    ISymbol within = context.SemanticModel.GetEnclosingSymbol(invocation.SpanStart, context.CancellationToken);
+                    if (within == null || !context.Compilation.IsSymbolAccessibleWithin(other, within.ContainingType ?? (ISymbol)within.ContainingAssembly)) continue;
                     if (other.Parameters.Length != arguments.Count || (other.Parameters.Length > 0 && other.Parameters[other.Parameters.Length - 1].IsParams)) continue;
                     if (!AcceptsAll(context.SemanticModel, other, arguments)) continue;
                     context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation(), operation.TargetMethod.Name));
@@ -62,6 +64,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             for (int i = 0; i < arguments.Count; i++)
             {
                 if (arguments[i].NameColon != null || !arguments[i].RefKindKeyword.IsKind(SyntaxKind.None)) return false;
+                if (method.Parameters[i].RefKind != RefKind.None && method.Parameters[i].RefKind != RefKind.In) return false;
                 if (!model.ClassifyConversion(arguments[i].Expression, method.Parameters[i].Type).IsImplicit) return false;
             }
             return true;

@@ -5,6 +5,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
+using TarragonFly.Analyzers.Rules.DeadCode;
 
 namespace TarragonFly.Analyzers.Rules.StaticState
 {
@@ -50,6 +52,8 @@ namespace TarragonFly.Analyzers.Rules.StaticState
         {
             foreach (IdentifierNameSyntax name in NamesReadAtOnce(variable.Initializer.Value))
             {
+                IOperation operation = context.SemanticModel.GetOperation(name, context.CancellationToken);
+                if (operation is IFieldReferenceOperation fieldReference && FieldUses.IsPlainWrite(fieldReference)) continue;
                 if (!(context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol is IFieldSymbol read) || !read.IsStatic || read.IsConst) continue;
                 if (!SymbolEqualityComparer.Default.Equals(read.ContainingType, field.ContainingType)) continue;
                 foreach (SyntaxReference reference in read.DeclaringSyntaxReferences)

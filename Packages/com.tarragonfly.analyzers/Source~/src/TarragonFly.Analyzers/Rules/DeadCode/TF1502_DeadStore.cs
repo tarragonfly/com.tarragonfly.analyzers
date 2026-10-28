@@ -314,6 +314,14 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                 {
                     foreach (IOperation reference in operation.DescendantsAndSelf())
                     {
+                        if (reference.Syntax.Parent is RefExpressionSyntax && Variable(reference) is ISymbol aliased) untracked.Add(aliased);
+                        if (reference is ISimpleAssignmentOperation assignment && assignment.IsRef)
+                        {
+                            foreach (IOperation value in assignment.Value.DescendantsAndSelf())
+                            {
+                                if (Variable(value) is ISymbol borrowed) untracked.Add(borrowed);
+                            }
+                        }
                         if (reference is IParameterReferenceOperation parameter && (handler || IsOuter(parameter.Parameter, function))) untracked.Add(parameter.Parameter);
                         if (!(reference is ILocalReferenceOperation localReference)) continue;
                         ILocalSymbol local = localReference.Local;

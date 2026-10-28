@@ -1,5 +1,4 @@
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Operations;
 using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.StaticState
@@ -37,18 +36,6 @@ namespace TarragonFly.Analyzers.Rules.StaticState
                 if (SymbolNames.HasAttribute(current, "Unity.Scripting.LifecycleManagement.NoAutoStaticsCleanupAttribute")) return true;
             }
             return false;
-        }
-
-        // The reference is the target of an assignment, ++ or --, or a ref or out argument.
-        public static bool IsWrite(IOperation reference)
-        {
-            switch (reference.Parent)
-            {
-                case IAssignmentOperation assignment: return assignment.Target == reference;
-                case IIncrementOrDecrementOperation _: return true;
-                case IArgumentOperation argument: return argument.Parameter != null && (argument.Parameter.RefKind == RefKind.Ref || argument.Parameter.RefKind == RefKind.Out);
-                default: return false;
-            }
         }
 
         // Initializers belong to the field, and a static constructor runs once per domain: values set

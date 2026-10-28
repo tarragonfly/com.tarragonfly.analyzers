@@ -1,4 +1,3 @@
-using System;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using TarragonFly.Analyzers.Frameworks;
@@ -18,7 +17,32 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         {
             if (!(model.GetDeclaredSymbol(member) is IFieldSymbol field) || !field.HasConstantValue || field.ConstantValue == null) return null;
             object value = field.ConstantValue;
-            return value is ulong unsigned ? unsigned : unchecked((ulong)Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture));
+            switch (value)
+            {
+                case sbyte signed: return unchecked((byte)signed);
+                case short signed: return unchecked((ushort)signed);
+                case int signed: return unchecked((uint)signed);
+                case long signed: return unchecked((ulong)signed);
+                case byte unsigned: return unsigned;
+                case ushort unsigned: return unsigned;
+                case uint unsigned: return unsigned;
+                case ulong unsigned: return unsigned;
+                default: return null;
+            }
+        }
+
+        public static ulong AllBits(INamedTypeSymbol type)
+        {
+            switch (type.EnumUnderlyingType.SpecialType)
+            {
+                case SpecialType.System_SByte:
+                case SpecialType.System_Byte: return byte.MaxValue;
+                case SpecialType.System_Int16:
+                case SpecialType.System_UInt16: return ushort.MaxValue;
+                case SpecialType.System_Int32:
+                case SpecialType.System_UInt32: return uint.MaxValue;
+                default: return ulong.MaxValue;
+            }
         }
 
         public static bool IsSingleBit(ulong value)

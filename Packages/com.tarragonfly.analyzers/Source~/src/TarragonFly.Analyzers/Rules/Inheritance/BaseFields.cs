@@ -7,14 +7,14 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     // class can see.
     public static class BaseFields
     {
-        public static IFieldSymbol Find(IFieldSymbol field, StringComparison comparison)
+        public static IFieldSymbol Find(Compilation compilation, IFieldSymbol field, StringComparison comparison)
         {
             for (INamedTypeSymbol type = field.ContainingType.BaseType; type != null; type = type.BaseType)
             {
                 foreach (ISymbol member in type.GetMembers())
                 {
                     if (member is IFieldSymbol baseField && !baseField.IsStatic && !baseField.IsImplicitlyDeclared
-                        && baseField.DeclaredAccessibility != Accessibility.Private && string.Equals(baseField.Name, field.Name, comparison))
+                        && compilation.IsSymbolAccessibleWithin(baseField, field.ContainingType) && string.Equals(baseField.Name, field.Name, comparison))
                     {
                         return baseField;
                     }

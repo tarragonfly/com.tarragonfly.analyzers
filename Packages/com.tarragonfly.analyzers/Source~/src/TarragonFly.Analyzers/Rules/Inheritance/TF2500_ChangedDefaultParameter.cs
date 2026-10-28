@@ -40,7 +40,8 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 {
                     foreach (ParameterSyntax parameter in parameters)
                     {
-                        if (parameter.Default != null) context.ReportDiagnostic(Diagnostic.Create(Rule, parameter.Default.GetLocation(), parameter.Identifier.ValueText));
+                        if (context.SemanticModel.GetDeclaredSymbol(parameter, context.CancellationToken) is IParameterSymbol symbol && symbol.HasExplicitDefaultValue)
+                            context.ReportDiagnostic(Diagnostic.Create(Rule, parameter.Default?.GetLocation() ?? parameter.Identifier.GetLocation(), parameter.Identifier.ValueText));
                     }
                     return;
                 }
@@ -62,11 +63,11 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 IParameterSymbol baseParameter = baseMethod.Parameters[index];
                 if (baseParameter.HasExplicitDefaultValue && parameter.HasExplicitDefaultValue)
                 {
-                    if (!Equals(baseParameter.ExplicitDefaultValue, parameter.ExplicitDefaultValue)) return syntax.Default.Value.GetLocation();
+                    if (!Equals(baseParameter.ExplicitDefaultValue, parameter.ExplicitDefaultValue)) return syntax.Default?.Value.GetLocation() ?? syntax.Identifier.GetLocation();
                 }
                 else if (parameter.HasExplicitDefaultValue)
                 {
-                    return syntax.Default.GetLocation();
+                    return syntax.Default?.GetLocation() ?? syntax.Identifier.GetLocation();
                 }
                 else if (baseParameter.HasExplicitDefaultValue)
                 {

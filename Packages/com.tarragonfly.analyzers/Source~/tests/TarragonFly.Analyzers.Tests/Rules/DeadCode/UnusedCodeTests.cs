@@ -59,6 +59,17 @@ class SaveData
 }");
         }
 
+        [TestCase("private int currentScore, bestScore;", "currentScore")]
+        [TestCase("private const int MinimumScore = 0, MaximumScore = 100;", "MinimumScore")]
+        [TestCase("private event Action Reset, Changed;", "Reset")]
+        public void UnusedFieldDeclarationMessage_NamesFirstDeclaredField(string declaration, string firstFieldName)
+        {
+            string[] messages = AnalyzerVerifier.Messages(new UnusedPrivateMemberAnalyzer(),
+                "using System; class Scoreboard { " + declaration + " }");
+
+            Assert.That(messages, Is.EqualTo(new[] { $"'{firstFieldName}' is never used; remove it" }));
+        }
+
         [Test]
         public void UnityAndOdinUses_CountAsUsed()
         {

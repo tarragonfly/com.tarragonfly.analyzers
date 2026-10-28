@@ -336,6 +336,52 @@ class OtherType
         }
 
         [Test]
+        public void LocalDeclarationsWithDifferentLayout_AreStillDuplicates()
+        {
+            AnalyzerVerifier.Verify(new DuplicateMethodBodyAnalyzer(), @"
+class Scores
+{
+    int First(int score)
+    {
+        int high = score << 3;
+        int low = score;
+        return high | low;
+    }
+
+    int {|TF1024:Second|}(int score)
+    {
+        int high = score << 3;
+
+        // Keep the low bits.
+        int low = score;
+        return high | low;
+    }
+}");
+        }
+
+        [Test]
+        public void LocalFunctionsCapturingDifferentLocals_AreNotDuplicates()
+        {
+            AnalyzerVerifier.Verify(new DuplicateMethodBodyAnalyzer(), @"
+class Scores
+{
+    int First()
+    {
+        int score = 1;
+        int Read() { int copy = score; return copy; }
+        return Read();
+    }
+
+    int Second()
+    {
+        int score = 2;
+        int Read() { int copy = score; return copy; }
+        return Read();
+    }
+}");
+        }
+
+        [Test]
         public void ReturnTypesConstraintsAndExplicitImplementations_AreCompared()
         {
             AnalyzerVerifier.Verify(new DuplicateMethodBodyAnalyzer(), @"

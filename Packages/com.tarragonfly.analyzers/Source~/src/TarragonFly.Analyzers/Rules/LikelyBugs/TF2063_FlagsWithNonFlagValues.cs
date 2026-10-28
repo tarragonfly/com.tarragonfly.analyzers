@@ -31,7 +31,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 EnumDeclarationSyntax declaration = (EnumDeclarationSyntax)context.Node;
-                if (!FlagsEnums.IsFlags(context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken))) return;
+                INamedTypeSymbol type = context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken);
+                if (!FlagsEnums.IsFlags(type)) return;
 
                 List<ulong> values = new List<ulong>();
                 ulong flags = 0;
@@ -45,7 +46,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 
                 foreach (ulong value in values)
                 {
-                    if (value == 0 || value == ulong.MaxValue || (value & ~flags) == 0) continue;
+                    if (value == 0 || value == FlagsEnums.AllBits(type) || (value & ~flags) == 0) continue;
                     context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), declaration.Identifier.ValueText));
                     return;
                 }

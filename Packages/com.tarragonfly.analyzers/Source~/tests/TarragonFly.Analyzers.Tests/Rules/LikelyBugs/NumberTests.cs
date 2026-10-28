@@ -175,7 +175,7 @@ class Target
 {
     void Check(float distance, double d, long ticks, ulong id, char letter, int count, long? maybe)
     {
-        bool r1 = {|TF2018:distance > double.MaxValue|};
+        bool r1 = distance > double.MaxValue;
         bool r2 = distance > float.MaxValue;
         bool r3 = d > double.MaxValue;
         bool r4 = {|TF2018:ticks > 1e19|};

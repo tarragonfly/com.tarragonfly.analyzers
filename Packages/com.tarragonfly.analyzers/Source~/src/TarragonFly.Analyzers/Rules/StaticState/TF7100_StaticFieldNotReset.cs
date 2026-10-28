@@ -55,7 +55,7 @@ namespace TarragonFly.Analyzers.Rules.StaticState
             {
                 ISymbol member = context.Operation is IFieldReferenceOperation field ? field.Field.OriginalDefinition
                     : (ISymbol)((IPropertyReferenceOperation)context.Operation).Property.OriginalDefinition;
-                if (!member.IsStatic || !PlayModeResets.IsWrite(context.Operation)) return;
+                if (!member.IsStatic || !VariableWrites.IsWrite(context.Operation)) return;
                 if (PlayModeResets.IsResetMethod(context.ContainingSymbol)) reset[member] = true;
                 else if (!PlayModeResets.IsStaticInitialization(context.ContainingSymbol, member)) changed[member] = true;
             }, OperationKind.FieldReference, OperationKind.PropertyReference);

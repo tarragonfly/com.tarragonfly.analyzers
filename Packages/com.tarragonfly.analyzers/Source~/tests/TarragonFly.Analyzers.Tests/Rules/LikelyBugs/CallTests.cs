@@ -118,7 +118,7 @@ class Audio
     public void Play(string clip, {|TF2049:float volume = 1f|}) { }
 
     public void Stop() { }
-    public static void Stop({|TF2049:int fade = 0|}) { }
+    public static void Stop(int fade = 0) { }
 
     public void Seek(int a, int b = 0, int c = 0) { }
     public void Seek(int a, int b) { }

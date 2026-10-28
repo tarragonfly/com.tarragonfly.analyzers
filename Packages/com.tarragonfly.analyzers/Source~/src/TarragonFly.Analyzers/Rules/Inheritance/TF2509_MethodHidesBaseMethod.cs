@@ -40,7 +40,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 {
                     foreach (ISymbol candidate in type.GetMembers(method.Name))
                     {
-                        if (!(candidate is IMethodSymbol baseMethod) || baseMethod.DeclaredAccessibility == Accessibility.Private || !TakesItsCalls(method, baseMethod)) continue;
+                        if (!(candidate is IMethodSymbol baseMethod) || !context.Compilation.IsSymbolAccessibleWithin(baseMethod, method.ContainingType) || !TakesItsCalls(method, baseMethod)) continue;
                         context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(), method.Name, type.Name));
                         return;
                     }
@@ -55,6 +55,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
             bool wider = false;
             for (int i = 0; i < method.Parameters.Length; i++)
             {
+                if (method.Parameters[i].RefKind != baseMethod.Parameters[i].RefKind) return false;
                 ITypeSymbol mine = method.Parameters[i].Type;
                 ITypeSymbol theirs = baseMethod.Parameters[i].Type;
                 if (SymbolEqualityComparer.Default.Equals(mine, theirs)) continue;

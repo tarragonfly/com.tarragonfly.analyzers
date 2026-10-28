@@ -21,7 +21,7 @@ class SaveSystem
         {
             if (e.Message.Length > 0) {|TF3051:throw e;|}
             e = new InvalidOperationException();
-            {|TF3051:throw e;|}
+            throw e;
         }
     }
 }");

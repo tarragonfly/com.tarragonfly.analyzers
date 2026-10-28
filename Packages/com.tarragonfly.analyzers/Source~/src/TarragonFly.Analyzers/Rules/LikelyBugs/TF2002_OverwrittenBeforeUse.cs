@@ -66,6 +66,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             {
                 ICatchClauseOperation clause = (ICatchClauseOperation)context.Operation;
                 if (!scope.IsAnalyzed(clause.Syntax.SyntaxTree) || !(clause.ExceptionDeclarationOrExpression is IVariableDeclaratorOperation declarator)) return;
+                if (clause.Filter != null && FirstUse(clause.Filter, declarator.Symbol) != null) return;
                 if (FirstUse(clause.Handler, declarator.Symbol) is IOperation use && IsOverwrite(use) && !MayReadBeforeWriting(clause.Handler, use, declarator.Symbol)) context.ReportDiagnostic(Diagnostic.Create(Rule, use.Syntax.GetLocation(), declarator.Symbol.Name));
             }, OperationKind.CatchClause);
         }

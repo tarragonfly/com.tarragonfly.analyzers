@@ -44,11 +44,11 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 if (!(context.SemanticModel.GetTypeInfo(cast.Type, context.CancellationToken).Type is INamedTypeSymbol target) || target.TypeKind != TypeKind.Interface) return;
                 if (!(context.SemanticModel.GetTypeInfo(cast.Expression, context.CancellationToken).Type is INamedTypeSymbol source) || source.TypeKind != TypeKind.Class) return;
                 if (!SymbolEqualityComparer.Default.Equals(source.ContainingAssembly, compilation.Assembly)) return;
-                if (Implements(source, target) || CanBeSubclassedElsewhere(source)) return;
+                if (compilation.ClassifyCommonConversion(source, target).IsImplicit || CanBeSubclassedElsewhere(source)) return;
 
                 foreach (INamedTypeSymbol candidate in types.Value)
                 {
-                    if (DerivesFrom(candidate, source) && (Implements(candidate, target) || CanBeSubclassedElsewhere(candidate))) return;
+                    if (DerivesFrom(candidate, source) && (compilation.ClassifyCommonConversion(candidate, target).IsImplicit || CanBeSubclassedElsewhere(candidate))) return;
                 }
                 context.ReportDiagnostic(Diagnostic.Create(Rule, cast.Type.GetLocation(), source.Name, target.Name));
             }), SyntaxKind.CastExpression);
@@ -90,15 +90,6 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         private static bool IsVisibleOutsideTheAssembly(Accessibility accessibility)
         {
             return accessibility == Accessibility.Public || accessibility == Accessibility.Protected || accessibility == Accessibility.ProtectedOrInternal;
-        }
-
-        private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol target)
-        {
-            foreach (INamedTypeSymbol candidate in type.AllInterfaces)
-            {
-                if (SymbolEqualityComparer.Default.Equals(candidate, target)) return true;
-            }
-            return false;
         }
 
         private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)

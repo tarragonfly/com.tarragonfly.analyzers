@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -27,54 +28,62 @@ namespace TarragonFly.Analyzers.Rules.Readability
             "Methods with identical bodies",
             "'{0}' has the same body as '{1}'; have one call the other, or merge them",
             "Readability",
-            CodeKind.All);
+            CodeKind.All,
+            extraTags: new[] { WellKnownDiagnosticTags.CompilationEnd });
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
         protected override void OnCompilationStart(CompilationStartAnalysisContext start, CompilationScope scope)
         {
-            start.RegisterSymbolAction(context =>
+            ConcurrentDictionary<INamedTypeSymbol, ConcurrentBag<ComparedMethod>> byType = new ConcurrentDictionary<INamedTypeSymbol, ConcurrentBag<ComparedMethod>>(SymbolEqualityComparer.Default);
+            start.RegisterSyntaxNodeAction(context =>
             {
-                INamedTypeSymbol type = (INamedTypeSymbol)context.Symbol;
-                List<Method> methods = new List<Method>();
-                foreach (IMethodSymbol method in type.GetMembers().OfType<IMethodSymbol>())
-                {
-                    if (method.MethodKind != MethodKind.Ordinary && method.MethodKind != MethodKind.ExplicitInterfaceImplementation) continue;
-                    if (method.DeclaringSyntaxReferences.Length != 1) continue;
-                    if (!(method.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is MethodDeclarationSyntax declaration)) continue;
-                    if (WorthComparing(declaration.Body))
-                    {
-                        methods.Add(new Method(declaration.Identifier, declaration.ReturnType, declaration.ParameterList, declaration.ConstraintClauses, declaration.Body));
-                    }
-                    foreach (LocalFunctionStatementSyntax local in declaration.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
-                    {
-                        if (WorthComparing(local.Body)) methods.Add(new Method(local.Identifier, local.ReturnType, local.ParameterList, local.ConstraintClauses, local.Body));
-                    }
-                }
-                methods.Sort((a, b) =>
-                {
-                    int byFile = string.CompareOrdinal(a.Body.SyntaxTree.FilePath, b.Body.SyntaxTree.FilePath);
-                    return byFile != 0 ? byFile : a.Body.SpanStart.CompareTo(b.Body.SpanStart);
-                });
+                MethodDeclarationSyntax declaration = context.Node as MethodDeclarationSyntax;
+                LocalFunctionStatementSyntax local = context.Node as LocalFunctionStatementSyntax;
+                BlockSyntax body = declaration != null ? declaration.Body : local.Body;
+                if (!WorthComparing(body) || !(context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken) is IMethodSymbol method)) return;
+                // Bound now, so the semantic model doesn't stay alive until the compilation ends.
+                ISymbol[] bindings = body.DescendantNodes().OfType<SimpleNameSyntax>()
+                    .Select(name => context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol).ToArray();
+                ComparedMethod compared = declaration != null
+                    ? new ComparedMethod(method, bindings, declaration.Identifier, declaration.ReturnType, declaration.ParameterList, declaration.ConstraintClauses, body)
+                    : new ComparedMethod(method, bindings, local.Identifier, local.ReturnType, local.ParameterList, local.ConstraintClauses, body);
+                byType.GetOrAdd(method.ContainingType, _ => new ConcurrentBag<ComparedMethod>()).Add(compared);
+            }, SyntaxKind.MethodDeclaration, SyntaxKind.LocalFunctionStatement);
 
-                for (int i = 1; i < methods.Count; i++)
+            start.RegisterCompilationEndAction(context =>
+            {
+                foreach (ConcurrentBag<ComparedMethod> group in byType.Values)
                 {
-                    for (int j = 0; j < i; j++)
+                    List<ComparedMethod> methods = group.ToList();
+                    methods.Sort((a, b) =>
                     {
-                        if (!methods[i].HasSameSignatureAs(methods[j]) || !SyntaxFactory.AreEquivalent(methods[i].Body, methods[j].Body)) continue;
-                        Location location = methods[i].Name.GetLocation();
-                        if (scope.IsAnalyzed(location.SourceTree)) context.ReportDiagnostic(Diagnostic.Create(Rule, location, methods[i].Name.ValueText, methods[j].Name.ValueText));
-                        break;
+                        int byFile = string.CompareOrdinal(a.Body.SyntaxTree.FilePath, b.Body.SyntaxTree.FilePath);
+                        return byFile != 0 ? byFile : a.Body.SpanStart.CompareTo(b.Body.SpanStart);
+                    });
+
+                    for (int i = 1; i < methods.Count; i++)
+                    {
+                        for (int j = 0; j < i; j++)
+                        {
+                            if (!methods[i].HasSameSignatureAs(methods[j]) || !SyntaxFactory.AreEquivalent(methods[i].Body, methods[j].Body)) continue;
+                            if (!SameBindings(methods[i], methods[j])) continue;
+                            Location location = methods[i].Name.GetLocation();
+                            if (scope.IsAnalyzed(location.SourceTree)) context.ReportDiagnostic(Diagnostic.Create(Rule, location, methods[i].Name.ValueText, methods[j].Name.ValueText));
+                            break;
+                        }
                     }
                 }
-            }, SymbolKind.NamedType);
+            });
         }
 
         // A method or local function as written.
-        private sealed class Method
+        private sealed class ComparedMethod
         {
-            public Method(SyntaxToken name, TypeSyntax returnType, ParameterListSyntax parameters, SyntaxList<TypeParameterConstraintClauseSyntax> constraints, BlockSyntax body)
+            public ComparedMethod(IMethodSymbol symbol, ISymbol[] bindings, SyntaxToken name, TypeSyntax returnType, ParameterListSyntax parameters, SyntaxList<TypeParameterConstraintClauseSyntax> constraints, BlockSyntax body)
             {
+                Symbol = symbol;
+                Bindings = bindings;
                 Name = name;
                 ReturnType = returnType;
                 Parameters = parameters;
@@ -83,12 +92,15 @@ namespace TarragonFly.Analyzers.Rules.Readability
             }
 
             public SyntaxToken Name { get; }
+            public IMethodSymbol Symbol { get; }
+            // What each name in the body refers to, in source order.
+            public ISymbol[] Bindings { get; }
             public TypeSyntax ReturnType { get; }
             public ParameterListSyntax Parameters { get; }
             public SyntaxList<TypeParameterConstraintClauseSyntax> Constraints { get; }
             public BlockSyntax Body { get; }
 
-            public bool HasSameSignatureAs(Method other)
+            public bool HasSameSignatureAs(ComparedMethod other)
             {
                 if (!SyntaxFactory.AreEquivalent(ReturnType, other.ReturnType) || !SameParameterTypes(Parameters, other.Parameters)) return false;
                 if (Constraints.Count != other.Constraints.Count) return false;
@@ -98,6 +110,85 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 }
                 return true;
             }
+        }
+
+        private static bool SameBindings(ComparedMethod first, ComparedMethod second)
+        {
+            if (first.Bindings.Length != second.Bindings.Length) return false;
+            for (int i = 0; i < first.Bindings.Length; i++)
+            {
+                ISymbol firstSymbol = first.Bindings[i];
+                ISymbol secondSymbol = second.Bindings[i];
+                if (SymbolEqualityComparer.Default.Equals(firstSymbol, secondSymbol)) continue;
+                if (firstSymbol is ITypeSymbol firstType && secondSymbol is ITypeSymbol secondType && SameType(firstType, secondType, first, second)) continue;
+                if (firstSymbol is IParameterSymbol firstParameter && secondSymbol is IParameterSymbol secondParameter && firstParameter.Ordinal == secondParameter.Ordinal
+                    && SymbolEqualityComparer.Default.Equals(firstParameter.ContainingSymbol, first.Symbol) && SymbolEqualityComparer.Default.Equals(secondParameter.ContainingSymbol, second.Symbol)
+                    && SameType(firstParameter.Type, secondParameter.Type, first, second)) continue;
+                if (firstSymbol is ILocalSymbol firstLocal && secondSymbol is ILocalSymbol secondLocal && SameType(firstLocal.Type, secondLocal.Type, first, second)
+                    && firstLocal.DeclaringSyntaxReferences.Length == 1 && secondLocal.DeclaringSyntaxReferences.Length == 1)
+                {
+                    int declarationNodeIndex = DeclarationNodeIndex(first.Body, firstLocal.DeclaringSyntaxReferences[0]);
+                    if (declarationNodeIndex >= 0 && declarationNodeIndex == DeclarationNodeIndex(second.Body, secondLocal.DeclaringSyntaxReferences[0])) continue;
+                }
+                // Lambda and local function parameters, local functions, query variables and labels
+                // match when each body declares its own in the same place.
+                if (!(firstSymbol is ILocalSymbol) && DeclaredAtSamePlace(firstSymbol?.OriginalDefinition, secondSymbol?.OriginalDefinition, first, second)) continue;
+                if (firstSymbol is IMethodSymbol or IPropertySymbol or IFieldSymbol or IEventSymbol
+                    && secondSymbol != null && SymbolEqualityComparer.Default.Equals(firstSymbol.OriginalDefinition, secondSymbol.OriginalDefinition)
+                    && SameType(firstSymbol.ContainingType, secondSymbol.ContainingType, first, second))
+                {
+                    if (!(firstSymbol is IMethodSymbol firstCall) || !(secondSymbol is IMethodSymbol secondCall)
+                        || firstCall.TypeArguments.Zip(secondCall.TypeArguments, (a, b) => SameType(a, b, first, second)).All(matches => matches)) continue;
+                }
+                return false;
+            }
+            return true;
+        }
+
+        private static bool SameType(ITypeSymbol firstType, ITypeSymbol secondType, ComparedMethod first, ComparedMethod second)
+        {
+            if (SymbolEqualityComparer.Default.Equals(firstType, secondType)) return true;
+            if (firstType is ITypeParameterSymbol firstParameter && secondType is ITypeParameterSymbol secondParameter)
+            {
+                if (firstParameter.Ordinal != secondParameter.Ordinal) return false;
+                // The compared method's own type parameters, those of the method around a compared
+                // local function, or those of a local function declared in the same place in both bodies.
+                return SymbolEqualityComparer.Default.Equals(firstParameter.ContainingSymbol, first.Symbol) && SymbolEqualityComparer.Default.Equals(secondParameter.ContainingSymbol, second.Symbol)
+                    || SymbolEqualityComparer.Default.Equals(firstParameter.ContainingSymbol, first.Symbol.ContainingSymbol) && SymbolEqualityComparer.Default.Equals(secondParameter.ContainingSymbol, second.Symbol.ContainingSymbol)
+                    || DeclaredAtSamePlace(firstParameter.ContainingSymbol, secondParameter.ContainingSymbol, first, second);
+            }
+            if (firstType is IArrayTypeSymbol firstArray && secondType is IArrayTypeSymbol secondArray)
+                return firstArray.Rank == secondArray.Rank && SameType(firstArray.ElementType, secondArray.ElementType, first, second);
+            if (firstType is IPointerTypeSymbol firstPointer && secondType is IPointerTypeSymbol secondPointer)
+                return SameType(firstPointer.PointedAtType, secondPointer.PointedAtType, first, second);
+            if (firstType is INamedTypeSymbol firstNamed && secondType is INamedTypeSymbol secondNamed
+                && SymbolEqualityComparer.Default.Equals(firstNamed.OriginalDefinition, secondNamed.OriginalDefinition))
+            {
+                return SameType(firstNamed.ContainingType, secondNamed.ContainingType, first, second)
+                    && firstNamed.TypeArguments.Zip(secondNamed.TypeArguments, (a, b) => SameType(a, b, first, second)).All(matches => matches);
+            }
+            return false;
+        }
+
+        private static bool DeclaredAtSamePlace(ISymbol firstSymbol, ISymbol secondSymbol, ComparedMethod first, ComparedMethod second)
+        {
+            if (firstSymbol == null || secondSymbol == null || firstSymbol.Kind != secondSymbol.Kind
+                || firstSymbol.DeclaringSyntaxReferences.Length != 1 || secondSymbol.DeclaringSyntaxReferences.Length != 1) return false;
+            int index = DeclarationNodeIndex(first.Body, firstSymbol.DeclaringSyntaxReferences[0]);
+            return index >= 0 && index == DeclarationNodeIndex(second.Body, secondSymbol.DeclaringSyntaxReferences[0]);
+        }
+
+        // The bodies already match, so node order stays the same when comments or spacing change.
+        private static int DeclarationNodeIndex(BlockSyntax body, SyntaxReference declaration)
+        {
+            if (declaration.SyntaxTree != body.SyntaxTree || !body.Span.Contains(declaration.Span)) return -1;
+            int index = 0;
+            foreach (SyntaxNode node in body.DescendantNodes())
+            {
+                if (node.Span == declaration.Span) return index;
+                index++;
+            }
+            return -1;
         }
 
         // A block body of two or more statements; one-liners repeat on purpose too often to matter.

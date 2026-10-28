@@ -11,8 +11,9 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // The expression yields the old value, so the variable ends up unchanged, or is never read again.
     //
-    // Fields aren't checked, since "return field++;" does change the field. Reported on the ++ or --
-    // expression.
+    // Fields aren't checked, since "return field++;" does change the field. Neither is a local a lambda
+    // or local function captured from outside, since the next call sees the new value. Reported on the
+    // ++ or -- expression.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class LostIncrementAnalyzer : ScopedAnalyzer
     {
@@ -41,11 +42,24 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                     parent = parent.Parent;
                 }
 
-                bool lost = parent is ReturnStatementSyntax
+                bool shared = symbol is IParameterSymbol parameter && parameter.RefKind != RefKind.None || symbol is ILocalSymbol local && local.IsRef
+                    || IsCaptured(symbol, postfix);
+                bool lost = parent is ReturnStatementSyntax && !shared
                     || (parent is AssignmentExpressionSyntax assignment && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
                         && assignment.Right == node && SyntaxFactory.AreEquivalent(assignment.Left, postfix.Operand));
                 if (lost) context.ReportDiagnostic(Diagnostic.Create(Rule, postfix.GetLocation(), postfix.Operand.ToString()));
             }), SyntaxKind.PostIncrementExpression, SyntaxKind.PostDecrementExpression);
+        }
+
+        private static bool IsCaptured(ISymbol variable, SyntaxNode use)
+        {
+            SyntaxNode closure = use.FirstAncestorOrSelf<SyntaxNode>(node => node is AnonymousFunctionExpressionSyntax || node is LocalFunctionStatementSyntax);
+            if (closure == null) return false;
+            foreach (SyntaxReference declaration in variable.DeclaringSyntaxReferences)
+            {
+                if (!closure.Span.Contains(declaration.Span)) return true;
+            }
+            return false;
         }
     }
 }

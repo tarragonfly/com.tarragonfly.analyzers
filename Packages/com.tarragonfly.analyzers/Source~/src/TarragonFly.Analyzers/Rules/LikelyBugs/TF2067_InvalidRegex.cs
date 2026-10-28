@@ -54,7 +54,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                     if (parameterName == "pattern") patternExpression = argument.Expression;
                     if (parameterName != "options") continue;
                     Optional<object> optionsValue = context.SemanticModel.GetConstantValue(argument.Expression, context.CancellationToken);
-                    if (optionsValue.HasValue && optionsValue.Value is int bits) options = (RegexOptions)bits;
+                    if (!optionsValue.HasValue || !(optionsValue.Value is int bits)) return;
+                    options = (RegexOptions)bits;
                 }
                 if (patternExpression == null) return;
                 string text = PatternText(context.SemanticModel, patternExpression, context.CancellationToken);

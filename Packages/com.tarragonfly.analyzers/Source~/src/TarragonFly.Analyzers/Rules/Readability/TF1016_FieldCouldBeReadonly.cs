@@ -86,6 +86,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
 
         private static bool IsWrite(IFieldReferenceOperation reference)
         {
+            if (reference.Syntax.Parent is RefExpressionSyntax) return true;
             IOperation parent = reference.Parent;
             switch (parent)
             {

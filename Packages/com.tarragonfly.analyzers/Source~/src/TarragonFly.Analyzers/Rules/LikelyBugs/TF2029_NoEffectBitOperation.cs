@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -69,7 +71,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         {
             object value = literal.Token.Value;
             if (value is float || value is double || value is decimal) return false;
-            return value != null && System.Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture) == expected;
+            return value != null && Convert.ToDecimal(value, CultureInfo.InvariantCulture) == expected;
         }
     }
 }

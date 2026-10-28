@@ -141,7 +141,11 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
                     SyntaxNode declaration = FieldDeclaration(symbol, context.CancellationToken);
                     if (declaration != null && AllUnused(declaration, symbol.ContainingType, unused))
                     {
-                        if (reportedDeclarations.Add(declaration)) context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.GetLocation(), $"'{symbol.Name}'"));
+                        if (reportedDeclarations.Add(declaration))
+                        {
+                            string firstFieldName = ((BaseFieldDeclarationSyntax)declaration).Declaration.Variables[0].Identifier.ValueText;
+                            context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.GetLocation(), $"'{firstFieldName}'"));
+                        }
                         continue;
                     }
                     context.ReportDiagnostic(Diagnostic.Create(Rule, location, $"'{symbol.Name}'"));

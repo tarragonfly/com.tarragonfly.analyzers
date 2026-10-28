@@ -34,7 +34,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 foreach (VariableDeclaratorSyntax variable in declaration.Declaration.Variables)
                 {
                     if (!(context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is IFieldSymbol field) || field.IsStatic || field.IsConst) continue;
-                    IFieldSymbol other = BaseFields.Find(field, StringComparison.OrdinalIgnoreCase);
+                    IFieldSymbol other = BaseFields.Find(context.Compilation, field, StringComparison.OrdinalIgnoreCase);
                     if (other == null || other.Name == field.Name) continue;
                     context.ReportDiagnostic(Diagnostic.Create(Rule, variable.Identifier.GetLocation(), field.Name, other.Name, other.ContainingType.Name));
                 }

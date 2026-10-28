@@ -40,7 +40,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
                 foreach (VariableDeclaratorSyntax variable in declaration.Declaration.Variables)
                 {
                     if (!(context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is IFieldSymbol field)) continue;
-                    IFieldSymbol hidden = BaseFields.Find(field, StringComparison.Ordinal);
+                    IFieldSymbol hidden = BaseFields.Find(context.Compilation, field, StringComparison.Ordinal);
                     if (hidden != null) context.ReportDiagnostic(Diagnostic.Create(Rule, variable.Identifier.GetLocation(), field.Name, hidden.ContainingType.Name));
                 }
             }), SyntaxKind.FieldDeclaration);

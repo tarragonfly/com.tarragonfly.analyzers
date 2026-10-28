@@ -16,7 +16,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // A run is a series of statements in one block that each set an element of the same collection,
     // with "collection[key] = value" or a dictionary's Add(key, value); any other statement, or a value
-    // that reads the collection, ends the run. Keys match when written the same way. A key that
+    // that reads the collection or writes with ++, -- or an assignment, ends the run, since that write
+    // can move a later key. Keys match when written the same way. A key that
     // changes something, with ++, --, an assignment or a call, as in "buffer[count++] = a", never
     // matches and starts the run over, since the keys before it may name other elements afterwards.
     // Reported on the statement that overwrites.
@@ -38,19 +39,21 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             {
                 BlockSyntax block = (BlockSyntax)context.Node;
                 ISymbol collection = null;
+                ExpressionSyntax receiver = null;
                 List<SyntaxNode> keys = new List<SyntaxNode>();
                 foreach (StatementSyntax statement in block.Statements)
                 {
-                    if (!IsElementWrite(context, statement, out ISymbol target, out SyntaxNode key, out ExpressionSyntax value, out string text)
-                        || ReadsCollection(context, value, target))
+                    if (!IsElementWrite(context, statement, out ISymbol target, out ExpressionSyntax currentReceiver, out SyntaxNode key, out ExpressionSyntax value, out string text)
+                        || ReadsCollection(context, value, target) || Writes(value))
                     {
                         collection = null;
                         keys.Clear();
                         continue;
                     }
-                    if (!SymbolEqualityComparer.Default.Equals(collection, target) || ChangesSomething(key))
+                    if (!SymbolEqualityComparer.Default.Equals(collection, target) || !SyntaxFactory.AreEquivalent(receiver, currentReceiver) || ChangesSomething(key))
                     {
                         collection = target;
+                        receiver = currentReceiver;
                         keys.Clear();
                         if (ChangesSomething(key)) continue;
                     }
@@ -62,9 +65,14 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
 
         private static bool ChangesSomething(SyntaxNode key)
         {
-            foreach (SyntaxNode node in key.DescendantNodes())
+            return Writes(key) || key.DescendantNodesAndSelf().Any(node => node is InvocationExpressionSyntax);
+        }
+
+        private static bool Writes(SyntaxNode expression)
+        {
+            foreach (SyntaxNode node in expression.DescendantNodesAndSelf())
             {
-                if (node is AssignmentExpressionSyntax || node is InvocationExpressionSyntax) return true;
+                if (node is AssignmentExpressionSyntax) return true;
                 if (node.IsKind(SyntaxKind.PreIncrementExpression) || node.IsKind(SyntaxKind.PreDecrementExpression)
                     || node.IsKind(SyntaxKind.PostIncrementExpression) || node.IsKind(SyntaxKind.PostDecrementExpression)) return true;
             }
@@ -72,9 +80,10 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
         }
 
         // "collection[key] = value;" or "dictionary.Add(key, value);".
-        private static bool IsElementWrite(SyntaxNodeAnalysisContext context, StatementSyntax statement, out ISymbol target, out SyntaxNode key, out ExpressionSyntax value, out string text)
+        private static bool IsElementWrite(SyntaxNodeAnalysisContext context, StatementSyntax statement, out ISymbol target, out ExpressionSyntax receiver, out SyntaxNode key, out ExpressionSyntax value, out string text)
         {
             target = null;
+            receiver = null;
             key = null;
             value = null;
             text = null;
@@ -82,7 +91,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
             if (expression.Expression is AssignmentExpressionSyntax assignment && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
                 && assignment.Left is ElementAccessExpressionSyntax element)
             {
-                target = context.SemanticModel.GetSymbolInfo(element.Expression, context.CancellationToken).Symbol;
+                receiver = element.Expression;
+                target = context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol;
                 key = element.ArgumentList;
                 value = assignment.Right;
                 text = element.ToString();
@@ -95,7 +105,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
                 bool dictionary = type != null && SymbolNames.Implements(type, candidate =>
                     SymbolNames.IsNamed(candidate.OriginalDefinition, "System.Collections.Generic.IDictionary`2") || SymbolNames.IsNamed(candidate, "System.Collections.IDictionary"));
                 if (!dictionary) return false;
-                target = context.SemanticModel.GetSymbolInfo(access.Expression, context.CancellationToken).Symbol;
+                receiver = access.Expression;
+                target = context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol;
                 key = SyntaxFactory.BracketedArgumentList(SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0]));
                 value = invocation.ArgumentList.Arguments[1].Expression;
                 text = access.Expression + "[" + invocation.ArgumentList.Arguments[0] + "]";

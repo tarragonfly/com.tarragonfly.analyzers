@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -39,9 +40,13 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 }
 
                 ExpressionSyntax call = OnlyExpression(method.Body, method.ExpressionBody);
-                if (call is InvocationExpressionSyntax invocation && CallsBaseWithOwnParameters(invocation, method))
+                if (call is InvocationExpressionSyntax invocation && CallsBaseWithOwnParameters(invocation, method)
+                    && context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is IMethodSymbol owner
+                    && owner.OverriddenMethod is IMethodSymbol overridden)
                 {
-                    context.ReportDiagnostic(Diagnostic.Create(Rule, method.GetLocation()));
+                    if (overridden.Arity > 0) overridden = overridden.Construct(owner.TypeParameters.Cast<ITypeSymbol>().ToArray());
+                    if (SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol, overridden))
+                        context.ReportDiagnostic(Diagnostic.Create(Rule, method.GetLocation()));
                 }
             }), SyntaxKind.MethodDeclaration);
 
