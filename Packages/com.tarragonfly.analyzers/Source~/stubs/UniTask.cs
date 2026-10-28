@@ -1,5 +1,6 @@
 // Stub of UniTask (Cysharp), compiled as UniTask. Awaiting works so async methods compile.
 using System;
+using System.Collections;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -10,6 +11,8 @@ namespace Cysharp.Threading.Tasks
     {
         public static UniTask CompletedTask => default;
         public static UniTask Delay(int milliseconds, CancellationToken cancellationToken = default) => default;
+        public static UniTask WaitUntilCanceled(CancellationToken cancellationToken) => default;
+        public static IEnumerator ToCoroutine(Func<UniTask> routine) => null;
         public static YieldAwaitable Yield() => default;
         public static UniTask Yield(CancellationToken cancellationToken, bool cancelImmediately = false) => default;
         public static UniTask NextFrame() => default;
@@ -71,7 +74,7 @@ namespace Cysharp.Threading.Tasks
         public static UniTask<T> Preserve<T>(this UniTask<T> task) => task;
         public static UniTask AttachExternalCancellation(this UniTask task, CancellationToken cancellationToken) => task;
         public static UniTask<T> AttachExternalCancellation<T>(this UniTask<T> task, CancellationToken cancellationToken) => task;
-        public static System.Collections.IEnumerator ToCoroutine(this UniTask task) => null;
+        public static IEnumerator ToCoroutine(this UniTask task) => null;
     }
 }
 

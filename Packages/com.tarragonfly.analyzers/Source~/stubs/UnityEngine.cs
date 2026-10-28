@@ -36,6 +36,9 @@ namespace UnityEngine
     public class Transform : Component
     {
         public Vector3 position { get; set; }
+        public Quaternion rotation { get; set; }
+        public void SetPositionAndRotation(Vector3 position, Quaternion rotation) { }
+        public void GetPositionAndRotation(out Vector3 position, out Quaternion rotation) { position = default; rotation = default; }
         public Vector3 localScale { get; set; }
         public Transform parent { get; set; }
         public Transform Find(string name) => null;
@@ -70,6 +73,8 @@ namespace UnityEngine
 
     public sealed class Mesh : Object
     {
+        public Vector3[] vertices { get; set; }
+        public int[] triangles { get; set; }
     }
 
     public static class Resources
@@ -83,6 +88,7 @@ namespace UnityEngine
 
     public sealed class GameObject : Object
     {
+        public bool isStatic { get; set; }
         public GameObject() { }
         public GameObject(string name) { }
         public Transform transform => null;
@@ -93,11 +99,41 @@ namespace UnityEngine
         public static GameObject FindWithTag(string tag) => null;
     }
 
+    public struct Vector2
+    {
+        public float x;
+        public float y;
+        public Vector2(float x, float y) { this.x = x; this.y = y; }
+    }
+
+    public struct Quaternion
+    {
+        public static Quaternion identity => default;
+        public static Quaternion Euler(float x, float y, float z) => default;
+    }
+
+    public sealed class Random
+    {
+        public static float Range(float min, float max) => min;
+    }
+
+    public static class Time
+    {
+        public static float deltaTime => 0;
+        public static float fixedDeltaTime => 0;
+    }
+
+    public static class Shader
+    {
+        public static int PropertyToID(string name) => 0;
+    }
+
     public struct Vector3
     {
         public float x;
         public float y;
         public float z;
+        public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
 
         public Vector3 normalized => this;
         public void Normalize() { }
