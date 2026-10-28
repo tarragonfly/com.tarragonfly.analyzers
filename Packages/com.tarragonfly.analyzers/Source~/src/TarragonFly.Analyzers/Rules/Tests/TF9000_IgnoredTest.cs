@@ -12,7 +12,7 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // An ignored test stops protecting anything, and without a date nothing brings it back. Fix it,
     // delete it, or give it Until = "yyyy-MM-dd" so NUnit starts running it again then.
     //
-    // Checked on test methods, and on classes that are fixtures or hold tests; an [Ignore] anywhere
+    // Checked on test methods and test classes; an [Ignore] anywhere
     // else changes nothing. Reported on the attribute. Test code only.
     //
     // It only reports an [Ignore] without a reason, which NUnit 3 requires anyway, so it never fires on

@@ -35,7 +35,7 @@ namespace TarragonFly.Analyzers.Rules.OdinInspector
     {
         public static readonly DiagnosticDescriptor UnknownParentGroup = Descriptors.Create(
             "TF6002",
-            "Odin group nested in a group nothing declares",
+            "Odin group nested in an undeclared group",
             "'{0}' sits inside '{1}', but nothing on '{2}' declares a '{1}' group",
             "Odin",
             CodeKind.All);

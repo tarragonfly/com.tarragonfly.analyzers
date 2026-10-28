@@ -18,7 +18,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // comments, string, char and interpolated string literals, directives and whitespace alike. One
     // warning per line, on the first such character, with its code point in the message; a pair of
     // surrogates is reported as the one character it encodes. Files matching a glob in
-    // non_ascii_allowed_in, such as "Assets/Game/Dialogue/*", are left alone, and so are generated
+    // non_ascii_allowed_in, such as "Assets/Game/Dialogue/*", are skipped, and so are generated
     // files.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class NonAsciiCharacterAnalyzer : ScopedAnalyzer

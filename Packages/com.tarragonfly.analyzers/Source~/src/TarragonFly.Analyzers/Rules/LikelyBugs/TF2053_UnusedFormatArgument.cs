@@ -21,7 +21,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF2053",
-            "Format argument no placeholder uses",
+            "Unused format argument",
             "{0}",
             "LikelyBugs",
             CodeKind.All);

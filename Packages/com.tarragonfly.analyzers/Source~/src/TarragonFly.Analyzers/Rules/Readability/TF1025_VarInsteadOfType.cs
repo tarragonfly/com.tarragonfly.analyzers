@@ -22,7 +22,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // whose type argument is what it returns, such as GetComponent<RectTransform>(), with or without
     // ?., an await on LoadAssetAsync<Sprite>() or a foreach over GetComponentsInChildren<Button>().
     // "var enemy = new Enemy()" is still reported, since "Enemy enemy = new()" says it once.
-    // Left alone: a deconstruction such as "var (a, b) = pair", a pattern such as "is var x",
+    // Not reported: a deconstruction such as "var (a, b) = pair", a pattern such as "is var x",
     // "out var _" and a type that happens to be named var. Reported on the 'var' keyword.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class VarInsteadOfTypeAnalyzer : ScopedAnalyzer
@@ -57,7 +57,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
         }
 
         // The written type of a local, for, using, fixed, foreach or out declaration; null for the
-        // declaration shapes the rule leaves alone.
+        // declaration shapes the rule skips.
         private static TypeSyntax DeclaredType(SyntaxNode node)
         {
             switch (node)

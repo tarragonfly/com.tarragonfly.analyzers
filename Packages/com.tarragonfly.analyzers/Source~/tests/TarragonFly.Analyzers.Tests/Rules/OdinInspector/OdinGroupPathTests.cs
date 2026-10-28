@@ -4,7 +4,7 @@ using TarragonFly.Analyzers.Tests.Harness;
 
 namespace TarragonFly.Analyzers.Tests.Rules.OdinInspector
 {
-    // TF6002 group nested in a group nothing declares, TF6003 one group with two group attribute types,
+    // TF6002 group nested in an undeclared group, TF6003 one group with two group attribute types,
     // TF6004 member in groups that don't nest.
     public class OdinGroupPathTests
     {

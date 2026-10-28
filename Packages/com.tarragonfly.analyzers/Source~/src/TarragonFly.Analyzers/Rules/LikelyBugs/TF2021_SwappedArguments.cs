@@ -9,7 +9,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // TF2021: a call whose arguments are variables named like the method's parameters, but passed in a
     // different order, as in Move(y, x) for Move(int x, int y).
     //
-    // Swapped coordinates, width and height, or source and target compile fine and fail quietly.
+    // Swapped coordinates, width and height, or source and target compile fine and give wrong
+    // results with no error.
     //
     // An argument is out of place when it's a simple name matching a different parameter's name.
     // Reported when an out-of-place argument belongs where another out-of-place argument sits, as when

@@ -10,8 +10,8 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // TF2014: a shift by a constant at least as large as the number of bits, as in "layerMask << 32" on
     // an int, or by a constant 0.
     //
-    // C# only uses the low bits of the count, so "1 << 32" is 1, not 0, and the mask quietly wraps. A
-    // shift by 0 does nothing, which usually means the wrong count was typed.
+    // C# only uses the low bits of the count, so "1 << 32" is 1, not 0, and the mask wraps around
+    // with no warning. A shift by 0 does nothing, which usually means the wrong count was typed.
     //
     // The width is 32 bits for int and uint (and smaller types, which are widened to int) and 64 for
     // long and ulong. Compound <<= and >>= count. A shift by 0 counts only when the 0 is written as a

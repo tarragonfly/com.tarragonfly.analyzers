@@ -11,7 +11,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // "!!isAlive" is just isAlive; either one operator is a typo or the expression wasn't finished.
     //
-    // Only ! and ~ without parentheses between them count, so "!(!x)" and "- -x" are left alone. A
+    // Only ! and ~ without parentheses between them count, so "!(!x)" and "- -x" are skipped. A
     // longer run like "!!!x" is reported once, covering all of its operators.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class DoubledUnaryOperatorAnalyzer : ScopedAnalyzer

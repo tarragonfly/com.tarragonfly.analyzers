@@ -10,7 +10,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // as in "foreach (Goblin goblin in enemies)" over a List<Enemy>.
     //
     // Foreach casts each element silently, so the first Orc in the list throws InvalidCastException,
-    // and "foreach (byte b in ints)" quietly cuts values. Filter with OfType<Goblin>() or loop over the
+    // and "foreach (byte b in ints)" truncates values. Filter with OfType<Goblin>() or loop over the
     // real element type.
     //
     // Collections of object, such as ArrayList, aren't reported: the cast is the only way to loop over

@@ -11,14 +11,14 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // "Root.Q<Button>("play")" in a view when every view is meant to write Element<Button>("play").
     //
     // The helper is where the project keeps one decision (the missing-element warning, the log
-    // prefix, the null check), and a direct call quietly skips it. The rule only knows the members
+    // prefix, the null check), and a direct call skips it. The rule only checks the members
     // the settings file lists, so it's off until discouraged_members names some.
     //
     // An entry is "Namespace.Type.Member -> Replacement", one per comma, and matches every overload
     // of that member, extension and static forms included. A parameter list after the member,
     // "(VisualElement, string, string)", narrows it to one overload; the types can be written short
     // or with their namespaces, and ref and out modifiers are left out. Calls inside a type that
-    // discouraged_members_allowed_in lists, such as the helper's own class, are left alone, nested
+    // discouraged_members_allowed_in lists, such as the helper's own class, are skipped, nested
     // types included; an entry there is the type's name with or without its namespace. Only method
     // calls are checked, not property or field reads. Reported on the called member's name.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]

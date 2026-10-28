@@ -11,7 +11,7 @@ namespace TarragonFly.Analyzers.Rules.Async
 {
     // TF5001: a disposable class disposing one of its fields somewhere other than its own Dispose,
     // while Dispose itself doesn't, as in "cancel.Dispose();" inside Restart() of a class whose Dispose
-    // leaves cancel alone.
+    // never disposes cancel.
     //
     // Whether the field gets released then depends on Restart running, and a new instance put in the
     // field afterwards is never released by Dispose. Dispose fields in Dispose; disposing one early

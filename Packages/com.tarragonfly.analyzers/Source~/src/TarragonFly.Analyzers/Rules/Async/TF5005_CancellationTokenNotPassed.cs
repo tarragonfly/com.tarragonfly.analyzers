@@ -61,7 +61,7 @@ namespace TarragonFly.Analyzers.Rules.Async
             }), SyntaxKind.InvocationExpression);
         }
 
-        // Also used by TF5103, which stays quiet where this rule already reports.
+        // Also used by TF5103, which doesn't report where this rule already does.
         internal static bool MissesToken(SemanticModel model, InvocationExpressionSyntax invocation, IInvocationOperation operation)
         {
             if (TokenOnlyLabelsTheException(operation.TargetMethod.Name)) return false;

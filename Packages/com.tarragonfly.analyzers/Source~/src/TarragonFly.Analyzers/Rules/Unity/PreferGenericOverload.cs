@@ -24,8 +24,8 @@ namespace TarragonFly.Analyzers.Rules.Unity;
 // and GetComponent("Name") or CreateInstance("Name") with a constant string. A string is only looked
 // up when the game runs, so the message names the type it matches, or says no component or
 // ScriptableObject type has that name, since the call then returns null. Unity's own string
-// AddComponent is a compile error already. Arguments that aren't typeof or a constant are left
-// alone, as they usually come from data the generic form can't take.
+// AddComponent is a compile error already. Arguments that aren't typeof or a constant are
+// skipped, as they usually come from data the generic form can't take.
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public class PreferGenericOverloadAnalyzer : BaseGetComponentAnalyzer
 {

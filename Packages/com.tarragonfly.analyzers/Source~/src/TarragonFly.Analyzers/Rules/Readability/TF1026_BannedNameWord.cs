@@ -30,9 +30,9 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // "widgets". An entry in
     // banned_method_prefixes matches a method or local function whose first tokens are the entry's.
     //
-    // Left alone: uses of a name (a call, an attribute, a type reference), overrides and explicit
+    // Not reported: uses of a name (a call, an attribute, a type reference), overrides and explicit
     // interface implementations, which take their name from the base, constructors, which take the
-    // type's, and, while banned_name_words_skip_serialized is true, fields Unity saves: those with
+    // type's, and, while banned_name_words_skip_serialized is true, serialized fields: those with
     // [SerializeField] or [SerializeReference], public fields on a UnityEngine.Object subclass or a
     // [Serializable] type, and properties with [field: SerializeField]. Renaming those loses the
     // values stored in scenes, prefabs and assets, so they're left for a migration. Without words in

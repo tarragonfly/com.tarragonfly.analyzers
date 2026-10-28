@@ -24,15 +24,16 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     // belongs to is not compared. Lambdas aren't checked, since nothing can remove them and TF2505
     // and TF4100 report the attempts.
     //
-    // Left alone, because the event can't outlive the subscriber or doesn't hold on to it:
+    // Not reported, because the event can't outlive the subscriber or doesn't hold on to it:
     // - events the type declares itself or inherits, reached through this or as its own statics,
     //   since the type raises them;
     // - subscriptions in a static constructor, a [RuntimeInitializeOnLoadMethod] or an
-    //   [InitializeOnLoadMethod], which run once per domain;
+    //   [InitializeOnLoadMethod]. Runtime initialization runs on every Play entry, even without a
+    //   domain reload, so startup subscriptions still need a static reset. TF7101 checks that reset;
     // - events of a component's own GameObject or its children: an object reached from this,
     //   gameObject or transform through GetComponent, GetComponentInChildren, TryGetComponent,
     //   AddComponent, Transform.Find or GetChild, ScrollRect.content, array elements and foreach,
-    //   directly or through locals and fields that only ever get such values. Fields Unity saves
+    //   directly or through locals and fields that only ever get such values. Serialized fields
     //   are left out, since the Inspector can point them anywhere, and so is GetComponentInParent;
     // - objects the type creates itself with new, such as an InputAction made in OnEnable, held in a
     //   local or in fields that only ever get such values (a "= null" reset doesn't count against

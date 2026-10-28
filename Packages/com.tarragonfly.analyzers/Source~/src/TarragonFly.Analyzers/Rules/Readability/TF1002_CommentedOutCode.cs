@@ -55,8 +55,8 @@ namespace TarragonFly.Analyzers.Rules.Readability
     //     sentence; another sentence;".
     //   - "foreach (...)" headers count, like the other loop headers.
     //   - Lines are parsed rather than matched on their last character, so prose that happens to end
-    //     in a semicolon or a brace stays quiet, and so do lines from other languages that C# can't
-    //     parse, such as Java's "continue outer;".
+    //     in a semicolon or a brace isn't reported, and neither are lines from other languages that
+    //     C# can't parse, such as Java's "continue outer;".
     //   - Code followed by a second // comment counts when the whole line still ends like code, as in
     //     "Log(frame); // + count);". With a plain note at the end, as in "return; // early out", the
     //     line reads as a remark and isn't reported.

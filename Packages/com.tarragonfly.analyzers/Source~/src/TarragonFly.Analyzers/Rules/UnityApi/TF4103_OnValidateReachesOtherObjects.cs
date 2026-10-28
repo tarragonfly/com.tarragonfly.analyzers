@@ -14,7 +14,7 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
     //
     // Unity runs OnValidate often, while loading and on a loading thread, and the other objects might
     // not have had Awake yet. The project rule is that OnValidate clamps and normalizes this object's
-    // own values and nothing more. Three rules, since the fixes differ:
+    // own values and nothing more. There is one rule per kind of fix, and each message names the fix.
     //
     // TF4103, as in "void OnValidate() { _renderer = GetComponent<SpriteRenderer>(); }": a reference
     // found there depends on what happens to be loaded, and a field set there hides a missing
@@ -25,7 +25,7 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
     // AssetDatabase loads.
     //
     // TF4104, as in "void OnValidate() { _label.text = "v" + Application.version; }": a change to
-    // another object is a change nobody made in the Inspector, on an object that might not be set up yet.
+    // another object is one nobody made in the Inspector, and that object might not be set up yet.
     // Counted: an assignment to a member of another Unity object, and a void method called on one,
     // such as "transform.position = ..." or "gameObject.SetActive(false)". A component's own
     // "name = ..." counts too, since that's the GameObject's name.
@@ -33,14 +33,14 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
     // TF4105, as in "void OnValidate() { EditorUtility.SetDirty(this); }": Instantiate,
     // InstantiatePrefab, Destroy, DestroyImmediate, AddComponent, CreateInstance and "new" of any
     // Unity object, such as new Material(...); SetDirty, Undo, prefab and asset saves and scene
-    // dirtying; and an asset's own "name = ...", which stops matching its file name. That's a job for
-    // an editor command you run on purpose.
+    // dirtying; and an asset's own "name = ...", which stops matching its file name. Do this from an
+    // editor command instead.
     //
-    // All three look at OnValidate on any Unity object and at the same-file private helpers and
-    // property getters and setters it reaches, including helpers handed to a callback such as
-    // EditorApplication.delayCall. Lambdas in OnValidate count too, since deferred work is still
-    // OnValidate's work. Helpers in another file or a base class aren't followed, since a report has
-    // to land in the file being checked.
+    // All three look at OnValidate on any Unity object and at the type's own non-virtual methods and
+    // property getters and setters in the same file that it reaches, including methods handed to a
+    // callback such as EditorApplication.delayCall. Lambdas in OnValidate count too, deferred ones
+    // included. Methods in another file, a base class or another type aren't followed, because a
+    // report has to land in the file being checked.
     // Values that are not Unity objects, such as ints, strings and [Serializable] classes, are this
     // object's own, and so are this object's enabled and hideFlags. Reported on the assignment or
     // the call. Game code only.

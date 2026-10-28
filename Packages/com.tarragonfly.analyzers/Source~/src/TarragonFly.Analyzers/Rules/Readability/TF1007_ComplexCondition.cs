@@ -17,7 +17,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // It stops at anything else: method arguments, lambdas, casts, assignments, initializers and
     // interpolations each start a separate count. ??, &, |, ^ and is-pattern and/or don't count. #if
     // and #elif conditions are checked too. Equals overrides and IEquatable<T>.Equals methods are
-    // skipped, since comparing every field is what they're for. So is a plain chain of only && or only
+    // skipped, because they have to compare every field. So is a plain chain of only && or only
     // || that is the whole body of a method, property or local function, such as
     // "bool HasReferences() => _root != null && _target != null && ...": the method already names it.
     // Reported once, on the whole expression.
@@ -92,7 +92,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
         }
 
         // The number of &&, || and ?: operators an expression counts toward the limit. TF1006 uses it
-        // too, to leave alone an if whose merged condition would go over the limit.
+        // too, to skip an if whose merged condition would go over the limit.
         internal static int CountOperators(SyntaxNode expression)
         {
             return CountOperators(expression, out _);

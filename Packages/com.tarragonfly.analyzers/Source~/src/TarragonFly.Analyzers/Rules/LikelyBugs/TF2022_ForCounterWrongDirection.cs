@@ -13,7 +13,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     //
     // The condition must compare the counter with <, <=, > or >=, on either side. Updates with a known
     // direction are ++, --, += and -= with a positive number literal, and "i = i + 1" / "i = i - 1"
-    // style assignments. Anything else, such as "i += step" or "i -= -1", is left alone. Reported on
+    // style assignments. Anything else, such as "i += step" or "i -= -1", is skipped. Reported on
     // the wrong update.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ForCounterWrongDirectionAnalyzer : ScopedAnalyzer

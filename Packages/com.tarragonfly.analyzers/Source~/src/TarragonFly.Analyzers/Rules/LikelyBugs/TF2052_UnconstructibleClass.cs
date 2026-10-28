@@ -23,7 +23,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF2052",
-            "Class nothing can construct",
+            "Class that can't be instantiated",
             "'{0}' has only private constructors and nothing inside that uses them, so it can never be created",
             "LikelyBugs",
             CodeKind.All);

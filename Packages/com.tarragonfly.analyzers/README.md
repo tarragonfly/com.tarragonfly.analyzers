@@ -10,13 +10,13 @@ looks like this:
 Assets/Game/Player.cs(42,13): warning TF4008: Unity objects should not use null propagation.
 ```
 
-The 238 rules fall into two groups:
+The 250 rules fall into two groups:
 
 - **General C# checks that understand Unity.** Likely bugs, dead code, swallowed exceptions,
-  hard-to-read methods, allocation-heavy LINQ and weak tests. Where a general-purpose analyzer
-  would flag normal Unity code, these rules know better: a Unity message such as `Awake` counts as
-  called, a `[SerializeField]` field counts as assigned, a coroutine counts as a method that runs,
-  and Odin attributes count as uses of the members they name.
+  hard-to-read methods, allocation-heavy LINQ and weak tests. They recognize Unity code that a
+  general-purpose analyzer flags by mistake: a Unity message such as `Awake` counts as called, a
+  `[SerializeField]` field counts as assigned, a coroutine counts as a method that runs, and Odin
+  attributes count as uses of the members they name.
 - **Checks for mistakes specific to Unity and its popular add-ons.** The 46 rules of Microsoft's
   Unity analyzers (`?.` on a destroyed object, `GetComponent` with a string, an `Update` with no
   body) plus rules for UniTask, Odin Inspector and Init(args): a `UniTask` awaited twice, an Odin
@@ -27,14 +27,14 @@ The 238 rules fall into two groups:
 A project that does not use UniTask, Odin Inspector or Init(args) can still use the package. Those
 rules look for the frameworks' types by name and have nothing to report when the types are absent.
 
-This is an early release. The rules are tested, but they are still being tuned against real
-projects, so expect some of them to get narrower or wider between versions.
+This is an early release. The rules are tested but still being tuned against real projects, and
+some of them will report more or less between versions.
 
 ## Requirements
 
 - Unity 6000.0 or newer. Tested on 6000.3, 6000.6 and 6000.7.
-- git on your PATH, since Unity fetches the package with the `git` command.
-- Nothing else to use it. The .NET 8 SDK is only needed to change the rules themselves (see
+- git on your PATH. Unity fetches the package with the `git` command.
+- Using the package needs nothing else. The .NET 8 SDK is only needed to change the rules (see
   [Working on the rules](#working-on-the-rules)).
 
 ## Installing
@@ -59,10 +59,10 @@ Or add the same line to `Packages/manifest.json` yourself:
 "com.tarragonfly.analyzers": "https://github.com/tarragonfly/com.tarragonfly.analyzers.git?path=Packages/com.tarragonfly.analyzers#v1.1.2"
 ```
 
-Keep the tag. Without it, Unity locks the package to whatever `main` was when you installed it, so
-upgrading is guesswork. With it, you upgrade by changing the tag. Versions are listed under Tags on
-GitHub. Tags up to v0.1.3 have the package at the repository root, so they install from the URL
-without the `?path=` part.
+Keep the tag. An install without one stays locked to the commit `main` was on when you installed
+it. To upgrade a tagged install, change the tag. Versions are listed under Tags on GitHub. Tags up
+to v0.1.3 have the package at the repository root and install from the URL without the `?path=`
+part.
 
 To work on the rules, clone the repository and open it in Unity. The repository root is an empty
 Unity 6000.6 project with the package embedded under `Packages/com.tarragonfly.analyzers`, so the
@@ -80,34 +80,40 @@ with the same name, so keep only one of them.
 ## What happens after installing
 
 The analyzer DLL in `Analyzers/` carries Unity's `RoslynAnalyzer` label and sits next to
-`TarragonFly.Analyzers.Scope.asmdef`, so Unity runs it only on assemblies that reference
-`TarragonFly.Analyzers.Scope`, plus the predefined ones (`Assembly-CSharp`,
-`Assembly-CSharp-Editor` and their `firstpass` versions), which Unity always gives every analyzer.
-Scripts without an `.asmdef` of their own are checked straight away; each `.asmdef` you want checked
-needs the reference. The scope assembly holds no code and is not auto-referenced, so nothing else
-changes for the assemblies that use it. It's also editor-only. Runtime assemblies can reference it
-and it still stays out of player builds, since Unity simply drops the reference when it compiles for
-a player. Those `.asmdef` assemblies build without the analyzer there, so player builds get a bit
-faster, and their findings still show up in the editor as usual.
+`TarragonFly.Analyzers.Scope.asmdef`. Unity runs it on:
 
-Third-party packages and plugins don't load it at all. Changing the settings file or updating the
-package only recompiles the assemblies that run it, so compiles stay short.
+- assemblies whose `.asmdef` references `TarragonFly.Analyzers.Scope`;
+- the predefined assemblies (`Assembly-CSharp`, `Assembly-CSharp-Editor` and their `firstpass`
+  versions), which Unity gives every analyzer.
+
+Scripts without an `.asmdef` of their own compile into a predefined assembly and are checked straight
+away. Each `.asmdef` you want checked needs the reference. Packages and plugins that come with their
+own `.asmdef` don't reference the scope assembly, and the analyzer doesn't run on them.
+
+The scope assembly holds no code, is not auto-referenced and is editor-only. Runtime assemblies can
+still reference it: Unity drops the reference when it compiles for a player, so player builds compile
+those assemblies without the analyzer. Their findings show up in the editor as usual.
+
+Changing the settings file or updating the package recompiles only the assemblies that run the
+analyzer.
 
 Findings show up in the Console alongside the compiler's own warnings. Rider picks the analyzer up
 from the project files Unity generates, and Project Auditor lists its findings in its code view.
 
-Only code under `Assets/` is reported, even in an assembly that runs the analyzer. Third-party code
+By default, only code under `Assets/` is reported, even in an assembly that runs the analyzer.
+`analyze_paths` can include other project-relative folders, including `Packages/`. Third-party code
 that lives inside `Assets/` without an `.asmdef`, such as some asset store imports and samples,
-compiles into `Assembly-CSharp` and is reported like your own until you narrow `analyze_paths` (see
-[Settings](#settings)) or switch rules off for that assembly (next section).
+compiles into `Assembly-CSharp` (or `Assembly-CSharp-firstpass` under a `Plugins` folder) and is
+reported like your own until you narrow `analyze_paths` (see [Settings](#settings)) or switch rules
+off for that assembly (next section).
 
 Upgrading from 0.3 or earlier: those versions ran on every assembly in the project. From 0.4.0 an
 `.asmdef` assembly without the `TarragonFly.Analyzers.Scope` reference reports nothing, with no
 warning, so add the reference before you rely on a clean Console.
 
-Nearly every rule reports as a warning. Five Unity rules are style or micro-optimisation nudges and
-report as infos instead: TF4019, TF4024, TF4034, TF4035 and TF4039. TF6502 is an info too. Two Unity
-rules, TF4005 and TF4021, are off until you turn them on.
+Nearly every rule reports as a warning. Five Unity rules are style or micro-optimisation suggestions
+and report as infos instead: TF4019, TF4024, TF4034, TF4035 and TF4039. TF6502 is an info too. Two
+Unity rules, TF4005 and TF4021, are off until you turn them on.
 
 ## Choosing rules and severities
 
@@ -200,9 +206,9 @@ discouraged_members_allowed_in = UIViewBase
 ```
 
 Each line is `key = value`. Lines starting with `#` are comments, and lists are comma separated.
-Every key has a default, so a missing file or a missing key changes nothing. A line the analyzer
-cannot use, such as a misspelled key or a limit that is not a whole number, is reported as TF0000
-and the setting keeps its default.
+Every key has a default, used when the file or the key is missing. A line the analyzer cannot use,
+such as a misspelled key or a limit that is not a whole number, is reported as TF0000 and the
+setting keeps its default.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -221,9 +227,9 @@ and the setting keeps its default.
 | `report_var` | `none` | TF1025. `game` reports `var` in runtime and editor code, `all` in tests too |
 | `banned_name_words` | none | Words TF1026 reports in declared names and file names, matched as whole words of the name: `widget` matches `widgetCount` and `WidgetPool` but not `widgets`; a two-word entry matches its words side by side |
 | `banned_method_prefixes` | none | Words TF1026 reports when a method name starts with one, such as `handle` or `process` |
-| `banned_name_words_skip_serialized` | `true` | TF1026 leaves out fields Unity saves (`[SerializeField]`, or public on a Unity object or `[Serializable]` type), since renaming one loses the values stored in scenes, prefabs and assets |
+| `banned_name_words_skip_serialized` | `true` | TF1026 skips serialized fields (`[SerializeField]`, or public on a Unity object or `[Serializable]` type). Renaming one loses the values stored in scenes, prefabs and assets |
 | `ascii_only` | `false` | TF1027 reports every character above U+007F in source files |
-| `non_ascii_allowed_in` | none | Project-relative path globs TF1027 leaves alone, such as `Assets/Game/Dialogue/*` |
+| `non_ascii_allowed_in` | none | Project-relative path globs TF1027 skips, such as `Assets/Game/Dialogue/*` |
 | `discouraged_members` | none | Members TF1029 reports direct calls to, as `Namespace.Type.Member -> Replacement`, one per comma. Every overload counts; a parameter list after the member, `UnityEngine.Debug.Log(object, UnityEngine.Object) -> Log.Info`, picks one, with the types short or with their namespace |
 | `discouraged_members_allowed_in` | none | Types, with or without their namespace, whose code may still call those members directly; the helpers themselves go here |
 
@@ -233,8 +239,8 @@ to an `.asmdef` with the line `-additionalfile:Assets/Settings.TarragonFly.Analy
 ## Rules
 
 Every rule's source file under `Source~/src/TarragonFly.Analyzers/Rules/` opens with a comment that
-gives an example of what it reports, why that matters in a Unity game and which cases it leaves
-alone. The tables below are the short version. The Replaces column names the Microsoft rule a TF
+gives an example of what it reports, why that matters in a Unity game and which cases it skips. The
+tables below are the short version. The Replaces column names the Microsoft rule a TF
 rule stands in for, where there is one.
 
 ### Settings
@@ -281,21 +287,24 @@ hide what the code does, such as a statement indented as if it belonged to an un
 | TF1028 | Suppression without a reason | all | |
 | TF1029 | Direct call where the project has a helper (needs `discouraged_members`) | all | |
 
-TF1025 is off until `report_var` is set: `game` reports runtime and editor code, `all` reports tests
-too. It leaves `var` alone when the line names the type already, as in a cast, an `as`,
-`default(T)`, `new int[4]`, `GetComponent<T>()`, `await LoadAssetAsync<T>()` or
-`CancellationTokenSource.CreateLinkedTokenSource`; `new T()`
-is still reported, since `T x = new()` names it once. TF1026 reports nothing until `banned_name_words` or `banned_method_prefixes` lists words, and
-leaves fields Unity saves alone while `banned_name_words_skip_serialized` is `true`. TF1027 is off
-until `ascii_only = true`; `non_ascii_allowed_in` lists path globs it skips. TF1028 wants a comment
-on the line of a `#pragma warning disable` or `[UsedImplicitly]`, or on the line above it, and a
-`Justification` on `[SuppressMessage]`. TF1029 reports nothing until `discouraged_members` lists
-members; `discouraged_members_allowed_in` names the types that may still call them directly.
+- **TF1025** is off until `report_var` is set: `game` reports runtime and editor code, `all` reports
+  tests too. It doesn't report `var` when the line already names the type, as in a cast, an `as`,
+  `default(T)`, `new int[4]`, `GetComponent<T>()`, `await LoadAssetAsync<T>()` or
+  `CancellationTokenSource.CreateLinkedTokenSource`. `new T()` is still reported, because
+  `T x = new()` names the type once too.
+- **TF1026** reports nothing until `banned_name_words` or `banned_method_prefixes` lists words. It
+  skips serialized fields while `banned_name_words_skip_serialized` is `true`.
+- **TF1027** is off until `ascii_only = true`. It skips the path globs in `non_ascii_allowed_in`.
+- **TF1028** needs a reason for each suppression: a comment on the line of a
+  `#pragma warning disable` or `[UsedImplicitly]`, or on the line above it, and a `Justification` on
+  `[SuppressMessage]`.
+- **TF1029** reports nothing until `discouraged_members` lists members. Types in
+  `discouraged_members_allowed_in` may still call them directly.
 
 ### Dead code (TF1500s)
 
-Members, locals and values nothing reads. Unity messages, serialized fields and members named by
-Odin attributes are not dead, and these rules know that.
+Unused members, locals and values. Unity messages, serialized fields and members named by Odin
+attributes count as used.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
@@ -367,8 +376,8 @@ parse.
 | TF2049 | Default value hidden by another overload | all | |
 | TF2050 | GetType() on a System.Type | all | |
 | TF2051 | Shift count that isn't an int | all | |
-| TF2052 | Class nothing can construct | all | |
-| TF2053 | Format argument no placeholder uses | all | |
+| TF2052 | Class that can't be instantiated | all | |
+| TF2053 | Unused format argument | all | |
 | TF2054 | Field never assigned | all | |
 | TF2055 | Recursive generic inheritance | game | |
 | TF2056 | Base call leaves out an optional argument | all | |
@@ -391,8 +400,8 @@ parse.
 
 ### Inheritance and events (TF2500s)
 
-Members that quietly hide, shadow or fail to override what a base class or an event subscriber
-expects.
+Members that hide, shadow or fail to override what a base class declares, and events that are never
+raised or never unsubscribed.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
@@ -409,20 +418,30 @@ expects.
 | TF2510 | Field differs from a base class field only by case | all | |
 | TF2511 | Event subscribed but never unsubscribed | game | |
 
-TF2511 pairs each `+=` or `AddListener` on another object's event with a `-=` or `RemoveListener`
-of the same event and handler somewhere in the type, or a `RemoveAllListeners` on that event. A
-subscription meant to last for the object's whole life gets a `#pragma warning disable TF2511`
-with a reason. Events the type raises itself, lambdas (TF2505 and TF4100), static constructors and
-`[RuntimeInitializeOnLoadMethod]` methods are left alone. So are events of the component's own
-GameObject or its children, reached through `GetComponent`, `GetComponentInChildren`,
-`TryGetComponent`, `AddComponent`, `Transform.Find` or `GetChild`, directly or through locals and
-unsaved fields that only get such values, and objects the type creates itself with `new`, such as an
-`InputAction` made in `OnEnable`, as long as it isn't a Unity object and is never passed as an argument,
-stored, returned or captured by a lambda; a `= null` reset doesn't count against those fields. Test code isn't
-checked, since tests create and destroy what they subscribe to. `AsyncOperation.completed` and Addressables'
-`AsyncOperationHandle.Completed` fire once, so they're skipped too. `EditorApplication.delayCall` fires
-once and Unity clears it before the call, so it is skipped too. UI Toolkit's `Button.clicked` is
-skipped like `RegisterCallback`, which isn't covered.
+TF2511 reports a `+=` or `AddListener` on another object's event when the type has no `-=` or
+`RemoveListener` for the same event and handler anywhere, and no `RemoveAllListeners` on that event.
+For a subscription meant to last the object's whole life, add a `#pragma warning disable TF2511`
+with a reason.
+
+It doesn't report:
+
+- events the type declares or inherits, which it raises itself;
+- lambdas, which TF2505 and TF4100 cover;
+- subscriptions in a static constructor, a `[RuntimeInitializeOnLoadMethod]` or an
+  `[InitializeOnLoadMethod]`;
+- events on the component's own GameObject or its children, reached through `GetComponent`,
+  `GetComponentInChildren`, `TryGetComponent`, `AddComponent`, `Transform.Find`, `GetChild`,
+  `ScrollRect.content`, array elements or `foreach`, directly or through locals and non-serialized
+  fields that only ever hold such objects;
+- events on objects the type creates with `new`, such as an `InputAction` made in `OnEnable`, held in
+  locals or non-serialized fields that only ever hold such objects. This doesn't cover Unity objects,
+  or an object that is passed as an argument, stored, returned or captured by a lambda;
+- `AsyncOperation.completed` and Addressables' `AsyncOperationHandle.Completed`, which fire once, and
+  `EditorApplication.delayCall`, which Unity clears before calling it;
+- UI Toolkit callbacks: neither `Button.clicked` nor `RegisterCallback` is covered;
+- test code, where tests create and destroy what they subscribe to.
+
+In the GameObject and `new` cases, setting one of those fields to `null` doesn't count against it.
 
 ### Silent failures, exceptions, logging and culture (TF3000s)
 
@@ -514,35 +533,37 @@ for Unity API mistakes.
 | TF4045 | Use non-allocating array access | game | UNT0045 |
 | TF4046 | Cache Shader.PropertyToID calls | game | UNT0046 |
 | TF4100 | New lambda unregistered from a callback | all | |
-| TF4101 | Serialized field of a type Unity can't save (quiet on 6000.6 and newer) | all | |
+| TF4101 | Serialized field of a type Unity can't save (nothing reported on 6000.6 and newer) | all | |
 | TF4102 | Scene search fills in a missing Inspector reference | game | |
 | TF4103 | OnValidate finds or assigns a reference | game | |
 | TF4104 | OnValidate changes another Unity object | game | |
 | TF4105 | OnValidate creates, destroys or saves objects | game | |
 
-TF4101 stays quiet on Unity 6000.6 and newer, which can save dictionaries and checks serialized
-fields itself.
+TF4101 reports nothing on Unity 6000.6 and newer (when `UNITY_6000_6_OR_NEWER` is defined). Those
+versions can save dictionaries and check serialized fields themselves.
 
-TF4103 to TF4105 keep `OnValidate` to clamping and normalizing the object's own values. Unity runs
-it often, while loading and on a loading thread, and the other objects might not have had `Awake`
-yet. Three rules, one per kind of fix:
+#### OnValidate (TF4103 to TF4105)
 
-- **TF4103, a reference found or set there.** A Unity object field or property set in `OnValidate`,
-  including to null; an array or list of Unity objects replaced, as in `huds = null`, or changed
-  with `huds[0] = ...`, `Add`, `Remove`, `RemoveAll` or `Clear`; and `GetComponent`, scene searches and `Resources` or
-  `AssetDatabase` loads. A `GetComponent` there finds whatever happens to be loaded, and a field set
-  there, or a missing reference quietly removed from a list, hides a broken Inspector assignment
-  until a build. Assign the reference in the Inspector or look it up in `Awake`.
-- **TF4104, a change to another Unity object.** An assignment to one of its members, a change to one
+Unity runs `OnValidate` often, including while loading and on a loading thread, and other objects
+might not have had `Awake` yet. These three rules keep `OnValidate` to clamping and normalizing the
+object's own values. They report:
+
+- **TF4103: finding or setting a reference.** Setting a Unity object field or property, including
+  to null; replacing an array or list of Unity objects, as in `huds = null`, or changing one with
+  `huds[0] = ...`, `Add`, `Remove`, `RemoveAll` or `Clear`; and `GetComponent`, scene searches and
+  `Resources` or `AssetDatabase` loads. A `GetComponent` there finds whatever happens to be loaded.
+  Setting a field there, or removing a missing reference from a list, hides a broken Inspector
+  assignment until a build. Assign the reference in the Inspector or look it up in `Awake`.
+- **TF4104: changing another Unity object.** An assignment to one of its members, a change to one
   of its arrays or lists, or a void call on it, such as `transform.position = ...`,
-  `catalog.prefabs[0] = null` or `gameObject.SetActive(false)`. A component's own
-  `name = ...` counts too, since that renames the GameObject. Change other objects from an editor
-  command or at runtime.
-- **TF4105, objects made, destroyed or saved.** `Instantiate`, `PrefabUtility.InstantiatePrefab`,
+  `catalog.prefabs[0] = null` or `gameObject.SetActive(false)`. A component's own `name = ...`
+  counts too, because that renames the GameObject. Change other objects from an editor command or at
+  runtime.
+- **TF4105: creating, destroying or saving objects.** `Instantiate`, `PrefabUtility.InstantiatePrefab`,
   `Destroy`, `AddComponent`, `Undo.AddComponent`, `CreateInstance`, `new` of any Unity object such
   as `new Material(...)`, `SetDirty`, `Undo` and asset or scene saves. A ScriptableObject's own
-  `name = ...` counts too, since the asset stops matching its file name. That's a job for an editor
-  command you run on purpose.
+  `name = ...` counts too, because the asset stops matching its file name. Do this from an editor
+  command instead.
 
 ```csharp
 void OnValidate()
@@ -555,21 +576,26 @@ void OnValidate()
 }
 ```
 
-Ints, strings and `[Serializable]` classes are the object's own values and are never reported, and
-neither are the object's own `enabled` and `hideFlags`, or a local list used as scratch space. All
-three rules also follow the same-file private helpers that `OnValidate` calls or hands to a callback
-such as `EditorApplication.delayCall`, and the getters and setters of this type's properties it
-reads or writes, such as `Renderer Body => _body ??= GetComponent<Renderer>();`, but not one only
-named in `nameof`. `Size += 1` and `Size++` run both the getter and the setter. They look inside
-lambdas, since deferred work is still `OnValidate`'s work, and a `?.` call such as
-`huds?.RemoveAll(...)` or `catalog?.prefabs.Clear()` counts the same as a plain one.
+Not reported:
 
-What they don't report: reading other objects, such as `if (_target == null)` or
-`transform.parent`, since checking a reference is what `OnValidate` is for. Subscribing to
-`EditorApplication.delayCall` on its own, since a delayed call that checks the object is still
-alive is the accepted way to update an editor preview; what the callback does is still checked.
-Helpers in another file, a base class or a static utility class aren't followed, since a report
-has to land in the file being checked.
+- the object's own values: ints, strings, `[Serializable]` classes, its own `enabled` and
+  `hideFlags`, and a local list used as temporary storage;
+- reading other objects, such as `if (_target == null)` or `transform.parent`;
+- adding a callback to `EditorApplication.delayCall`. A delayed call that checks the object still
+  exists is the usual way to update an editor preview. What the callback does is still checked.
+
+All three rules also check:
+
+- the type's own non-virtual methods in the same file that `OnValidate` calls or hands to a callback
+  such as `EditorApplication.delayCall`;
+- the getters and setters of this type's properties that `OnValidate` reads or writes, such as
+  `Renderer Body => _body ??= GetComponent<Renderer>();`, but not a property only named in `nameof`.
+  `Size += 1` and `Size++` run both the getter and the setter;
+- lambdas inside `OnValidate`, including ones it defers;
+- `?.` calls such as `huds?.RemoveAll(...)` or `catalog?.prefabs.Clear()`, the same as plain calls.
+
+Methods in another file, a base class or another type, such as a static utility class, aren't
+followed, because a finding has to be reported in the file being checked.
 
 ### Async code, disposables and UniTask (TF5000s)
 
@@ -595,15 +621,16 @@ tokens that stop halfway, and the UniTask naming and parameter conventions.
 
 Odin attributes take member names as strings, which the compiler cannot check; TF6000 and TF6001
 do. Group attributes take their paths as strings too, and a broken path only shows up once someone
-opens the object in the Inspector. TF6002 to TF6004 catch the three ways it breaks: a parent group
-nothing declares, one group with two group attribute types, and a member in two groups that don't
-nest. The TF6500 rules cover the ways an Init(args) `[Service]` ends up wired differently from what the Inspector shows.
+opens the object in the Inspector. TF6002 to TF6004 report the three ways a path breaks: an
+undeclared parent group, one group declared with two group attribute types, and a member in two
+groups that don't nest. The TF6500 rules cover the ways an Init(args) `[Service]` ends up wired
+differently from what the Inspector shows.
 
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
 | TF6000 | Odin attribute names a member that doesn't exist | all | |
 | TF6001 | Odin attribute names a member of the wrong type | all | |
-| TF6002 | Odin group nested in a group nothing declares | all | |
+| TF6002 | Odin group nested in an undeclared group | all | |
 | TF6003 | Odin group declared with different group attributes | all | |
 | TF6004 | Member placed in Odin groups that don't nest | all | |
 | TF6500 | Service creates a new instance without its Inspector values | all | |
@@ -670,7 +697,7 @@ forgotten.
 | Rule | Title | Checks | Replaces |
 |---|---|---|---|
 | TF9000 | Ignored test without an end date | tests | |
-| TF9001 | Test fixture with no tests | tests | |
+| TF9001 | Test class with no tests | tests | |
 | TF9002 | Test without an assertion | tests | |
 | TF9003 | Literal true or false in an assertion | tests | |
 | TF9004 | Thread.Sleep in a test | tests | |
@@ -720,7 +747,7 @@ descriptors in the DLL, so a new or renamed rule has to be added here before the
 The forked Unity rules in `Rules/Unity/` keep Microsoft's code style so that later upstream changes
 are easier to bring over. Their tests compile against a real editor's assemblies: they find one
 through `UNITY_EDITOR_PATH` (Unity.exe or its Editor folder) or Unity Hub's install folders, and
-fail when there is none, so a green run always means every test ran.
+fail instead of skipping when there is none.
 
 ## License
 

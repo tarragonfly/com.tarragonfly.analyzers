@@ -21,7 +21,7 @@ namespace TarragonFly.Analyzers.Rules.UnityApi
     // field or property name.
     //
     // Unity 6000.6 can save dictionaries and checks these fields itself (UAC1009, UAC1010 and the
-    // dictionary rules), so this rule stays quiet when UNITY_6000_6_OR_NEWER is defined.
+    // dictionary rules), so this rule reports nothing when UNITY_6000_6_OR_NEWER is defined.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class UnsaveableSerializeFieldAnalyzer : ScopedAnalyzer
     {

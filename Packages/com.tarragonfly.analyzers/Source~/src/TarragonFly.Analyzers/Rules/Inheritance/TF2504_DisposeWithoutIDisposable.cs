@@ -17,7 +17,7 @@ namespace TarragonFly.Analyzers.Rules.Inheritance
     // "Dispose(bool disposing)" on a type that implements IDisposable. Interfaces declaring their own
     // Dispose are reported. Reported on the method name. Game code only.
     //
-    // It also reports the standard Dispose(bool disposing) helper; that's left alone here.
+    // It also reports the standard Dispose(bool disposing) helper; this rule doesn't.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class DisposeWithoutIDisposableAnalyzer : ScopedAnalyzer
     {

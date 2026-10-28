@@ -18,7 +18,7 @@ namespace TarragonFly.Analyzers.Rules.DeadCode
     // own access. A partial method counts through its declaration, implemented or not. Accessors are
     // checked on their own too: a private accessor of a wider property, or an accessor of a private
     // property, that nothing uses, meaning a setter nothing writes through or a getter nothing reads.
-    // The getter of an auto-property is left alone unless it's private itself, since the property
+    // The getter of an auto-property isn't reported unless it's private itself, since the property
     // can't do without it. An initializer doesn't go through the setter, so the private setter in
     // "{ get; private set; } = new List<Card>();" is reported when nothing else sets it; the property
     // works get-only.

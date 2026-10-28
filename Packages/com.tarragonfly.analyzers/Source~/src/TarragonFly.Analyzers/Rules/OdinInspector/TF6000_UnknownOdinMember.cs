@@ -8,8 +8,8 @@ namespace TarragonFly.Analyzers.Rules.OdinInspector
     // field is isBoss, or "[LabelText("$displayNmae")]".
     //
     // Odin finds the member by name when the Inspector draws, so a typo or a rename that missed the
-    // string compiles fine. The Inspector then shows an error box, or quietly always shows the field,
-    // and nobody notices until someone opens that object.
+    // string compiles fine. The Inspector then shows an error box, or always shows the field with no
+    // error, and nobody notices until someone opens that object.
     //
     // Checked: the member-name argument of ShowIf, HideIf, EnableIf, DisableIf, ValueDropdown,
     // ValidateInput, OnValueChanged and InlineButton, InfoBox's visibleIfMemberName and VisibleIf,

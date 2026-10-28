@@ -12,15 +12,15 @@ namespace TarragonFly.Analyzers.Rules.Tests
     // were forgotten or the tests moved elsewhere.
     //
     // Tests are methods with [Test], [TestCase], [TestCaseSource], [Theory] or [UnityTest]. Record
-    // fixtures count too. Abstract fixtures are base classes and aren't checked. Reported on the class
+    // test classes count too. Abstract test classes are base classes and aren't checked. Reported on the class
     // name. Test code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class TestClassWithoutTestsAnalyzer : ScopedAnalyzer
     {
         public static readonly DiagnosticDescriptor Rule = Descriptors.Create(
             "TF9001",
-            "Test fixture with no tests",
-            "'{0}' is a test fixture with no tests; add [Test] or [UnityTest] to its tests, or remove [TestFixture]",
+            "Test class with no tests",
+            "'{0}' is a test class with no tests; add [Test] or [UnityTest] to its tests, or remove [TestFixture]",
             "Tests",
             CodeKind.Tests);
 

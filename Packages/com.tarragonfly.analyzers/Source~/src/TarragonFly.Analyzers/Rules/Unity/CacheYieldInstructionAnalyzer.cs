@@ -55,7 +55,7 @@ public class CacheYieldInstructionAnalyzer : ScopedAnalyzer
 		if (yieldStatement.Expression is not ObjectCreationExpressionSyntax objectCreation)
 			return;
 
-		// The code fix only supports caching when there's exactly one literal argument (see issue #471).
+		// Only a fixed literal delay is worth caching in a field.
 		if (objectCreation.ArgumentList?.Arguments is not { Count: 1 } arguments)
 			return;
 

@@ -18,7 +18,7 @@ namespace TarragonFly.Analyzers.Rules.LikelyBugs
     // first argument of an Equals call. Game code only.
     //
     // It reports "f != f" and "f == f" on floats and doubles too, which are the standard NaN check;
-    // they're left alone here.
+    // this rule doesn't.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class IdenticalOperandsAnalyzer : ScopedAnalyzer
     {
