@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Text;
 using TarragonFly.Analyzers.Frameworks;
+using TarragonFly.Analyzers.Rules.Culture;
 
 namespace TarragonFly.Analyzers.Rules.Tests
 {
@@ -37,8 +38,10 @@ namespace TarragonFly.Analyzers.Rules.Tests
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (invocation.ArgumentList.Arguments.Count < 2 || !(invocation.Expression is MemberAccessExpressionSyntax access)) return;
-                string name = access.Name.Identifier.ValueText;
+                if (invocation.ArgumentList.Arguments.Count < 2) return;
+                SimpleNameSyntax calledName = CultureCalls.CalledName(invocation);
+                if (calledName == null) return;
+                string name = calledName.Identifier.ValueText;
                 if (name != "AreEqual" && name != "AreNotEqual" && name != "AreSame" && name != "AreNotSame" && name != "That") return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method) || !BoolLiteralInAssertionAnalyzer.IsAssert(method.ContainingType)) return;
 

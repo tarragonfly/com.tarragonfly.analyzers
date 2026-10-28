@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TarragonFly.Analyzers.Frameworks;
+using TarragonFly.Analyzers.Rules.Culture;
 
 namespace TarragonFly.Analyzers.Rules.DependencyInjection
 {
@@ -37,8 +38,9 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access)) return;
-                string name = access.Name.Identifier.ValueText;
+                SimpleNameSyntax calledName = CultureCalls.CalledName(invocation);
+                if (calledName == null) return;
+                string name = calledName.Identifier.ValueText;
                 if (name != "Set" && name != "SetInstance") return;
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
                 if (!SymbolNames.IsNamed(method.ContainingType, "Sisus.Init.Service") || method.TypeArguments.Length != 1) return;
@@ -52,7 +54,7 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
                         if (SymbolNames.IsNamed(type, allowedType)) return;
                     }
                 }
-                context.ReportDiagnostic(Diagnostic.Create(Rule, access.Name.Identifier.GetLocation(), caller?.Name ?? "This code", method.TypeArguments[0].Name));
+                context.ReportDiagnostic(Diagnostic.Create(Rule, calledName.Identifier.GetLocation(), caller?.Name ?? "This code", method.TypeArguments[0].Name));
             }), SyntaxKind.InvocationExpression);
         }
     }

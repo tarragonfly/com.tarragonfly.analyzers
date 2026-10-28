@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using TarragonFly.Analyzers.Frameworks;
+using TarragonFly.Analyzers.Rules.Culture;
 
 namespace TarragonFly.Analyzers.Rules.SilentFailures
 {
@@ -31,10 +32,10 @@ namespace TarragonFly.Analyzers.Rules.SilentFailures
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access)) return;
-                string name = access.Name.Identifier.ValueText;
+                string name = CultureCalls.CalledName(invocation)?.Identifier.ValueText;
                 if (name != "Write" && name != "WriteLine") return;
-                if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method && SymbolNames.IsNamed(method.ContainingType, "System.Console"))
+                if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
+                if (SymbolNames.IsNamed(method.ContainingType, "System.Console"))
                 {
                     context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.Expression.GetLocation(), name));
                 }

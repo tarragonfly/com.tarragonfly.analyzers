@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 using TarragonFly.Analyzers.Frameworks;
+using TarragonFly.Analyzers.Rules.Culture;
 
 namespace TarragonFly.Analyzers.Rules.Logging
 {
@@ -53,9 +54,10 @@ namespace TarragonFly.Analyzers.Rules.Logging
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
-                if (!(invocation.Expression is MemberAccessExpressionSyntax access) || !LogMethods.Contains(access.Name.Identifier.ValueText)) return;
+                string calledName = CultureCalls.CalledName(invocation)?.Identifier.ValueText;
+                if (calledName == null || !LogMethods.Contains(calledName)) return;
                 if (!(context.SemanticModel.GetOperation(invocation, context.CancellationToken) is IInvocationOperation call)) return;
-                if (!SymbolNames.IsNamed(call.TargetMethod.ContainingType, "UnityEngine.Debug")) return;
+                if (!LogMethods.Contains(call.TargetMethod.Name) || !SymbolNames.IsNamed(call.TargetMethod.ContainingType, "UnityEngine.Debug")) return;
 
                 IArgumentOperation message = call.Arguments.FirstOrDefault(a => a.Parameter != null && (a.Parameter.Name == "message" || a.Parameter.Name == "format"));
                 if (message == null || message.ArgumentKind != ArgumentKind.Explicit) return;
