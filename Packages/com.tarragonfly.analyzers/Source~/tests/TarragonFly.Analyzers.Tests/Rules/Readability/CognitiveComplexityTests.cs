@@ -122,7 +122,21 @@ class Target
     static Action {|TF1019:check|} = () => { if (a) { } }, other = () => { if (a) { } };
     static Action flat = null;
     static Action Property { get; } = () => { if (a) { } if (a) { } };
-}", SnippetAssembly.WithSettings("max_cognitive_complexity = 3"));
+}", SnippetAssembly.WithSettings("max_cognitive_complexity = 1"));
+        }
+
+        [Test]
+        public void FieldLambda_IsScoredLikeAMethodBody()
+        {
+            Assert.That(AnalyzerVerifier.Messages(new CognitiveComplexityAnalyzer(), @"
+using System;
+
+class Target
+{
+    static bool a;
+    static Action check = () => { if (a) { if (a) { } } Action inner = () => { if (a) { } }; };
+}", SnippetAssembly.WithSettings("max_cognitive_complexity = 1")),
+                Is.EqualTo(new[] { "'check' has a cognitive complexity of 5, above the 1 allowed; split it or flatten its nesting" }));
         }
 
         [Test]

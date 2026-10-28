@@ -26,6 +26,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
     //   - One nesting level is added inside the bodies of if, else, switch sections, loops, catch
     //     blocks, lambdas and local functions, and throughout a ?: expression. Statement conditions
     //     sit at the level of their statement, and an else if body at the level of the if body.
+    //     The outermost lambdas in a field initializer add no level.
     //   - Nothing for try, finally, break, continue, ??, ?. or "is not".
     // Methods, constructors, destructors, operators and property, indexer and event accessors are
     // scored separately, and so is a field declaration with initializers, such as a lambda kept in a
@@ -54,7 +55,8 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 if (body == null) return;
                 IMethodSymbol self = context.Node is BaseMethodDeclarationSyntax
                     ? context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken) as IMethodSymbol : null;
-                ComplexityWalker walker = new ComplexityWalker(context.SemanticModel, self, context.CancellationToken);
+                bool insideMethod = !context.Node.IsKind(SyntaxKind.FieldDeclaration);
+                ComplexityWalker walker = new ComplexityWalker(context.SemanticModel, self, insideMethod, context.CancellationToken);
                 walker.Visit(body);
                 if (walker.Score > limit) context.ReportDiagnostic(Diagnostic.Create(Rule, location.GetLocation(), name, walker.Score, limit));
             }), SyntaxKind.MethodDeclaration, SyntaxKind.ConstructorDeclaration, SyntaxKind.DestructorDeclaration, SyntaxKind.OperatorDeclaration,
@@ -118,11 +120,13 @@ namespace TarragonFly.Analyzers.Rules.Readability
             private bool hasRecursiveCall;
             private readonly CancellationToken ct;
             private int nesting;
+            private bool insideMethod;
 
-            public ComplexityWalker(SemanticModel model, IMethodSymbol self, CancellationToken ct)
+            public ComplexityWalker(SemanticModel model, IMethodSymbol self, bool insideMethod, CancellationToken ct)
             {
                 this.model = model;
                 currentMethod = self;
+                this.insideMethod = insideMethod;
                 this.ct = ct;
             }
 
@@ -216,11 +220,25 @@ namespace TarragonFly.Analyzers.Rules.Readability
                 base.VisitGotoStatement(node);
             }
 
-            public override void VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => Nested(node.Body);
+            public override void VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) => VisitLambdaBody(node.Body);
 
-            public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => Nested(node.Body);
+            public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) => VisitLambdaBody(node.Body);
 
-            public override void VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => Nested(node.Body);
+            public override void VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) => VisitLambdaBody(node.Body);
+
+            // A lambda only adds a nesting level inside a method. One kept in a field counts as the method
+            // itself, as a top-level method does in the whitepaper; lambdas inside it still nest.
+            private void VisitLambdaBody(SyntaxNode body)
+            {
+                if (insideMethod)
+                {
+                    Nested(body);
+                    return;
+                }
+                insideMethod = true;
+                Visit(body);
+                insideMethod = false;
+            }
 
             public override void VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
             {
