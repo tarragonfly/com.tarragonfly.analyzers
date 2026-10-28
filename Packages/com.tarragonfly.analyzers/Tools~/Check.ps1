@@ -3,9 +3,10 @@
 Builds and tests TarragonFly.Analyzers in one command.
 
 .DESCRIPTION
-Runs two steps. A failed build stops there.
+Runs three steps. A failed build stops there.
   1. Build.ps1: Release build, with the DLL copied into Analyzers/ when it changed.
-  2. dotnet test: the analyzer tests.
+  2. Test-Analyze.ps1: replay reporting and removed-settings checks.
+  3. dotnet test: the analyzer tests.
 
 Exit codes: 0 every step passed, 1 a step failed.
 
@@ -38,6 +39,7 @@ if ($failed.Count -gt 0) {
     exit 1
 }
 
+Invoke-Step 'Replay script tests' { & (Join-Path $PSScriptRoot 'Test-Analyze.ps1') }
 Invoke-Step 'Tests' { & dotnet test $solution -c Release --no-build -nologo -v q }
 
 if ($failed.Count -gt 0) {

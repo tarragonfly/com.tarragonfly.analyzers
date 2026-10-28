@@ -746,14 +746,15 @@ to replay there and stops with "No assemblies matched".
 |---|---|
 | `Analyzers/` | The built `TarragonFly.Analyzers.dll` that Unity loads |
 | `Source~/` | The .NET solution: the analyzer in `src/`, NUnit tests in `tests/`, and stubs of the Unity, UniTask, Odin, Init(args) and NUnit types the tests compile against |
-| `Tools~/` | `Build.ps1`, `Check.ps1` and `Analyze.ps1` |
+| `Tools~/` | `Build.ps1`, `Check.ps1`, `Analyze.ps1` and `Test-Analyze.ps1` |
 
 Unity skips folders whose names end in `~`, so the sources and tools are never compiled or imported
 into the project; only the DLL in `Analyzers/` is.
 
 `Build.ps1` builds in Release and copies the DLL into `Analyzers/` only when its bytes changed,
-because a new DLL makes Unity recompile every assembly in the project. `Check.ps1` runs the build
-and then the tests. `Analyze.ps1` replays Unity's last compile with the editor's own compiler and
+because a new DLL makes Unity recompile every assembly that runs the analyzer. `Check.ps1` runs the
+build, then `Test-Analyze.ps1`, which checks `Analyze.ps1`'s reporting and assembly-settings logic
+without Unity, then the tests. `Analyze.ps1` replays Unity's last compile with the editor's own compiler and
 writes findings as SARIF plus a summary under `Logs/analyzers/`; its header comment lists the
 filters (`-Assembly`, `-Rule`, `-Changed`) and exit codes.
 

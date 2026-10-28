@@ -25,13 +25,14 @@ rebuilt like any other editable assembly. New files and asmdef edits inside it s
 noticed; see the known limits.
 
 Exit codes:
-  0  analysis complete, and no findings remain or -FailOnFindings was not given
+  0  analysis complete, and no warnings remain or -FailOnFindings was not given
   1  analysis incomplete: an assembly did not compile, was skipped because a dependency
      did not compile, an analyzer crashed, failed to load or needs a newer compiler
      (AD0001, CS8032, CS8034, CS8784, CS8785, CS9057) in a reported assembly, a .cs file
      of a built assembly was added or deleted or any .asmdef, .asmref or csc.rsp file changed
      since Unity's last compile, or -Changed could not get the changed files from git. -Rule and -Changed never hide these.
-  2  analysis complete, -FailOnFindings was given and findings remain after the filters
+  2  analysis complete, -FailOnFindings was given and warnings remain after the filters.
+     Info findings (SARIF level 'note') are listed but don't fail the run.
 
 What it promises: for normal work (editing, adding or deleting .cs files, editing assembly
 settings, an analyzer crashing or failing to load) a run never calls itself complete when it
@@ -84,7 +85,7 @@ param(
     [string] $RuleSet,
     # Where SARIF, the summary and the build output go. Default: <project>/Logs/analyzers.
     [string] $OutputDir,
-    # Exit with code 2 when any reported finding remains after the filters.
+    # Exit with code 2 when any warning remains after the filters. Info findings don't count.
     [switch] $FailOnFindings
 )
 
@@ -98,8 +99,13 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $analyzerFailureIds = @('AD0001', 'CS8032', 'CS8034', 'CS8784', 'CS8785', 'CS9057')
 
 function Test-ReportedDiagnostic([string] $Level, [string] $File, $ChangedFiles) {
-    if ($Level -eq 'error' -or $Level -eq 'note' -or $Level -eq 'none') { return $false }
+    if ($Level -eq 'error' -or $Level -eq 'none') { return $false }
     return $null -eq $ChangedFiles -or $ChangedFiles.Contains($File)
+}
+
+# Info findings are worth listing, but too soft to fail a pre-commit check.
+function Test-FailingFinding([string] $Level) {
+    return $Level -eq 'warning' -or $Level -eq 'error'
 }
 
 # -AfterCompile is for deletions git dates after Unity's last compile. Any other deletion counts
@@ -724,5 +730,5 @@ foreach ($f in $compileFailures) { Write-Warning "$($f.Assembly) did not compile
 foreach ($s in $skippedAssemblies) { Write-Warning "$($s.Assembly) was skipped: it needs $($s.BlockedBy), which did not compile." }
 if ($changedFilesError) { Write-Warning "-Changed: $changedFilesError" }
 if (-not $analysisComplete) { exit 1 }
-if ($FailOnFindings -and $sorted.Count -gt 0) { exit 2 }
+if ($FailOnFindings -and @($sorted | Where-Object { Test-FailingFinding $_.Level }).Count -gt 0) { exit 2 }
 exit 0
