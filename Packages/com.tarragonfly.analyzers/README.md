@@ -689,6 +689,12 @@ a constant array rebuilt on every call.
 | TF8018 | Any used for an equality check | game | |
 | TF8100 | Constant array built on every call | game | CA1861 |
 
+TF8015 only recommends the set's extrema for a fresh, nonempty set with the default comparer and
+known constant elements. TF8018 only recommends `Contains` for built-in equality on `List<T>` and
+`LinkedList<T>`. Custom comparers, overloaded equality and floating-point values can change the
+answer, and those cases aren't reported. TF8006 only reports an expanded params call if it binds to
+the same overload as the explicit array.
+
 ### Tests (TF9000s)
 
 Checked in test assemblies only: tests that cannot fail, cannot run or were switched off and

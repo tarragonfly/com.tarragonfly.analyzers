@@ -21,8 +21,9 @@ namespace TarragonFly.Analyzers.Rules.Performance
     // in, as ": this(new[] { renderer })" would in that constructor. Same for arrays whose items
     // wouldn't compile there, as when they'd land on an optional parameter left out before the params
     // one: Label("x", types: new[] { a, b }) for Label(string name, string group = "", params Type[]
-    // types). Items that pick another overload still count: name.Split(new[] { ' ' }) is reported,
-    // since name.Split(' ') does the same. Reported on the argument. Game code only.
+    // types). The items also have to call the same member: Path.Combine(new[] { folder, file })
+    // isn't reported, since Path.Combine(folder, file) picks the two-string overload. Reported on the
+    // argument. Game code only.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class ArrayForParamsAnalyzer : ScopedAnalyzer
     {
@@ -66,6 +67,8 @@ namespace TarragonFly.Analyzers.Rules.Performance
                         return;
                 }
                 if (called == null || SymbolEqualityComparer.Default.Equals(called.OriginalDefinition, context.ContainingSymbol?.OriginalDefinition)) return;
+                ISymbol original = context.SemanticModel.GetSymbolInfo(list.Parent, context.CancellationToken).Symbol;
+                if (!SymbolEqualityComparer.Default.Equals(called, original)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, argument.GetLocation(), operation.Parameter.Name));
             }), SyntaxKind.Argument);
 
@@ -83,7 +86,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 if (!CanPassItems(list.Arguments, argument, argument.NameColon != null, initializer, parameter)) return;
 
                 AttributeSyntax expanded = attribute.WithArgumentList(list.WithArguments(WithItems(list.Arguments, argument, initializer)));
-                if (context.SemanticModel.GetSpeculativeSymbolInfo(attribute.SpanStart, expanded).Symbol == null) return;
+                if (!SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSpeculativeSymbolInfo(attribute.SpanStart, expanded).Symbol, constructor)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, argument.GetLocation(), parameter.Name));
             }), SyntaxKind.AttributeArgument);
         }

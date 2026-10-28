@@ -35,6 +35,16 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 bool looped = invocation.Parent is ForEachStatementSyntax loop && loop.Expression == invocation;
                 bool indexed = invocation.Parent is ElementAccessExpressionSyntax element && element.Expression == invocation;
                 if (!looped && !indexed) return;
+                if (indexed)
+                {
+                    SyntaxNode target = invocation.Parent;
+                    while (target.Parent is ArgumentSyntax && target.Parent.Parent is TupleExpressionSyntax tuple) target = tuple;
+                    if (target.Parent is AssignmentExpressionSyntax assignment && assignment.Left == target
+                        || target.Parent is RefExpressionSyntax
+                        || target.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None)
+                        || target.Parent.IsKind(SyntaxKind.PreIncrementExpression) || target.Parent.IsKind(SyntaxKind.PreDecrementExpression)
+                        || target.Parent.IsKind(SyntaxKind.PostIncrementExpression) || target.Parent.IsKind(SyntaxKind.PostDecrementExpression)) return;
+                }
                 if (context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type?.SpecialType != SpecialType.System_String) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, access.Name.GetLocation()));
             }), SyntaxKind.InvocationExpression);

@@ -150,7 +150,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
         private static bool HasCountProperty(ITypeSymbol type)
         {
             if (type == null || type is IArrayTypeSymbol) return false;
-            foreach (ITypeSymbol candidate in new[] { type }.Concat(type.AllInterfaces))
+            foreach (ITypeSymbol candidate in type.TypeKind == TypeKind.Interface ? new[] { type }.Concat(type.AllInterfaces) : new[] { type })
             {
                 for (ITypeSymbol current = candidate; current != null; current = current.BaseType)
                 {

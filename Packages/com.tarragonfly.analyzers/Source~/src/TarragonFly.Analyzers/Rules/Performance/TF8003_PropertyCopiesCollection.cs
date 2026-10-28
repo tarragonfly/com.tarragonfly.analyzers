@@ -84,13 +84,20 @@ namespace TarragonFly.Analyzers.Rules.Performance
             return node.Parent is ArgumentSyntax;
         }
 
-        // The copy is assigned to a field, as in "cache ??= items.ToArray()", so later reads reuse it.
+        // The copy is assigned to a field only while the field is empty, as in "cache ??= items.ToArray()"
+        // or the older "cache ?? (cache = items.ToArray())", so later reads reuse it.
         private static bool IsCachedInField(SyntaxNodeAnalysisContext context, SyntaxNode copy)
         {
             SyntaxNode node = copy;
             while (node.Parent is ParenthesizedExpressionSyntax || node.Parent is CastExpressionSyntax) node = node.Parent;
-            return node.Parent is AssignmentExpressionSyntax assignment && assignment.Right == node
-                && context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IFieldSymbol;
+            if (!(node.Parent is AssignmentExpressionSyntax assignment) || assignment.Right != node
+                || !(context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is IFieldSymbol)) return false;
+            if (assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression)) return true;
+            SyntaxNode guarded = assignment;
+            while (guarded.Parent is ParenthesizedExpressionSyntax) guarded = guarded.Parent;
+            return assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                && (guarded.Parent is BinaryExpressionSyntax coalesce && coalesce.IsKind(SyntaxKind.CoalesceExpression) && coalesce.Right == guarded
+                    || guarded.Parent is ConditionalExpressionSyntax);
         }
 
         private static Location CopyLocation(SyntaxNodeAnalysisContext context, SyntaxNode node)

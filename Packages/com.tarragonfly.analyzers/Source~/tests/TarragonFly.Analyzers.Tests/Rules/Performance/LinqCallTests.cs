@@ -247,7 +247,7 @@ class Target
         }
 
         [Test]
-        public void LinqOnSortedSetAndLinkedListEnds_IsReported()
+        public void UnknownSortedSets_AreNotReported()
         {
             AnalyzerVerifier.Verify(new LinqMinMaxOnSortedSetAnalyzer(), @"
 using System.Collections.Generic;
@@ -257,13 +257,18 @@ class Target
 {
     void Check(SortedSet<int> set, HashSet<int> hash)
     {
-        int r1 = set.{|TF8015:Min|}();
-        int r2 = set.{|TF8015:Max|}();
+        int r1 = set.Min();
+        int r2 = set.Max();
         int r3 = set.Min;
         int r4 = set.Min(x => x);
         int r5 = hash.Max();
     }
 }");
+        }
+
+        [Test]
+        public void LinkedListEnds_AreReported()
+        {
             AnalyzerVerifier.Verify(new LinqFirstOnLinkedListAnalyzer(), @"
 using System.Collections.Generic;
 using System.Linq;
@@ -282,7 +287,7 @@ class Target
         }
 
         [Test]
-        public void DerivedSortedSetsAndLinkedListsAndConditionalAccess_AreReported()
+        public void DerivedSortedSetsAndConditionalAccess_AreNotReported()
         {
             AnalyzerVerifier.Verify(new LinqMinMaxOnSortedSetAnalyzer(), @"
 using System.Collections.Generic;
@@ -291,16 +296,21 @@ using System.Linq;
 
 class Scores : SortedSet<int>
 {
-    public int Best() => this.{|TF8015:Max|}();
+    public int Best() => this.Max();
 }
 
 class Target
 {
     int? Check(Scores scores, SortedSet<int> maybe, ImmutableSortedSet<int> frozen)
     {
-        return scores.{|TF8015:Min|}() + maybe?.{|TF8015:Max|}() + frozen.{|TF8015:Max|}();
+        return scores.Min() + maybe?.Max() + frozen.Max();
     }
 }");
+        }
+
+        [Test]
+        public void DerivedLinkedListEndsAndConditionalAccess_AreReported()
+        {
             AnalyzerVerifier.Verify(new LinqFirstOnLinkedListAnalyzer(), @"
 using System.Collections.Generic;
 using System.Linq;
@@ -356,7 +366,7 @@ class Target
         bool r1 = list.{|TF8018:Any|}(x => x == 3);
         bool r2 = list.{|TF8018:Any|}(x => wanted == x);
         bool r3 = list.{|TF8018:Any|}(x => x.Equals(wanted));
-        bool r4 = set.{|TF8018:Any|}(s => s == ""boss"");
+        bool r4 = set.Any(s => s == ""boss"");
         bool r5 = arr.Any(x => x == 3);
         bool r6 = seq.Any(x => x == 3);
         bool r7 = list.Any(x => x > 3);

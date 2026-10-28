@@ -244,7 +244,7 @@ class Target
 
     void Run()
     {
-        Foo({|TF8006:new[] { 1 }|});
+        Foo(new[] { 1 });
         Foo({|TF8006:new[] { 1, 2 }|});
         Bar(1, {|TF8006:rest: new[] { 2, 3 }|});
         Baz(1, rest: new[] { 2, 3 });

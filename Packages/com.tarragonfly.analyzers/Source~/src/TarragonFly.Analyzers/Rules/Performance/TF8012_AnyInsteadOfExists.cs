@@ -32,7 +32,7 @@ namespace TarragonFly.Analyzers.Rules.Performance
                 InvocationExpressionSyntax invocation = (InvocationExpressionSyntax)context.Node;
                 if (invocation.ArgumentList.Arguments.Count != 1 || LinqCalls.Method(context.SemanticModel, invocation, "Any", context.CancellationToken) == null) return;
                 ITypeSymbol receiver = LinqCalls.ReceiverType(context.SemanticModel, invocation, context.CancellationToken);
-                if (!LinqCalls.IsListOrArray(receiver) || AnyInsteadOfContainsAnalyzer.IsEqualityCheck(invocation, receiver)) return;
+                if (!LinqCalls.IsListOrArray(receiver) || AnyInsteadOfContainsAnalyzer.IsEqualityCheck(context.SemanticModel, invocation, receiver)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, LinqCalls.NameLocation(invocation), receiver is IArrayTypeSymbol ? "array" : "list"));
             }), SyntaxKind.InvocationExpression);
         }
