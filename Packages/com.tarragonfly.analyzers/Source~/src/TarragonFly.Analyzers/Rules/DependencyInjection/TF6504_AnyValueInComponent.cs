@@ -35,6 +35,7 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
             start.RegisterOperationAction(context =>
             {
                 if (!scope.IsAnalyzed(context.Operation.Syntax.SyntaxTree) || !InComponent(context.ContainingSymbol)) return;
+                if (NameOfExpressions.IsInsideNameOf(context.Operation)) return;
                 switch (context.Operation)
                 {
                     case IPropertyReferenceOperation property when property.Property.Name == "Value" && !property.Property.IsStatic

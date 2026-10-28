@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -35,6 +36,7 @@ namespace TarragonFly.Analyzers.Rules.DependencyInjection
             {
                 MemberAccessExpressionSyntax access = (MemberAccessExpressionSyntax)context.Node;
                 if (access.Name.Identifier.ValueText != "Instance") return;
+                if (NameOfExpressions.IsInsideNameOf(access)) return;
                 ISymbol member = context.SemanticModel.GetSymbolInfo(access, context.CancellationToken).Symbol;
                 if (!(member is IFieldSymbol || member is IPropertySymbol) || !member.IsStatic) return;
                 if (!(member.ContainingType is INamedTypeSymbol service) || !SymbolNames.IsGenericNamed(service, "Sisus.Init", "Service")) return;

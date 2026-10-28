@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using TarragonFly.Analyzers.Frameworks;
 
 namespace TarragonFly.Analyzers.Rules.Async
 {
@@ -18,12 +20,16 @@ namespace TarragonFly.Analyzers.Rules.Async
     // or returned. The await counts when the called method gets the same token as an argument,
     // written the same way ("ct" and "ct", "cts.Token" and "cts.Token"), or when
     // WithCancellation(token) or AttachExternalCancellation(token) sits in the call chain, and that
-    // method is UniTask's or Unity's. Those throw as soon as they get a cancelled token. A project
-    // method might return early without looking at the token, so neither the check before its await
-    // nor the one after it is dead code. For a check before the await only the call that runs first
+    // method has a known cancellation contract: UniTask's delays, frame waits, WaitUntil, WaitWhile
+    // and WaitUntilValueChanged, or its cancellation wrappers. WaitUntilCanceled and unknown methods
+    // aren't checked. The token must be a local or by-value parameter, not a replaceable field or
+    // property, and no lambda or local function in the member may assign it. For a check before the
+    // await only the call that runs first
     // counts: in "OnHideAsync(ct).AttachExternalCancellation(ct)" the project method runs before the
     // wrapper looks at the token, so the check still stops it from starting. An await
     // ending in SuppressCancellationThrow() doesn't throw, so it never counts. Reported on the check.
+    // Cancellation can still arrive between statements. Keep the check with a suppression when that
+    // gap matters, such as a token cancelled from another thread.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public sealed class RedundantCancellationCheckAnalyzer : ScopedAnalyzer
     {
@@ -41,7 +47,7 @@ namespace TarragonFly.Analyzers.Rules.Async
             start.RegisterSyntaxNodeAction(scope.OnlyAnalyzedNodes(context =>
             {
                 ExpressionStatementSyntax statement = (ExpressionStatementSyntax)context.Node;
-                string token = CheckedToken(statement);
+                string token = CheckedToken(context, statement);
                 if (token == null || !(statement.Parent is BlockSyntax block)) return;
                 int index = block.Statements.IndexOf(statement);
 
@@ -57,16 +63,40 @@ namespace TarragonFly.Analyzers.Rules.Async
         }
 
         // "ct" from "ct.ThrowIfCancellationRequested();", or null for any other statement.
-        private static string CheckedToken(ExpressionStatementSyntax statement)
+        private static string CheckedToken(SyntaxNodeAnalysisContext context, ExpressionStatementSyntax statement)
         {
             if (!(statement.Expression is InvocationExpressionSyntax invocation) || invocation.ArgumentList.Arguments.Count > 0) return null;
             if (!(invocation.Expression is MemberAccessExpressionSyntax access) || access.Name.Identifier.ValueText != "ThrowIfCancellationRequested") return null;
+            if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)
+                || !SymbolNames.IsNamed(method.ContainingType, "System.Threading.CancellationToken")) return null;
+            ISymbol token = context.SemanticModel.GetSymbolInfo(access.Expression, context.CancellationToken).Symbol;
+            if (!(token is ILocalSymbol local && !local.IsRef) && !(token is IParameterSymbol parameter && parameter.RefKind == RefKind.None)) return null;
+            SyntaxNode owner = statement.FirstAncestorOrSelf<MemberDeclarationSyntax>();
+            if (owner != null && ClosureReplaces(context, owner, token)) return null;
             return Text(access.Expression);
+        }
+
+        // A lambda or local function that assigns the token can swap it during the await.
+        private static bool ClosureReplaces(SyntaxNodeAnalysisContext context, SyntaxNode owner, ISymbol token)
+        {
+            foreach (SyntaxNode closure in owner.DescendantNodes().Where(node => node is AnonymousFunctionExpressionSyntax || node is LocalFunctionStatementSyntax))
+            {
+                foreach (IdentifierNameSyntax name in closure.DescendantNodes().OfType<IdentifierNameSyntax>())
+                {
+                    if (name.Identifier.ValueText != token.Name || !SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol, token)) continue;
+                    if (name.Parent is AssignmentExpressionSyntax assignment && assignment.Left == name
+                        || name.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None) && !argument.RefKindKeyword.IsKind(SyntaxKind.InKeyword)
+                        || name.Parent is RefExpressionSyntax) return true;
+                }
+            }
+            return false;
         }
 
         private static bool AwaitReceivesToken(SyntaxNodeAnalysisContext context, StatementSyntax statement, string token, bool onlyFirstCall)
         {
             ExpressionSyntax awaited = AwaitedExpression(statement);
+            if (!onlyFirstCall && statement is ExpressionStatementSyntax expression && expression.Expression is AssignmentExpressionSyntax assignment
+                && !(context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is ILocalSymbol or IParameterSymbol)) return false;
             return awaited != null && ReceivesToken(context, awaited, token, onlyFirstCall);
         }
 
@@ -105,27 +135,40 @@ namespace TarragonFly.Analyzers.Rules.Async
             {
                 string name = (invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.ValueText ?? (invocation.Expression as SimpleNameSyntax)?.Identifier.ValueText;
                 if (name == "SuppressCancellationThrow") return false;
+                if (onlyFirstCall && invocation.ArgumentList.DescendantNodes().Any(node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or AssignmentExpressionSyntax or AwaitExpressionSyntax
+                    || node.IsKind(SyntaxKind.PreIncrementExpression) || node.IsKind(SyntaxKind.PostIncrementExpression)
+                    || node.IsKind(SyntaxKind.PreDecrementExpression) || node.IsKind(SyntaxKind.PostDecrementExpression))) return false;
                 ExpressionSyntax receiver = (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
                 bool innermost = !(receiver is InvocationExpressionSyntax);
                 bool wrapper = !onlyFirstCall && (name == "WithCancellation" || name == "AttachExternalCancellation");
-                if ((innermost || wrapper) && HasTokenArgument(invocation, token) && IsUniTaskOrUnityCall(context, invocation)) received = true;
+                if ((innermost || wrapper) && HasTokenArgument(invocation, token) && ThrowsOnCancellation(context, invocation)) received = true;
                 current = receiver;
             }
             return received;
         }
 
-        private static bool IsUniTaskOrUnityCall(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+        private static bool ThrowsOnCancellation(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
         {
             if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return false;
-            INamedTypeSymbol declaring = method.ContainingType;
-            while (declaring.ContainingType != null) declaring = declaring.ContainingType;
-            string namespaceName = declaring.ContainingNamespace.ToDisplayString();
-            return IsInOrUnder(namespaceName, "Cysharp.Threading.Tasks") || IsInOrUnder(namespaceName, "UnityEngine");
-        }
-
-        private static bool IsInOrUnder(string namespaceName, string root)
-        {
-            return namespaceName == root || namespaceName.StartsWith(root + ".", System.StringComparison.Ordinal);
+            method = method.ReducedFrom ?? method;
+            if (SymbolNames.IsNamed(method.ContainingType, "Cysharp.Threading.Tasks.UniTask"))
+            {
+                switch (method.Name)
+                {
+                    case "Delay":
+                    case "DelayFrame":
+                    case "Yield":
+                    case "NextFrame":
+                    case "WaitForEndOfFrame":
+                    case "WaitForFixedUpdate":
+                    case "WaitUntil":
+                    case "WaitWhile":
+                    case "WaitUntilValueChanged":
+                        return true;
+                }
+            }
+            return method.Name == "AttachExternalCancellation" && SymbolNames.IsNamed(method.ContainingType, "Cysharp.Threading.Tasks.UniTaskExtensions")
+                || method.Name == "WithCancellation" && SymbolNames.IsNamed(method.ContainingType, "Cysharp.Threading.Tasks.UnityAsyncExtensions");
         }
 
         private static bool HasTokenArgument(InvocationExpressionSyntax invocation, string token)

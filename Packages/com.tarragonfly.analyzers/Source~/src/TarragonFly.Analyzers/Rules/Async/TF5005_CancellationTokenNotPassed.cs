@@ -122,6 +122,7 @@ namespace TarragonFly.Analyzers.Rules.Async
         // How the code here would pass a token, or null when it has none.
         private static string TokenAtHand(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax node, IMethodSymbol callee, bool awaited)
         {
+            bool staticBoundary = false;
             foreach (SyntaxNode ancestor in node.Ancestors())
             {
                 IMethodSymbol owner = ancestor is AnonymousFunctionExpressionSyntax lambda ? context.SemanticModel.GetSymbolInfo(lambda, context.CancellationToken).Symbol as IMethodSymbol
@@ -129,22 +130,29 @@ namespace TarragonFly.Analyzers.Rules.Async
                         ? context.SemanticModel.GetDeclaredSymbol(ancestor, context.CancellationToken) as IMethodSymbol : null;
                 IParameterSymbol parameter = owner?.Parameters.FirstOrDefault(p => UniTask.IsCancellationToken(p.Type));
                 if (parameter != null) return parameter.Name;
+                if (owner?.IsStatic == true)
+                {
+                    staticBoundary = true;
+                    break;
+                }
                 if (ancestor is BaseTypeDeclarationSyntax) break;
             }
 
             ISymbol member = context.SemanticModel.GetEnclosingSymbol(node.SpanStart, context.CancellationToken);
             while (member is IMethodSymbol method && (method.MethodKind == MethodKind.AnonymousFunction || method.MethodKind == MethodKind.LocalFunction)) member = member.ContainingSymbol;
             if (member?.ContainingType == null) return null;
+            // Field and property initializers can't use instance members, lambdas in them included.
+            if (member is IFieldSymbol || member is IPropertySymbol || member is IEventSymbol) staticBoundary = true;
             foreach (ISymbol candidate in member.ContainingType.GetMembers())
             {
-                if (candidate.IsStatic != member.IsStatic && !candidate.IsStatic) continue;
+                if ((staticBoundary || member.IsStatic) && !candidate.IsStatic) continue;
                 ITypeSymbol type = candidate is IFieldSymbol field && !field.IsImplicitlyDeclared ? field.Type : (candidate as IPropertySymbol)?.Type;
                 bool isToken = UniTask.IsCancellationToken(type);
                 if (!isToken && !SymbolNames.IsNamed(type, "System.Threading.CancellationTokenSource")) continue;
                 if (CalleeReadsMember(context.SemanticModel, node, callee, candidate, context.CancellationToken)) return null;
                 return isToken ? candidate.Name : candidate.Name + ".Token";
             }
-            return awaited && !member.IsStatic && Frameworks.Unity.IsMonoBehaviour(member.ContainingType) ? "destroyCancellationToken" : null;
+            return awaited && !staticBoundary && !member.IsStatic && Frameworks.Unity.IsMonoBehaviour(member.ContainingType) ? "destroyCancellationToken" : null;
         }
 
         // The call goes to a method of this type on this object, and that method, or a method of the

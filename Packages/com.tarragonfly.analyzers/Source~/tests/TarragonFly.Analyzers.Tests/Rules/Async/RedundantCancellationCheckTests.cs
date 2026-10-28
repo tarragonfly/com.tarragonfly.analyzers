@@ -48,7 +48,7 @@ class Fader
         await UniTask.Delay(500, ct);
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
-        {|TF5105:ct.ThrowIfCancellationRequested()|};
+        ct.ThrowIfCancellationRequested();
         await Frames.NextAsync(ct);
 
         int count = await CountAsync().AttachExternalCancellation(cancellationToken: ct);
@@ -64,7 +64,7 @@ class Fader
         {|TF5105:ct.ThrowIfCancellationRequested()|};
 
         await UniTask.NextFrame(cts.Token);
-        {|TF5105:cts.Token.ThrowIfCancellationRequested()|};
+        cts.Token.ThrowIfCancellationRequested();
 
         // The project's own methods might return before looking at the token.
         await FadeAsync(ct);
@@ -99,7 +99,7 @@ class Fader
 
     async UniTask<int> Returned(CancellationToken ct)
     {
-        {|TF5105:ct.ThrowIfCancellationRequested()|};
+        ct.ThrowIfCancellationRequested();
         return await Frames.CountAsync(ct);
     }
 

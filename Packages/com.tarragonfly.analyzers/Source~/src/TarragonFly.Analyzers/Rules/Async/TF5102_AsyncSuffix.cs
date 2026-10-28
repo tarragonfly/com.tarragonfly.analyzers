@@ -65,7 +65,7 @@ namespace TarragonFly.Analyzers.Rules.Async
                     context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(),
                         $"'{method.Name}' returns {method.ReturnType.Name}; name it '{method.Name}{Suffix}' so callers know to await it or call Forget()"));
                 }
-                else if (named && !MayCarrySuffix(method.ReturnType))
+                else if (named && !MayCarrySuffix(context.SemanticModel, declaration.SpanStart, method.ReturnType))
                 {
                     string plain = method.Name.Substring(0, method.Name.Length - Suffix.Length);
                     context.ReportDiagnostic(Diagnostic.Create(Rule, declaration.Identifier.GetLocation(),
@@ -82,7 +82,7 @@ namespace TarragonFly.Analyzers.Rules.Async
             return Frameworks.Unity.IsMessage(method);
         }
 
-        private static bool MayCarrySuffix(ITypeSymbol type)
+        private static bool MayCarrySuffix(SemanticModel model, int position, ITypeSymbol type)
         {
             if (type == null || type.SpecialType == SpecialType.System_Void) return false;
             if (UniTask.IsUniTaskVoid(type)) return true;
@@ -91,7 +91,8 @@ namespace TarragonFly.Analyzers.Rules.Async
             {
                 if (current.GetMembers("GetAwaiter").OfType<IMethodSymbol>().Any(m => m.Parameters.Length == 0)) return true;
             }
-            return false;
+            ExpressionSyntax getAwaiter = SyntaxFactory.ParseExpression("default(" + type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) + ").GetAwaiter()");
+            return model.GetSpeculativeSymbolInfo(position, getAwaiter, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol;
         }
     }
 }

@@ -182,14 +182,17 @@ namespace TarragonFly.Analyzers.Rules.Async
             return false;
         }
 
-        private static bool Writes(IOperation operation, ISymbol variable, HashSet<CaptureId> captures)
+        private static IEnumerable<IOperation> UsesAndWritesIn(IOperation operation, ISymbol variable, HashSet<CaptureId> captures)
         {
-            foreach (IOperation node in operation.DescendantsAndSelf())
+            if (operation is IFlowAnonymousFunctionOperation || operation is ILocalFunctionOperation) yield break;
+            foreach (IOperation child in operation.ChildOperations)
             {
-                if (node is IAssignmentOperation assignment && IsVariableOrItsCapture(assignment.Target, variable, captures)) return true;
-                if (node is IArgumentOperation argument && argument.Parameter?.RefKind != RefKind.None && References(argument.Value, variable)) return true;
+                foreach (IOperation step in UsesAndWritesIn(child, variable, captures)) yield return step;
             }
-            return false;
+            if (References(operation, variable) && IsUsedUp(operation)) yield return operation;
+            else if (operation is IAssignmentOperation assignment && IsVariableOrItsCapture(assignment.Target, variable, captures)) yield return assignment;
+            else if (operation is IArgumentOperation argument && (argument.Parameter?.RefKind == RefKind.Ref || argument.Parameter?.RefKind == RefKind.Out)
+                && References(argument.Value, variable)) yield return argument;
         }
 
         // When the right side of "playing = PlayAsync(new List<T> { ... })" is split into several
@@ -252,10 +255,13 @@ namespace TarragonFly.Analyzers.Rules.Async
             HashSet<CaptureId> captures = CapturesOf(graph, variable);
 
             // The rest of the operation that holds the first use, then the rest of its block.
-            List<IOperation> inFirst = UsesUpIn(startOperations[startIndex], variable).ToList();
+            List<IOperation> inFirst = UsesAndWritesIn(startOperations[startIndex], variable, captures).ToList();
             int position = inFirst.IndexOf(first);
-            if (position >= 0 && position + 1 < inFirst.Count) return inFirst[position + 1];
-            if (Writes(startOperations[startIndex], variable, captures)) return null;
+            if (position >= 0 && position + 1 < inFirst.Count)
+            {
+                IOperation next = inFirst[position + 1];
+                return References(next, variable) ? next : null;
+            }
             for (int i = startIndex + 1; i < startOperations.Count; i++)
             {
                 IOperation found = FirstUseOrStop(startOperations[i], variable, captures, out bool stop);
@@ -263,13 +269,13 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (stop) return null;
             }
 
-            HashSet<BasicBlock> visited = new HashSet<BasicBlock>();
-            Queue<BasicBlock> pending = new Queue<BasicBlock>();
-            EnqueueSuccessors(startBlock, pending);
+            HashSet<string> visited = new HashSet<string>();
+            Queue<(BasicBlock Block, ImmutableArray<BasicBlock> Resume)> pending = new Queue<(BasicBlock, ImmutableArray<BasicBlock>)>();
+            EnqueueSuccessors(graph, startBlock, ImmutableArray<BasicBlock>.Empty, pending);
             while (pending.Count > 0)
             {
-                BasicBlock block = pending.Dequeue();
-                if (!visited.Add(block)) continue;
+                (BasicBlock block, ImmutableArray<BasicBlock> resume) = pending.Dequeue();
+                if (!visited.Add(block.Ordinal + ":" + string.Join(",", resume.Select(next => next.Ordinal)))) continue;
                 bool stopped = false;
                 foreach (IOperation operation in OperationsOf(block))
                 {
@@ -281,22 +287,58 @@ namespace TarragonFly.Analyzers.Rules.Async
                         break;
                     }
                 }
-                if (!stopped) EnqueueSuccessors(block, pending);
+                if (!stopped) EnqueueSuccessors(graph, block, resume, pending);
             }
             return null;
         }
 
         private static IOperation FirstUseOrStop(IOperation operation, ISymbol variable, HashSet<CaptureId> captures, out bool stop)
         {
-            IOperation use = UsesUpIn(operation, variable).FirstOrDefault();
-            stop = use == null && Writes(operation, variable, captures);
-            return use;
+            IOperation step = UsesAndWritesIn(operation, variable, captures).FirstOrDefault();
+            stop = step != null && !References(step, variable);
+            return stop ? null : step;
         }
 
-        private static void EnqueueSuccessors(BasicBlock block, Queue<BasicBlock> pending)
+        private static void EnqueueSuccessors(ControlFlowGraph graph, BasicBlock block, ImmutableArray<BasicBlock> resume,
+            Queue<(BasicBlock Block, ImmutableArray<BasicBlock> Resume)> pending)
         {
-            if (block.ConditionalSuccessor?.Destination != null) pending.Enqueue(block.ConditionalSuccessor.Destination);
-            if (block.FallThroughSuccessor?.Destination != null) pending.Enqueue(block.FallThroughSuccessor.Destination);
+            foreach (ControlFlowBranch branch in new[] { block.ConditionalSuccessor, block.FallThroughSuccessor })
+            {
+                if (branch == null) continue;
+                if (!branch.FinallyRegions.IsEmpty)
+                {
+                    ImmutableArray<BasicBlock> next = FinallyBlocksThenDestination(graph, branch, 0);
+                    pending.Enqueue((next[0], next.RemoveAt(0).AddRange(resume)));
+                }
+                else if (branch.Destination != null) pending.Enqueue((branch.Destination, resume));
+                else if (branch.Semantics == ControlFlowBranchSemantics.StructuredExceptionHandling && !resume.IsEmpty)
+                    pending.Enqueue((resume[0], resume.RemoveAt(0)));
+                else if (branch.Semantics == ControlFlowBranchSemantics.StructuredExceptionHandling)
+                {
+                    ControlFlowRegion region = block.EnclosingRegion;
+                    while (region != null && region.Kind != ControlFlowRegionKind.Finally) region = region.EnclosingRegion;
+                    if (region == null) continue;
+                    foreach (BasicBlock source in graph.Blocks)
+                    {
+                        foreach (ControlFlowBranch entering in new[] { source.ConditionalSuccessor, source.FallThroughSuccessor })
+                        {
+                            if (entering == null) continue;
+                            int index = entering.FinallyRegions.IndexOf(region);
+                            if (index < 0) continue;
+                            ImmutableArray<BasicBlock> after = FinallyBlocksThenDestination(graph, entering, index + 1);
+                            if (!after.IsEmpty) pending.Enqueue((after[0], after.RemoveAt(0)));
+                        }
+                    }
+                }
+            }
+        }
+
+        // The blocks a branch still runs, starting at its finally region number firstFinally: those
+        // finally blocks in order, then the destination, if the branch has one.
+        private static ImmutableArray<BasicBlock> FinallyBlocksThenDestination(ControlFlowGraph graph, ControlFlowBranch branch, int firstFinally)
+        {
+            ImmutableArray<BasicBlock> blocks = branch.FinallyRegions.Skip(firstFinally).Select(region => graph.Blocks[region.FirstBlockOrdinal]).ToImmutableArray();
+            return branch.Destination != null ? blocks.Add(branch.Destination) : blocks;
         }
     }
 }
