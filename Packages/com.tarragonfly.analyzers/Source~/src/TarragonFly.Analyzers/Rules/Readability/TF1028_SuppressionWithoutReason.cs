@@ -15,7 +15,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // on its own, "[SuppressMessage("Performance", "TF8100")]" without a Justification, or a bare
     // "[UsedImplicitly]".
     //
-    // A suppression is a decision, and the next reader (or the agent cleaning up warnings) can't
+    // A suppression is a decision, and the next reader (or whoever cleans up warnings) can't
     // tell a deliberate one from a shortcut. One line, "// the command table is built once at
     // startup", keeps it from being undone or copied blindly.
     //

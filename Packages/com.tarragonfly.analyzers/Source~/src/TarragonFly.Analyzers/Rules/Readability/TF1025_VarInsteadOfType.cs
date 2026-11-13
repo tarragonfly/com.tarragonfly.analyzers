@@ -10,7 +10,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // TF1025: a local, loop, using or out variable declared with 'var', as in "var enemy = Spawn();"
     // where "Enemy enemy = Spawn();" says what came back.
     //
-    // With the type written out, a diff, a review or an agent reading one file knows what every
+    // With the type written out, a diff, a review or someone reading one file knows what every
     // variable holds without opening the method it came from. Long generic types get noisy; that's
     // the accepted price, so the rule is off until the project turns it on.
     //
