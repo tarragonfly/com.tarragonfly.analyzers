@@ -485,9 +485,22 @@ IDs: UNT0008 is TF4008, and so on. They behave the same, apart from these change
   such as one returned by a method. TF4022 and TF4032 also skip values whose calls could behave
   differently once merged into one call.
 - TF4038 doesn't report `WaitForSecondsRealtime`, which keeps per-wait state and can't be shared.
-- TF4039 counts a `[RequireComponent]` inherited from a base class, which UNT0039 missed. It skips
-  `GetComponent` calls for interfaces, which `[RequireComponent]` can't name, and a result the method
-  checks for null anywhere later, not just on the next line.
+- TF4039 counts a `[RequireComponent]` inherited from a base class, which UNT0039 missed. It
+  doesn't report:
+  - an interface, which `[RequireComponent]` can't name;
+  - a component whose own `[RequireComponent]` names the calling class. Two components that
+    require each other can't be removed in the Inspector;
+  - a result the method tests for null anywhere later, not just on the next line;
+  - a private field that another member tests for null;
+  - a private field that is only compared with `==` or `!=` and never dereferenced;
+  - the fallback for a serialized field or a `[field: SerializeField]` property, assigned inside
+    `if (x == null)` or through `x ??=`.
+
+  Lazy initialization of a field that isn't serialized is still reported, as in
+  `if (_button == null) _button = GetComponent<Button>();`. Two classes that call `GetComponent`
+  for each other are both reported until one of them has the attribute. An abstract component
+  type such as `Collider2D` is reported too. Unity can't add it automatically, and it refuses to
+  add the script until the object has a derived component.
 - TF4040 doesn't run in editor assemblies, where `isStatic` is fine.
 - TF4042 also covers the `int[]` triangles array and skips setters.
 - The rules that are only about speed, such as TF4038's cached WaitForSeconds, check game code only,
