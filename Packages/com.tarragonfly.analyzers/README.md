@@ -214,7 +214,7 @@ setting keeps its default.
 | Key | Default | Meaning |
 |---|---|---|
 | `analyze_paths` | `Assets/` | Folders (or single `.cs` files) whose code is reported, relative to the project |
-| `test_assemblies` | `*.Tests, *.Test` | Assembly names that hold tests; `*` matches anything, case is ignored |
+| `test_assemblies` | `*.Tests, *.Test, *.Tests.*, *.Test.*` | Assembly names that hold tests; `*` matches anything, case is ignored |
 | `editor_assemblies` | `*.Editor, *.Editor.*, *-Editor, *-Editor-*` | Assembly names that hold editor code |
 | `max_parameters` | 7 | TF1001. Limits are whole numbers of 1 or more |
 | `max_method_lines` | 80 | TF1004 |

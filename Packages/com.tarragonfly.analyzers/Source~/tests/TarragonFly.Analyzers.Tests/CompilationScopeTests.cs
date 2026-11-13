@@ -17,6 +17,10 @@ namespace TarragonFly.Analyzers.Tests
         [TestCase("Assembly-CSharp-Editor-firstpass", true, CodeKind.Editor)]
         [TestCase("ScenarioEngine.Editor.Tests", true, CodeKind.Tests)]
         [TestCase("MyGame.UI.Tests", true, CodeKind.Tests)]
+        [TestCase("MyGame.Tests.EditMode", true, CodeKind.Tests)]
+        [TestCase("MyGame.Tests.PlayMode", false, CodeKind.Tests)]
+        [TestCase("MyGame.Test.EditMode", true, CodeKind.Tests)]
+        [TestCase("MyGame.TestsHelpers", false, CodeKind.Runtime)]
         [TestCase("LevelTools", true, CodeKind.Editor)]
         public void AssemblyKind_FollowsNameAndUnityReferences(string assemblyName, bool editorOnly, CodeKind expected)
         {

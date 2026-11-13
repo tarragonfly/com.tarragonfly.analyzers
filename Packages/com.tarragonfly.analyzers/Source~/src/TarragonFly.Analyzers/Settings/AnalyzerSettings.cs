@@ -45,8 +45,9 @@ namespace TarragonFly.Analyzers.Settings
         public ImmutableArray<string> AnalyzePaths { get; private set; } = ImmutableArray.Create("Assets/");
 
         // Unity references UnityEngine.TestRunner and nunit from every editor-only assembly, so test
-        // assemblies can only be told apart by name.
-        public ImmutableArray<string> TestAssemblies { get; private set; } = ImmutableArray.Create("*.Tests", "*.Test");
+        // assemblies can only be told apart by name. *.Tests.* covers Unity's usual X.Tests.EditMode and
+        // X.Tests.PlayMode, *.Test.* the same names with a singular Test.
+        public ImmutableArray<string> TestAssemblies { get; private set; } = ImmutableArray.Create("*.Tests", "*.Test", "*.Tests.*", "*.Test.*");
         public ImmutableArray<string> EditorAssemblies { get; private set; } = ImmutableArray.Create("*.Editor", "*.Editor.*", "*-Editor", "*-Editor-*");
 
         public string LogPrefix { get; private set; } = "[{Type}]";
