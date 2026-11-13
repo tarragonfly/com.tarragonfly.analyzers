@@ -57,6 +57,7 @@ using System.Collections.Generic;
 class Group
 {
     public string Key;
+    public Group[] Parts;
 }
 
 class Sections
@@ -70,8 +71,26 @@ class Sections
             group.Key = section + ""/"" + group.Key;
             Group copy = group;
             copy.Key += ""!"";
+            copy.Parts[0].Key += ""!"";
             {|TF8002:shared.Key += section|};
-            {|TF8002:this.shared.Key = shared.Key + section|};
+            {|TF8002:this.shared.Key = this.shared.Key + section|};
+        }
+    }
+
+    void Suffix(List<Group> groups, Group[] array, string suffix, int first)
+    {
+        for (int i = 0; i < groups.Count; i++)
+        {
+            groups[i].Key += suffix;
+            array[i].Key = array[i].Key + suffix;
+            {|TF8002:array[i + 1].Key += suffix|};
+            {|TF8002:groups[0].Key += suffix|};
+            groups[0].Key = array[0].Key + suffix;
+            {|TF8002:groups[first].Key += suffix|};
+            for (int j = 0; j < 3; j++) {|TF8002:groups[i].Key += suffix|};
+            int last = groups.Count - 1;
+            {|TF8002:groups[last].Key += suffix|};
+            groups.ForEach(member => member.Key += suffix);
         }
     }
 }");
