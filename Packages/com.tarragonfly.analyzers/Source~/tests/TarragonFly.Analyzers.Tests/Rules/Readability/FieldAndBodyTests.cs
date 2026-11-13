@@ -114,7 +114,7 @@ class Counter
     int throughProperty;
     int chained;
     int recursive;
-    int {|TF1012:subscribed|};
+    int subscribed;
     int {|TF1012:unrelated|};
 
     int Run()
@@ -155,6 +155,48 @@ class Counter
     }
 
     void OnClicked() { subscribed = 0; }
+}");
+        }
+
+        [Test]
+        public void FieldAHandlerSetsWhileTheSubscriberWaits_IsNotReported()
+        {
+            AnalyzerVerifier.Verify(new FieldUsedOnlyAsLocalAnalyzer(), @"
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+class Button { public event Action Clicked; }
+
+class Choice
+{
+    bool made;
+    int picked;
+    bool skipped;
+
+    async Task<int> Run(Button button)
+    {
+        made = false;
+        picked = 0;
+        button.Clicked += OnClicked;
+        while (!made) await Task.Yield();
+        return picked;
+    }
+
+    void OnClicked()
+    {
+        picked = 2;
+        made = true;
+    }
+
+    IEnumerable<int> Steps(Button button)
+    {
+        skipped = false;
+        button.Clicked += OnSkip;
+        while (!skipped) yield return 0;
+    }
+
+    void OnSkip() { skipped = true; }
 }");
         }
 

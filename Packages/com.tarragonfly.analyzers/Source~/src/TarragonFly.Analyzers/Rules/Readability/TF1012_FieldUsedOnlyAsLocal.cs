@@ -24,11 +24,11 @@ namespace TarragonFly.Analyzers.Rules.Readability
     // out. So does a member that reads it and runs another member that uses it, by a call, a property
     // or a method group, directly or through other members or itself: the value it reads may come from
     // there, as in Run() { value = 1; Reset(); return value; } when Reset() sets it too. Subscribing a
-    // method to an event doesn't count, since the handler runs later. Lambdas and local functions are
-    // checked the same way on their own, and
-    // their writes don't count for the code around them. Fields with attributes, such as
-    // [SerializeField], are skipped, as are fields a nested type mentions. Reported on the field name.
-    // Game code only.
+    // method to an event counts as a method group: the handler can run while the member waits at an
+    // await or a yield return, before it reads the field again. Lambdas and local functions are
+    // analyzed the same way on their own, and their writes don't count for the code around them.
+    // Fields with attributes, such as [SerializeField], are skipped, as are fields a nested type
+    // mentions. Reported on the field name. Game code only.
     //
     // Partial types are checked too, across all their parts.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -185,7 +185,7 @@ namespace TarragonFly.Analyzers.Rules.Readability
                         case IPropertyReferenceOperation property:
                             AddRun(property.Property, type);
                             break;
-                        case IMethodReferenceOperation method when !(method.Parent?.Parent is IEventAssignmentOperation):
+                        case IMethodReferenceOperation method:
                             AddRun(method.Method, type);
                             break;
                     }
