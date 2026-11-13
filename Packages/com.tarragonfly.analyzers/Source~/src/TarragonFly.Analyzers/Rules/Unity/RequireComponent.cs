@@ -8,6 +8,7 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,7 +51,7 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 		var invocation = (InvocationExpressionSyntax)context.Node;
 
 		var model = context.SemanticModel;
-		if (!IsGenericGetComponent(invocation, model, out var method))
+		if (!IsGenericGetComponent(invocation, model, out var method) && !IsTryGetComponentStatement(invocation, model, out method))
 			return;
 
 		if (model.GetOperation(invocation) is not IInvocationOperation invocationOperation)
@@ -87,7 +88,29 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 		context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.GetLocation()));
 	}
 
-	// The result goes into a local, field or property that the class treats as optional:
+	// "TryGetComponent(out x);" written as a whole statement. Its bool is ignored, so x is null
+	// without the component, like the result of GetComponent<T>(). Upstream doesn't report
+	// TryGetComponent.
+	private static bool IsTryGetComponentStatement(InvocationExpressionSyntax invocation, SemanticModel model, [NotNullWhen(true)] out IMethodSymbol? method)
+	{
+		method = null;
+		if (invocation.Parent is not ExpressionStatementSyntax)
+			return false;
+
+		if (invocation.GetMethodNameSyntax() is not { Identifier.Text: nameof(Component.TryGetComponent) })
+			return false;
+
+		if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol symbol || !KnownMethods.IsGetComponent(symbol))
+			return false;
+
+		method = symbol;
+
+		// TryGetComponent<T>(out T component), and not the overload that takes a Type.
+		return method.TypeArguments.Length == 1;
+	}
+
+	// The result, which for TryGetComponent is the out variable, goes into a local, field or
+	// property that the class treats as optional:
 	// - the member holding the call tests it for null after the call;
 	// - it is a serialized field or a [field: SerializeField] property and the call is its
 	//   fallback, assigned inside "if (x == null)" or through "x ??=";
@@ -107,6 +130,7 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 		{
 			EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax declarator } => model.GetDeclaredSymbol(declarator, ct),
 			AssignmentExpressionSyntax assignment when assignment.Right == stored && (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) || assignment.IsKind(SyntaxKind.CoalesceAssignmentExpression)) => model.GetSymbolInfo(assignment.Left, ct).Symbol,
+			ExpressionStatementSyntax => OutVariable(invocation, model, ct),
 			_ => null,
 		};
 		if (target == null || invocation.FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
@@ -125,6 +149,17 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 		List<IdentifierNameSyntax> uses = references.Where(name => !IsAssignedTo(name)).ToList();
 		return uses.Any(name => !member.Span.Contains(name.Span) && IsNullCheck(name) && !GuardsAssignment(name, references))
 			|| (uses.Count > 0 && uses.All(IsEqualityOperand));
+	}
+
+	// The variable that "TryGetComponent(out x);" fills, declared in the argument or before the call.
+	private static ISymbol? OutVariable(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken ct)
+	{
+		return invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression switch
+		{
+			DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax declared } => model.GetDeclaredSymbol(declared, ct),
+			{ } written => model.GetSymbolInfo(written, ct).Symbol,
+			_ => null,
+		};
 	}
 
 	// "if (x == null) x = ..." in another member is lazy initialization too, and its null test
@@ -176,7 +211,8 @@ public class RequireComponentAnalyzer : BaseGetComponentAnalyzer
 	private static bool IsAssignedTo(IdentifierNameSyntax name)
 	{
 		SyntaxNode written = WithThisQualifier(name);
-		return written.Parent is AssignmentExpressionSyntax assignment && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && assignment.Left == written;
+		return written.Parent is AssignmentExpressionSyntax assignment && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) && assignment.Left == written
+			|| written.Parent is ArgumentSyntax argument && argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
 	}
 
 	private static bool IsEqualityOperand(IdentifierNameSyntax name)

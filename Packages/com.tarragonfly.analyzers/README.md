@@ -501,6 +501,10 @@ IDs: UNT0008 is TF4008, and so on. They behave the same, apart from these change
   for each other are both reported until one of them has the attribute. An abstract component
   type such as `Collider2D` is reported too. Unity can't add it automatically, and it refuses to
   add the script until the object has a derived component.
+
+  TF4039 also reports `TryGetComponent(out x);` written as a whole statement, with the same
+  exceptions as `x = GetComponent<T>();`. The returned bool is ignored there, and `x` is null
+  without the component. UNT0039 doesn't report `TryGetComponent`.
 - TF4040 doesn't run in editor assemblies, where `isStatic` is fine.
 - TF4042 also covers the `int[]` triangles array and skips setters.
 - The rules that are only about speed, such as TF4038's cached WaitForSeconds, check game code only,
