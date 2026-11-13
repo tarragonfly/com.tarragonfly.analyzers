@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -16,12 +17,16 @@ namespace TarragonFly.Analyzers.Rules.Async
     // editor hangs. Await the task instead.
     //
     // Checked: Task.Wait, Task.WaitAll, Task.WaitAny, Task<T>.Result and GetAwaiter().GetResult() on
-    // Task and Task<T>, anywhere except a Main method. Result isn't reported where the task is already
-    // finished: after an earlier Wait() or Wait(CancellationToken) on it in the same block or one
-    // around it, in the then-branch of "if (task.Wait(100))", and on the task a ContinueWith callback
-    // receives, as long as nothing assigns the task in between. Nor is nameof(Task<T>.Result). A timed
-    // Wait on its own, as in "task.Wait(0);", may give up before the task is done, so a Result after
-    // it is still reported. Reported on the call or the Result access. Game code only.
+    // Task and Task<T>, anywhere except a Main method. Result isn't reported:
+    // - after an earlier statement, in the same block or switch section or one around it, that
+    //   waits for the task: one that calls Wait on it or passes it to Task.WaitAll or Task.WhenAll
+    //   anywhere inside it, or a "while (!task.IsCompleted)" loop without a break or goto
+    // - on the task a ContinueWith callback receives
+    // - inside nameof
+    // GetAwaiter().GetResult() isn't reported after such a loop; after the other waits it still is.
+    // Whether the wait finished isn't looked at: a Wait with a timeout, a wait on one path only and
+    // a task assigned again after the wait all count. Reported on the call or the Result access.
+    // Game code only.
     //
     // GetAwaiter().GetResult() on UniTask and UniTask<T> counts too.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -45,9 +50,12 @@ namespace TarragonFly.Analyzers.Rules.Async
                 if (!(context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method)) return;
 
                 bool waits = (method.Name == "Wait" || method.Name == "WaitAll" || method.Name == "WaitAny") && IsTask(method.ContainingType);
-                bool getsResult = method.Name == "GetResult" && access.Expression is InvocationExpressionSyntax awaiter
-                    && awaiter.Expression is MemberAccessExpressionSyntax awaiterAccess && awaiterAccess.Name.Identifier.ValueText == "GetAwaiter"
-                    && IsBlockable(context.SemanticModel.GetTypeInfo(awaiterAccess.Expression, context.CancellationToken).Type);
+                // The task in "task.GetAwaiter().GetResult()".
+                ExpressionSyntax taskExpression = access.Expression is InvocationExpressionSyntax awaiter && awaiter.Expression is MemberAccessExpressionSyntax awaiterAccess
+                    && awaiterAccess.Name.Identifier.ValueText == "GetAwaiter" ? awaiterAccess.Expression : null;
+                bool getsResult = method.Name == "GetResult" && taskExpression != null
+                    && IsBlockable(context.SemanticModel.GetTypeInfo(taskExpression, context.CancellationToken).Type);
+                if (getsResult && FollowsCompletionLoop(context, invocation, taskExpression)) return;
                 if (waits || getsResult) context.ReportDiagnostic(Diagnostic.Create(Rule, invocation.Expression.GetLocation(), access.Name.Identifier.ValueText));
             }), SyntaxKind.InvocationExpression);
 
@@ -56,74 +64,91 @@ namespace TarragonFly.Analyzers.Rules.Async
                 MemberAccessExpressionSyntax access = (MemberAccessExpressionSyntax)context.Node;
                 if (access.Name.Identifier.ValueText != "Result" || InMain(access) || NameOfExpressions.IsInsideNameOf(access)) return;
                 if (!(context.SemanticModel.GetSymbolInfo(access, context.CancellationToken).Symbol is IPropertySymbol property) || !IsTask(property.ContainingType)) return;
-                ISymbol task = context.SemanticModel.GetSymbolInfo(access.Expression, context.CancellationToken).Symbol;
-                if (task != null && (IsContinuationArgument(context, access, task) || WaitedBefore(context, access, task) || InThenBranchOfWait(context, access, task))) return;
+                if (IsFinished(context, access, access.Expression)) return;
                 context.ReportDiagnostic(Diagnostic.Create(Rule, access.GetLocation(), "Result"));
             }), SyntaxKind.SimpleMemberAccessExpression);
         }
 
-        // The parameter of a lambda passed to ContinueWith: the task that just finished, unless the
-        // lambda assigns the parameter before reading the Result.
-        private static bool IsContinuationArgument(SyntaxNodeAnalysisContext context, SyntaxNode result, ISymbol task)
+        // Whether the code before the Result at "use" waited for the task.
+        private static bool IsFinished(SyntaxNodeAnalysisContext context, SyntaxNode use, ExpressionSyntax taskExpression)
+        {
+            ISymbol task = context.SemanticModel.GetSymbolInfo(taskExpression, context.CancellationToken).Symbol;
+            return task != null && (IsContinuationArgument(context, task) || WaitedBefore(use, earlier => WaitsFor(context, earlier, task)));
+        }
+
+        // Whether a "while (!task.IsCompleted)" loop ran before the GetResult at "use". GetResult after
+        // Wait, WaitAll or WhenAll and in a ContinueWith callback is still reported. Revisit if those
+        // turn up in game code.
+        private static bool FollowsCompletionLoop(SyntaxNodeAnalysisContext context, SyntaxNode use, ExpressionSyntax taskExpression)
+        {
+            ISymbol task = context.SemanticModel.GetSymbolInfo(taskExpression, context.CancellationToken).Symbol;
+            return task != null && WaitedBefore(use, earlier => earlier is WhileStatementSyntax loop && LoopsUntilCompleted(context, loop, task));
+        }
+
+        // The parameter of a lambda passed to ContinueWith: the task that just finished.
+        private static bool IsContinuationArgument(SyntaxNodeAnalysisContext context, ISymbol task)
         {
             if (!(task is IParameterSymbol parameter) || !(parameter.ContainingSymbol is IMethodSymbol lambda) || lambda.MethodKind != MethodKind.AnonymousFunction) return false;
             AnonymousFunctionExpressionSyntax function = parameter.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax(context.CancellationToken).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>();
             if (!(function?.Parent is ArgumentSyntax argument) || !(argument.Parent?.Parent is InvocationExpressionSyntax call)) return false;
-            if (!(call.Expression is MemberAccessExpressionSyntax access) || access.Name.Identifier.ValueText != "ContinueWith") return false;
-            return !AssignedBetween(context, function, task, function.SpanStart, result.SpanStart);
+            return call.Expression is MemberAccessExpressionSyntax access && access.Name.Identifier.ValueText == "ContinueWith";
         }
 
-        // An earlier statement, in the block holding the Result or one around it, calls Wait() or
-        // Wait(CancellationToken) on the same task, and nothing assigns the task after it.
-        private static bool WaitedBefore(SyntaxNodeAnalysisContext context, SyntaxNode result, ISymbol task)
+        // Whether a statement before the one holding the use, in its block or switch section or one
+        // around it, waits.
+        private static bool WaitedBefore(SyntaxNode use, Func<StatementSyntax, bool> waits)
         {
-            for (SyntaxNode node = result; node.Parent != null && !(node is MemberDeclarationSyntax); node = node.Parent)
+            for (SyntaxNode node = use; node.Parent != null && !(node is MemberDeclarationSyntax); node = node.Parent)
             {
-                if (!(node.Parent is BlockSyntax block) || !(node is StatementSyntax statement)) continue;
-                foreach (StatementSyntax earlier in block.Statements.TakeWhile(candidate => candidate != statement))
-                {
-                    if (earlier is ExpressionStatementSyntax expression && expression.Expression is InvocationExpressionSyntax call
-                        && WaitOn(context, call, task)?.ReturnsVoid == true && !AssignedBetween(context, block, task, earlier.Span.End, result.SpanStart))
-                    {
-                        return true;
-                    }
-                }
+                if (!(node is StatementSyntax statement)) continue;
+                SyntaxList<StatementSyntax> statements;
+                if (node.Parent is BlockSyntax block) statements = block.Statements;
+                else if (node.Parent is SwitchSectionSyntax section) statements = section.Statements;
+                else continue;
+
+                if (statements.TakeWhile(candidate => candidate != statement).Any(waits)) return true;
             }
             return false;
         }
 
-        // "if (task.Wait(100)) { return task.Result; }": a timed Wait that said the task finished, read
-        // in the plain then-branch before anything assigns the task.
-        private static bool InThenBranchOfWait(SyntaxNodeAnalysisContext context, SyntaxNode result, ISymbol task)
+        // Whether the statement waits for the task: a "while (!task.IsCompleted)" loop, or a statement
+        // that calls Wait on the task or passes it to Task.WaitAll or Task.WhenAll anywhere inside it,
+        // as in "task.Wait(100);", "if (wait) await Task.WhenAll(task, other);" or a lambda that waits.
+        // Whether that wait ran or finished isn't looked at. Revisit if a Result after a wait that
+        // didn't finish turns up in game code.
+        private static bool WaitsFor(SyntaxNodeAnalysisContext context, StatementSyntax statement, ISymbol task)
         {
-            for (SyntaxNode node = result; node.Parent != null && !(node is MemberDeclarationSyntax); node = node.Parent)
-            {
-                if (!(node.Parent is IfStatementSyntax check) || check.Statement != node || !(check.Condition is InvocationExpressionSyntax call)) continue;
-                if (WaitOn(context, call, task) is IMethodSymbol wait && !wait.ReturnsVoid && !AssignedBetween(context, check, task, check.Condition.Span.End, result.SpanStart)) return true;
-            }
-            return false;
+            if (statement is WhileStatementSyntax loop && LoopsUntilCompleted(context, loop, task)) return true;
+            return statement.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(call => IsWaitOn(context, call, task) || IsWhenAllOrWaitAllWith(context, call, task));
         }
 
-        // The Task.Wait overload called on the task, or null. Wait() and Wait(CancellationToken) return
-        // nothing and only come back once the task is done; the timed ones return whether it finished.
-        private static IMethodSymbol WaitOn(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax call, ISymbol task)
+        // "task.Wait()" with any arguments.
+        private static bool IsWaitOn(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax call, ISymbol task)
         {
-            if (!(call.Expression is MemberAccessExpressionSyntax wait) || wait.Name.Identifier.ValueText != "Wait") return null;
-            if (!SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(wait.Expression, context.CancellationToken).Symbol, task)) return null;
-            return context.SemanticModel.GetSymbolInfo(call, context.CancellationToken).Symbol is IMethodSymbol method && IsTask(method.ContainingType) ? method : null;
+            if (!(call.Expression is MemberAccessExpressionSyntax wait) || wait.Name.Identifier.ValueText != "Wait") return false;
+            if (!SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(wait.Expression, context.CancellationToken).Symbol, task)) return false;
+            return context.SemanticModel.GetSymbolInfo(call, context.CancellationToken).Symbol is IMethodSymbol method && IsTask(method.ContainingType);
         }
 
-        // Whether code inside scope, between the two positions, assigns the task or passes it by ref or out.
-        private static bool AssignedBetween(SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol task, int from, int to)
+        // "Task.WaitAll(task, other)" or "Task.WhenAll(task, other)" with the task as one of the
+        // arguments. Tasks passed in an array aren't followed.
+        private static bool IsWhenAllOrWaitAllWith(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax call, ISymbol task)
         {
-            foreach (SyntaxNode node in scope.DescendantNodes())
-            {
-                if (node.SpanStart < from || node.Span.End > to) continue;
-                ExpressionSyntax target = node is AssignmentExpressionSyntax assignment ? assignment.Left
-                    : node is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None) ? argument.Expression : null;
-                if (target != null && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol, task)) return true;
-            }
-            return false;
+            if (!(call.Expression is MemberAccessExpressionSyntax access)) return false;
+            string name = access.Name.Identifier.ValueText;
+            if (name != "WhenAll" && name != "WaitAll") return false;
+            if (!(context.SemanticModel.GetSymbolInfo(call, context.CancellationToken).Symbol is IMethodSymbol method) || !IsTask(method.ContainingType)) return false;
+            return call.ArgumentList.Arguments.Any(argument => SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(argument.Expression, context.CancellationToken).Symbol, task));
+        }
+
+        // "while (!task.IsCompleted) { ... }" that can only end through its condition. A break or goto
+        // anywhere inside counts as another way out, also when it belongs to an inner loop or switch.
+        private static bool LoopsUntilCompleted(SyntaxNodeAnalysisContext context, WhileStatementSyntax loop, ISymbol task)
+        {
+            if (!(loop.Condition is PrefixUnaryExpressionSyntax not) || !not.IsKind(SyntaxKind.LogicalNotExpression)) return false;
+            if (!(not.Operand is MemberAccessExpressionSyntax completed) || completed.Name.Identifier.ValueText != "IsCompleted") return false;
+            if (!SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(completed.Expression, context.CancellationToken).Symbol, task)) return false;
+            return !loop.Statement.DescendantNodesAndSelf().Any(node => node is BreakStatementSyntax || node is GotoStatementSyntax);
         }
 
         private static bool IsTask(ITypeSymbol type)

@@ -79,7 +79,7 @@ class Loader
         }
 
         [Test]
-        public void ResultAfterAWait_IsFineOnlyWhenTheWaitProvesTheTaskFinished()
+        public void ResultAfterAnEarlierStatementThatWaitsForTheTask_IsNotReported()
         {
             AnalyzerVerifier.Verify(new BlockingOnTaskAnalyzer(), @"
 using System;
@@ -96,41 +96,180 @@ class Loader
         return task.Result;
     }
 
-    int ZeroWait(Task<int> task)
-    {
-        {|TF5003:task.Wait|}(0);
-        return {|TF5003:task.Result|};
-    }
-
     int TimedWait(Task<int> task)
     {
         {|TF5003:task.Wait|}(TimeSpan.FromSeconds(1));
-        return {|TF5003:task.Result|};
+        return task.Result;
     }
 
-    int CheckedWait(Task<int> task)
+    int GuardedWait(Task<int> task)
     {
-        if ({|TF5003:task.Wait|}(100))
+        if (!{|TF5003:task.Wait|}(100)) return 0;
+        return task.Result;
+    }
+
+    int WaitInANestedBlock(Task<int> task, bool wait)
+    {
+        if (wait)
         {
-            return task.Result;
+            {|TF5003:task.Wait|}();
         }
-        return {|TF5003:task.Result|};
+        return task.Result;
     }
 
     int Reassigned(Task<int> task)
     {
         {|TF5003:task.Wait|}();
         task = LoadAsync();
-        return {|TF5003:task.Result|};
+        return task.Result;
+    }
+
+    int WaitInTheConditionAroundTheResult(Task<int> task)
+    {
+        if ({|TF5003:task.Wait|}(100))
+        {
+            return {|TF5003:task.Result|};
+        }
+        return 0;
     }
 
     Task<int> Continuation(Task<int> task) => task.ContinueWith(done => done.Result + 1);
+}");
+        }
 
-    Task<int> ReassignedContinuation(Task<int> task) => task.ContinueWith(done =>
+        [Test]
+        public void ResultAfterACompletionLoop_IsFineUnlessTheLoopCanEndEarly()
+        {
+            AnalyzerVerifier.Verify(new BlockingOnTaskAnalyzer(), @"
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+class Loader
+{
+    static Task<int> LoadAsync() => Task.FromResult(1);
+
+    IEnumerable<string> Steps()
     {
-        done = LoadAsync();
-        return {|TF5003:done.Result|};
-    });
+        Task<int> task = LoadAsync();
+        while (!task.IsCompleted)
+        {
+            yield return ""Loading"";
+        }
+        yield return task.GetAwaiter().GetResult().ToString();
+        yield return task.Result.ToString();
+    }
+
+    int Spin(Task<int> task, Task<int> other)
+    {
+        while (!task.IsCompleted) { }
+        return task.Result + {|TF5003:other.GetAwaiter().GetResult|}();
+    }
+
+    int GivesUp(Task<int> task, int tries)
+    {
+        while (!task.IsCompleted)
+        {
+            if (--tries == 0) break;
+        }
+        return {|TF5003:task.GetAwaiter().GetResult|}();
+    }
+
+    int WhileRunning(Task<int> task)
+    {
+        while (task.IsCompleted) { }
+        return {|TF5003:task.Result|};
+    }
+}");
+        }
+
+        [Test]
+        public void GetResultWhereOnlyResultIsFine_IsReported()
+        {
+            AnalyzerVerifier.Verify(new BlockingOnTaskAnalyzer(), @"
+using System.Threading.Tasks;
+
+class Loader
+{
+    int AfterWait(Task<int> task)
+    {
+        {|TF5003:task.Wait|}();
+        return {|TF5003:task.GetAwaiter().GetResult|}();
+    }
+
+    async Task<int> AfterWhenAll(Task<int> first, Task<int> second)
+    {
+        await Task.WhenAll(first, second);
+        return first.Result + {|TF5003:second.GetAwaiter().GetResult|}();
+    }
+
+    Task<int> Continuation(Task<int> task) => task.ContinueWith(done => {|TF5003:done.GetAwaiter().GetResult|}() + 1);
+}");
+        }
+
+        [Test]
+        public void ResultAfterWaitingForSeveralTasks_IsFineForTheTasksPassed()
+        {
+            AnalyzerVerifier.Verify(new BlockingOnTaskAnalyzer(), @"
+using System.Threading.Tasks;
+
+class Loader
+{
+    async Task<int> AfterWhenAll(Task<int> first, Task<int> second, Task<int> other)
+    {
+        await Task.WhenAll(first, second);
+        return first.Result + second.Result + {|TF5003:other.Result|};
+    }
+
+    int AfterWaitAll(Task<int> first, Task<int> second)
+    {
+        {|TF5003:Task.WaitAll|}(first, second);
+        return first.Result + second.Result;
+    }
+
+    int AfterTimedWaitAll(Task<int> first, Task<int> second)
+    {
+        {|TF5003:Task.WaitAll|}(new Task[] { first, second }, 100);
+        return {|TF5003:first.Result|};
+    }
+
+    async Task<int> AfterConfiguredWhenAll(Task<int> first, Task<int> second)
+    {
+        await Task.WhenAll(first, second).ConfigureAwait(false);
+        return first.Result;
+    }
+
+    async Task<int> AfterWhenAllInADeclaration(Task<int> first, Task<int> second)
+    {
+        int[] all = await Task.WhenAll(first, second);
+        return all.Length + second.Result;
+    }
+
+    int AfterWaitOnWhenAll(Task<int> first, Task<int> second)
+    {
+        {|TF5003:Task.WhenAll(first, second).Wait|}();
+        return first.Result;
+    }
+
+    async Task<int> AfterWhenAllInANestedBlock(Task<int> first, Task<int> second, bool wait)
+    {
+        if (wait)
+        {
+            await Task.WhenAll(first, second);
+        }
+        return first.Result;
+    }
+
+    int InASwitchSection(Task<int> task, int state)
+    {
+        switch (state)
+        {
+            case 0:
+                {|TF5003:task.Wait|}();
+                return task.Result;
+            default:
+                return {|TF5003:task.Result|};
+        }
+    }
 }");
         }
 
